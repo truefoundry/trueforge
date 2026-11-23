@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_MAX_PARALLEL_SUB_AGENTS } from '@truefoundry/trueforge-core/core';
+import { DEFAULT_MAX_PARALLEL_SUB_AGENTS, DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -154,6 +154,42 @@ export function parseJsonStringArrayEnv({ envKey, raw }: { envKey: string; raw: 
  */
 export function parseOidcAllowedEmails(raw: string | undefined): string[] {
   return parseCommaSeparatedEnvList(raw);
+}
+
+const RoutingDescriptionSchema = z.string().trim().min(1);
+
+const TrueFoundryModelRoutingSchema = z.object({
+  /** What each category means to the decision model; all three or none. */
+  categories: z
+    .object({
+      direct: RoutingDescriptionSchema,
+      fixed_steps: RoutingDescriptionSchema,
+      adaptive: RoutingDescriptionSchema,
+    })
+    .strict()
+    .default(DEFAULT_ROUTING_QUESTION.categories),
+  /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
+  tenants: z.record(
+    z.string(),
+    z.object({ enabled: z.enum(['off', 'on']).default('off'), decision_model: z.string().min(1) }),
+  ),
+});
+
+export type TrueFoundryModelRouting = z.infer<typeof TrueFoundryModelRoutingSchema>;
+
+/** Parses `TRUEFOUNDRY_MODEL_ROUTING` JSON. Empty / unset → undefined (routing off everywhere). */
+export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFoundryModelRouting | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    return TrueFoundryModelRoutingSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on","decision_model":"typesafe/jev-1.13.0"}}})',
+      { cause: error },
+    );
+  }
 }
 
 /**
@@ -1103,6 +1139,13 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
+   * Optional model routing for subagents and `auto` root agents (TrueFoundry mode only). JSON object with optional
+   * `categories` overriding what each routing category means, and per-tenant entries: `enabled` (`off` | `on`) and
+   * the tenant's decision model. Unset, or a tenant not listed → off.
+   * Env: `TRUEFOUNDRY_MODEL_ROUTING`.
+   */
+  TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;
+  /**
    * Optional built-in web search provider (TrueFoundry mode only). JSON object
    * `Record<string, string>` with `name` (`parallel`) and `api_key`.
    * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
@@ -1474,6 +1517,7 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
         getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
       ),
+      TRUEFOUNDRY_MODEL_ROUTING: parseTrueFoundryModelRouting(getEnv('TRUEFOUNDRY_MODEL_ROUTING', { required: false })),
       TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
         getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
@@ -1510,6 +1554,22 @@ export function isTrueFoundryModeEnabled(
   config: ServerConfiguration = configuration,
 ): config is DistributedServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
   return !config.STANDALONE && config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+}
+
+/** Model routing config in TrueFoundry mode. Undefined in standalone mode. */
+export function trueFoundryModelRouting(
+  config: ServerConfiguration = configuration,
+): TrueFoundryModelRouting | undefined {
+  return isTrueFoundryModeEnabled(config) ? config.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+}
+
+/** The tenant's routing entry when that tenant has model routing on. */
+export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenantId: string) {
+  const tenant = routing?.tenants[tenantId];
+  if (tenant?.enabled !== 'on') {
+    return undefined;
+  }
+  return tenant;
 }
 
 /** Runtime auth/integration mode for this process. */

@@ -1,6 +1,11 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
 import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEvent } from '../../core/events/schema';
-import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
+import type {
+  AgentThreadSnapshot,
+  ContextMessage,
+  ModelSnapshot,
+  SubAgentCompletion,
+} from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { AgentThreadMetrics } from '../../core/runtime/metrics';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
@@ -139,6 +144,8 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    * Authoritative for this turn; the store does not carry capability rows forward.
    */
   capability_states: ThreadCapabilityStateInit[];
+  /** Model the main thread runs on in this turn, including effort; written to its row every turn. */
+  main_thread_model: ModelSnapshot | null;
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
 }

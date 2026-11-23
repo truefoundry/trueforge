@@ -120,3 +120,35 @@ describe('TrueFoundryModelProviderStore authorization', () => {
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TrueFoundryModelProviderStore decision models', () => {
+  it('resolves a decision model by name but never lists it', async () => {
+    const client = {
+      listProviderIntegrations: jest.fn().mockResolvedValue([
+        { name: 'gpt-4', manifest: { model_types: ['chat'] }, providerAccount: { name: 'openai-main' } },
+        { name: 'jev-1.13.0', manifest: { model_types: ['decision'] }, providerAccount: { name: 'typesafe' } },
+      ]),
+      listGatewayInstallations: jest
+        .fn()
+        .mockResolvedValue([{ isDefault: true, manifest: { url: 'https://gateway.example' } }]),
+      vendToken: jest.fn().mockResolvedValue({ subjectToken: SUBJECT_TOKEN, actorToken: ACTOR_TOKEN }),
+    } as unknown as TrueFoundryServiceFoundryServerClient;
+    const store = new TrueFoundryModelProviderStore({
+      client,
+      requestContext: createTrueFoundryRequestContext({
+        tenant_id: TENANT,
+        subject: { id: 'user-1', type: 'user', display_name: 'User' },
+        roles: [],
+        user_credential: CALLER_TOKEN,
+      }),
+      agent: undefined,
+      logger: createLogger({ silent: true }),
+    });
+
+    const listed = await store.listModels({ tenant_id: TENANT });
+    expect(listed.map(model => model.name)).toEqual(['openai-main/gpt-4']);
+    await expect(
+      store.getProvider({ tenant_id: TENANT, name: 'typesafe', model_name: 'jev-1.13.0' }),
+    ).resolves.toMatchObject({ name: 'typesafe' });
+  });
+});

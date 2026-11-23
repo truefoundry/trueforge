@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useLayoutEffect, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '@/atoms/draft/DraftComposerSections.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentSpec, ModelSelection } from '@/server/types.js';
+import type { AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -64,6 +64,7 @@ function AgentConfigState() {
 
 describe('draft composer sections', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     agentSpec = {
       model: { name: 'openai/gpt-4.1', params: { reasoningEffort: 'high' } },
       mcpServers: [{ id: 'github', name: 'GitHub' }],
@@ -73,6 +74,10 @@ describe('draft composer sections', () => {
       ],
     };
     updateAgentSpec.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('composes the Tools count and standalone attachment control', () => {
@@ -85,16 +90,16 @@ describe('draft composer sections', () => {
     expect(onAttach).toHaveBeenCalledTimes(1);
   });
 
-  it('composes model and reasoning selectors in the right section', async () => {
+  it('composes the model selector, which owns reasoning effort, in the right section', async () => {
     render(<DraftSections />);
 
     expect(await screen.findByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1');
-    expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
+    expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
     // Without shell builder mode, left chrome is Tools — not Agent config.
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
   });
 
-  it('keeps only the reasoning selector in the builder composer', async () => {
+  it('keeps model and reasoning controls out of the builder composer', () => {
     render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <BuilderMode>
@@ -103,8 +108,8 @@ describe('draft composer sections', () => {
       </ShellModeProvider>,
     );
 
-    expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
     expect(screen.queryByRole('button', { name: 'Select model' })).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
   });
 
   it('shows the Agent config trigger only in compact builder layouts', () => {
@@ -143,54 +148,33 @@ describe('draft composer sections', () => {
     expect(screen.getByText('Config open')).toBeInTheDocument();
   });
 
-  it('keeps an explicit reasoning effort when the model lists none', async () => {
-    agentSpec = { model: { name: 'openai/plain', params: { reasoningEffort: 'minimal' } } };
-    let resolveModels: (models: ModelSelection[]) => void = () => {};
-    const modelsReady = new Promise<ModelSelection[]>(resolve => {
-      resolveModels = resolve;
-    });
-    const server = createMockAgentUIServer({
-      getModels: () => modelsReady,
-    });
+  it('propagates disabled state to composed controls', async () => {
+    render(<DraftSections disabled />);
 
-    render(
-      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-        <BuilderMode>
-          <ServerProvider server={server}>
-            <DraftCatalogProvider>
-              <DraftComposerRightSection disabled={false} isRunning={false} />
-            </DraftCatalogProvider>
-          </ServerProvider>
-        </BuilderMode>
-      </ShellModeProvider>,
-    );
-
-    await act(async () => {
-      resolveModels([
-        {
-          id: 'plain',
-          name: 'openai/plain',
-          provider: { name: 'OpenAI' },
-          properties: {},
-        },
-      ]);
-      await modelsReady;
-    });
-
-    expect(updateAgentSpec).not.toHaveBeenCalled();
-    expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
   });
 
-  it('propagates disabled and running state to composed controls', async () => {
-    const { rerender } = render(<DraftSections disabled />);
+  it('keeps tools and settings interactive while a chat is running', async () => {
+    render(<DraftSections isRunning />);
 
-    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
-    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
-    expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
+    const tools = screen.getByRole('button', { name: 'Tools (4)' });
+    expect(tools).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeEnabled();
 
-    rerender(<DraftSections isRunning />);
-    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
-    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
-    expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
+    fireEvent.click(tools);
+    // GitHub is already selected — toggle removes it and flushes after the debounce.
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      mcpServers: [],
+      skills: [
+        { id: 'research', name: 'Research' },
+        { id: 'writer', name: 'Writer' },
+      ],
+    });
   });
 });

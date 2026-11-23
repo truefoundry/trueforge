@@ -43,6 +43,7 @@ function renderSettings(
     data: {
       sandbox: { enabled: true },
       skill: { enabled: true },
+      auto: { enabled: false },
       sessionSharing: tenantSessionSharing,
       settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
     },

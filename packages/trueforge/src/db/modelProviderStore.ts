@@ -21,6 +21,14 @@ export interface ListModelProvidersInput {
   tenant_id: string;
 }
 
+/** Store model. `canonicalModel` and `cost` are undefined when the provider has no integration metadata. */
+export interface ModelInfo extends AvailableModel {
+  /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
+  canonicalModel: string | undefined;
+  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
+  cost: number | undefined;
+}
+
 export interface GetModelProviderInput {
   tenant_id: string;
   name: string;
@@ -78,8 +86,8 @@ export interface IModelProviderStore<TTransaction = never> {
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
-  /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
+  /** Flattens manifests into the FQN read view. Integration metadata fills canonicalModel and cost when the store has it. */
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelInfo[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
@@ -103,7 +111,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): ModelInfo[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => {
       const warning = modelPropertiesWarning({ properties: model.properties });
@@ -113,6 +121,8 @@ export function flattenProviderModels(records: ModelProviderRecord[]): Available
         provider: { name: record.name },
         properties: model.properties,
         ...(warning === undefined ? {} : { warning }),
+        canonicalModel: undefined,
+        cost: undefined,
       };
     }),
   );

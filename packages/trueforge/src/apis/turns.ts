@@ -33,8 +33,10 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
+  DecisionModel,
   IWebSearchProvider,
   McpConnection,
+  ModelRouterDeps,
   ResolveHeadersResult,
 } from '@truefoundry/trueforge-core/core';
 import {
@@ -45,6 +47,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -75,7 +78,11 @@ import {
   type RequestContext,
   type ResolveRequestContext,
 } from '../auth/identity';
-import configuration from '../config';
+import configuration, {
+  enabledTenantModelRouting,
+  trueFoundryModelRouting,
+  type TrueFoundryModelRouting,
+} from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
@@ -363,6 +370,47 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
+/** This turn's model routing inputs, or undefined when routing is off for the tenant. */
+function turnModelRouting(input: {
+  routing: TrueFoundryModelRouting | undefined;
+  tenant_id: string;
+  modelProviderStore: IModelProviderStore;
+  turnMetadata: TurnMetadata;
+}): ModelRouterDeps | undefined {
+  const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
+  if (routing === undefined) {
+    return undefined;
+  }
+  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
+  if (tenantRouting === undefined) {
+    return undefined;
+  }
+  // Resolved on first use, so turns that route no thread skip the lookup.
+  let decisionModel: Promise<DecisionModel> | undefined;
+  const resolveDecisionModel = () => {
+    decisionModel ??= getModelDetails({
+      tenant_id,
+      name: tenantRouting.decision_model,
+      store: modelProviderStore,
+      turnMetadata,
+    }).then(resolved => ({
+      client: new OpenAIDecisionModel(resolved.providerConfig),
+      properties: { contextLength: resolved.modelProperties?.contextLength },
+    }));
+    decisionModel.catch(() => {
+      decisionModel = undefined;
+    });
+    return decisionModel;
+  };
+  return {
+    classifier: resolveDecisionModel,
+    question: {
+      categories: routing.categories,
+    },
+    listModels: () => modelProviderStore.listModels({ tenant_id }),
+  };
+}
+
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
  * the same way: async factories over the corresponding stores.
@@ -374,6 +422,7 @@ function createTurnResolver(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
+  modelRouting: ModelRouterDeps | undefined;
   webSearchProvider: IWebSearchProvider | undefined;
   /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
   memoryCapability: AgentCapability | undefined;
@@ -392,6 +441,7 @@ function createTurnResolver(deps: {
     sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
+    modelRouting,
     webSearchProvider,
     memoryCapability,
     logger,
@@ -406,6 +456,7 @@ function createTurnResolver(deps: {
   const sessionId = session.session_id;
 
   return new TurnResourceResolver({
+    modelRouting,
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id,
@@ -465,6 +516,7 @@ function createTurnResolver(deps: {
           : await skillStore.resolveTurnSkills({
               tenant_id,
               skills,
+              agent_id: undefined,
             });
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
@@ -757,6 +809,12 @@ async function prepareTurnExecution<TTransaction>(input: {
     requestContext: input.deps.requestContext,
     requestHeaders: input.requestHeaders,
   });
+  const turnMetadata: TurnMetadata = {
+    sessionId: input.session.session_id,
+    turnId: input.turnId,
+    ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
+    ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
+  };
   const resolver = createTurnResolver({
     mcpServerStore: input.deps.mcpServerStore,
     skillStore: input.deps.skillStore,
@@ -764,18 +822,19 @@ async function prepareTurnExecution<TTransaction>(input: {
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
+    modelRouting: turnModelRouting({
+      routing: trueFoundryModelRouting(),
+      tenant_id: input.session.tenant_id,
+      modelProviderStore: input.deps.modelProviderStore,
+      turnMetadata,
+    }),
     webSearchProvider,
     memoryCapability,
     logger: input.deps.logger,
     signal: abortController.signal,
     userRef: input.userRef,
     session: input.session,
-    turnMetadata: {
-      sessionId: input.session.session_id,
-      turnId: input.turnId,
-      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
-      ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
-    },
+    turnMetadata,
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
   });
@@ -1111,6 +1170,7 @@ export function getTurnExecutionError(error: unknown): TurnExecutionError | unde
       case 'invalid_send_input':
       case 'agent_sandbox_required':
       case 'tool_name_collision':
+      case 'auto_model_unavailable':
         return { status: 422, message: error.message };
       case 'capability_state_error':
       case 'mcp_connection_failed':
