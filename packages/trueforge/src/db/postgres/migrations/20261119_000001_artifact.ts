@@ -13,6 +13,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('latest_version', 'integer', col => col.notNull())
     .addColumn('created_by_subject', 'jsonb', col => col.notNull())
     .addColumn('created_by_session_id', 'text', col => col.notNull())
+    .addColumn('created_by_agent_id', 'text')
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('artifact_pkey', ['id'])

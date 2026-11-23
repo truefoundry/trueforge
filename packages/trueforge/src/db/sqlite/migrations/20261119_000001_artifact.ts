@@ -12,6 +12,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         latest_version INTEGER NOT NULL,
         created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
+        created_by_agent_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (id),
