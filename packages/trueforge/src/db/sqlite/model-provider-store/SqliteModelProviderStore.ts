@@ -1,8 +1,9 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { AvailableModel, ModelProviderManifest } from '../../../schemas/modelProvider';
+import type { ModelProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
+  type AvailableModelWithCatalogInfo,
   type CreateModelProviderInput,
   type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
@@ -142,7 +143,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     return Promise.resolve({});
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
+  async listModels(
+    input: ListModelProvidersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AvailableModelWithCatalogInfo[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 }
