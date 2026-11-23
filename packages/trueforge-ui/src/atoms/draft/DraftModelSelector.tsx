@@ -32,10 +32,9 @@ type ReasoningEffortTarget = { model: ModelSelection; efforts: string[]; top: nu
 
 export type DraftModelSelectorProps = {
   disabled?: boolean;
-  isRunning?: boolean;
 };
 
-export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
+export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
   const { models, loading, loaded, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
@@ -121,7 +120,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
       <Button.Ghost
         type="button"
         size="small"
-        disabled={disabled || isRunning}
+        disabled={disabled}
         aria-label="Configure model"
         className="h-8 max-w-48 rounded-full px-2 text-xs font-medium"
         onClick={() => {
@@ -207,7 +206,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
       <Tooltip content={selectedName || 'Select model'} className="max-w-xs whitespace-normal break-all">
         <button
           type="button"
-          disabled={disabled || isRunning}
+          disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
