@@ -58,6 +58,7 @@ export function AgentSessions({
   agentId,
   startTimestamp,
   endTimestamp,
+  createdByMe = false,
   shareView,
   detailOnly = false,
   detailSessionId,
@@ -116,8 +117,9 @@ export function AgentSessions({
       ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
       ...(startTimestamp == null ? {} : { startTimestamp }),
       ...(endTimestamp == null ? {} : { endTimestamp }),
+      ...(createdByMe ? { createdByMe: true } : {}),
     }),
-    [agentId, endTimestamp, startTimestamp],
+    [agentId, createdByMe, endTimestamp, startTimestamp],
   );
 
   useEffect(() => {
@@ -444,7 +446,7 @@ export function AgentSessions({
               </Button.Secondary>
             </div>
           ) : null}
-          <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
+          <div ref={setListEl} className="scrollbar-none relative min-h-0 flex-1 overflow-y-auto">
             {listLoading ? (
               <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
                 {['a', 'b', 'c'].map(key => (

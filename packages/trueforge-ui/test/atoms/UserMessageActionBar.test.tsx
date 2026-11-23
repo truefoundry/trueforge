@@ -47,4 +47,21 @@ describe('UserMessageActionBar', () => {
     expect(onEdit).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Copy' }).querySelector('svg')).toHaveClass('lucide-check');
   });
+
+  it('renders only timestamp and copy when copyOnly is set', () => {
+    render(
+      <UserMessageActionBar
+        isCopied={false}
+        copyOnly
+        onRetry={vi.fn()}
+        onEdit={vi.fn()}
+        onCopy={vi.fn()}
+        createdAt="2026-04-05T14:03:02.000Z"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
 });

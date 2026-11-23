@@ -4,7 +4,8 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Poll `poll` on `intervalMs` while the document is visible.
- * Skips ticks while `document.hidden`; runs once immediately when the tab becomes visible again.
+ * Skips ticks while `document.hidden` or while the previous poll is still running.
+ * Runs once immediately when the tab becomes visible again.
  */
 export function useSessionListStatusPoll({
   intervalMs,
@@ -20,11 +21,23 @@ export function useSessionListStatusPoll({
     if (intervalMs == null) return;
 
     let cancelled = false;
+    let inFlight = false;
     let intervalId: number | undefined;
 
     const run = () => {
-      if (cancelled || document.hidden) return;
-      void pollRef.current();
+      if (cancelled || document.hidden || inFlight) return;
+      let result: void | Promise<void>;
+      try {
+        result = pollRef.current();
+      } catch {
+        return;
+      }
+      // A poll that outlives the interval must not start another one on top of it.
+      if (result == null || typeof result.then !== 'function') return;
+      inFlight = true;
+      void result.finally(() => {
+        inFlight = false;
+      });
     };
 
     const startInterval = () => {

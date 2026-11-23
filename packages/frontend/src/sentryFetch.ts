@@ -8,6 +8,14 @@ const TURN_UPDATE_EVENT = 'turn.update';
 // Tracing is limited to session/turn calls (where streaming failures happen) to keep Sentry cost down.
 const SESSIONS_API_PATH = '/api/v1/sessions';
 
+// Query params worth seeing per call (page size / pagination), since the span name drops the query string.
+const TRACED_QUERY_PARAMS = ['limit'];
+
+/** Replaces id segments so every session's calls aggregate under one span name. */
+export function routeTemplate(pathname: string): string {
+  return pathname.replace(/(\/sessions)\/[^/]+/, '$1/:session_id').replace(/(\/turns)\/[^/]+/, '$1/:turn_id');
+}
+
 /** `completed` once `turn.done` arrived; the client cancels the body right after it, so that is not a failure. */
 type EndReason = 'completed' | 'closed' | 'cancelled' | 'error';
 type ReadEnd = 'closed' | 'cancelled' | 'error';
@@ -174,7 +182,7 @@ export function withSentryRootSpan(baseFetch: typeof fetch): typeof fetch {
     // Read from `input` directly: constructing a Request would consume its body.
     const isRequest = input instanceof Request;
     const url = isRequest ? input.url : String(input);
-    const { pathname } = new URL(url, window.location.origin);
+    const { pathname, searchParams } = new URL(url, window.location.origin);
     if (!pathname.includes(SESSIONS_API_PATH)) {
       // A session span stays active while its request is in flight; keep unrelated calls out of it.
       return Sentry.withActiveSpan(null, () => baseFetch(input, init));
@@ -182,26 +190,40 @@ export function withSentryRootSpan(baseFetch: typeof fetch): typeof fetch {
     const method = init?.method ?? (isRequest ? input.method : 'GET');
     // Without page-load/navigation spans the trace id never rotates, so start one per call.
     return Sentry.startNewTrace(() =>
-      Sentry.startSpanManual({ name: `${method} ${pathname}`, op: 'ui.api' }, async span => {
-        try {
-          const response = await baseFetch(input, init);
-          span.setAttribute('http.response.status_code', response.status);
-          const isEventStream = response.headers.get('content-type')?.includes('text/event-stream') === true;
-          if (!isEventStream || response.body === null) {
+      Sentry.startSpanManual(
+        { name: `${method} ${routeTemplate(pathname)}`, op: 'ui.api', attributes: { 'http.target': pathname } },
+        async span => {
+          try {
+            const response = await baseFetch(input, init);
+            span.setAttribute('http.response.status_code', response.status);
+            TRACED_QUERY_PARAMS.forEach(name => {
+              const value = searchParams.get(name);
+              if (value !== null) {
+                span.setAttribute(`http.query.${name}`, value);
+              }
+            });
+            // Absent for compressed/chunked responses, so only set when the server sends it.
+            const contentLength = Number(response.headers.get('content-length'));
+            if (contentLength > 0) {
+              span.setAttribute('http.response_content_length', contentLength);
+            }
+            const isEventStream = response.headers.get('content-type')?.includes('text/event-stream') === true;
+            if (!isEventStream || response.body === null) {
+              span.end();
+              return response;
+            }
+            return new Response(traceSseBody(response.body, span), {
+              status: response.status,
+              statusText: response.statusText,
+              headers: response.headers,
+            });
+          } catch (err) {
+            span.setStatus({ code: SPAN_STATUS_ERROR, message: 'fetch_failed' });
             span.end();
-            return response;
+            throw err;
           }
-          return new Response(traceSseBody(response.body, span), {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-          });
-        } catch (err) {
-          span.setStatus({ code: SPAN_STATUS_ERROR, message: 'fetch_failed' });
-          span.end();
-          throw err;
-        }
-      }),
+        },
+      ),
     );
   };
 }

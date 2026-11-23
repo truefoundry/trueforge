@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeAgentStepsSplit, type AgentStepPart } from '@/index.js';
+import { countAgentSteps } from '@/utils/computeAgentStepsSplit.js';
 
 function text(content: string): AgentStepPart {
   return { type: 'text', text: content };
@@ -24,7 +25,6 @@ describe('computeAgentStepsSplit', () => {
     const result = computeAgentStepsSplit(parts, true);
     expect(result.cutIndex).toBe(0);
     expect(result.hasFinal).toBe(true);
-    expect(result.toolCount).toBe(0);
   });
 
   it('holds back short trailing text while running when tools precede it', () => {
@@ -39,8 +39,7 @@ describe('computeAgentStepsSplit', () => {
     const result = computeAgentStepsSplit(parts, true);
     expect(result.hasFinal).toBe(true);
     expect(result.cutIndex).toBe(2);
-    expect(result.toolCount).toBe(1);
-    expect(result.thinkingCount).toBe(1);
+    expect(countAgentSteps(parts.slice(0, result.cutIndex))).toEqual({ toolCount: 1, thinkingCount: 1 });
   });
 
   it('confirms final when not running', () => {
@@ -55,5 +54,33 @@ describe('computeAgentStepsSplit', () => {
     const result = computeAgentStepsSplit(parts, true);
     expect(result.hasFinal).toBe(false);
     expect(result.cutIndex).toBe(parts.length);
+  });
+
+  it('does not hold back text after an answered question that is the only tool call', () => {
+    const parts = [{ ...tool(), hidden: true }, text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(true);
+    expect(result.cutIndex).toBe(1);
+  });
+
+  it('streams a short reply after an answered question when earlier tools exist', () => {
+    const parts = [tool(), { ...tool(), hidden: true }, text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(true);
+    expect(result.cutIndex).toBe(2);
+  });
+
+  it('holds back a short reply when a later tool shares its group', () => {
+    const parts = [tool(), { ...tool(), hidden: true }, tool(), text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(false);
+    expect(result.cutIndex).toBe(parts.length);
+  });
+
+  it('excludes hidden parts from counts', () => {
+    expect(countAgentSteps([tool(), { ...tool(), hidden: true }, reasoning()])).toEqual({
+      toolCount: 1,
+      thinkingCount: 1,
+    });
   });
 });

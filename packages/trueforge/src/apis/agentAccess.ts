@@ -80,6 +80,26 @@ export async function resolveManagedAgentIds<TTransaction>(input: {
   return data.map(agent => agent.id);
 }
 
+/**
+ * Who may see metrics covering other users' sessions on an agent: whoever may manage
+ * that agent. The per-agent check is the only sound one, since an `all` list scope
+ * says nothing about the caller's rights on a given agent. Aggregates only -
+ * individual sessions stay creator-scoped.
+ */
+export async function canReadAgentAggregates<TTransaction>(input: {
+  store: IAgentStore<TTransaction>;
+  context: RequestContext;
+  authorizer: Authorizer;
+  agent_id: string;
+}): Promise<boolean> {
+  const { store, context, authorizer, agent_id } = input;
+  const agent = await store.getAgent({ tenant_id: context.tenant_id, id: agent_id });
+  if (agent === undefined) {
+    return false;
+  }
+  return authorizer.canAccessAgent({ context, action: 'manage', agent });
+}
+
 /** Related rows are readable by their creator or a manager of the bound named agent. */
 export async function canReadAgentBoundResource<TTransaction>(input: {
   store: IAgentStore<TTransaction>;

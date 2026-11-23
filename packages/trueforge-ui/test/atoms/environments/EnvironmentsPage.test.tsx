@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import type { TrackAnalytics } from '@/analytics/types.js';
-import { EnvironmentsButton } from '@/atoms/EnvironmentsButton.js';
 import { EnvironmentsPage, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS } from '@/atoms/environments/EnvironmentsPage.js';
+import { EnvironmentsButton } from '@/atoms/EnvironmentsButton.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
+import { useServerQueryClient } from '@/server/queryClient.js';
+import { queryKeys } from '@/server/queryKeys.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
@@ -409,6 +411,8 @@ describe('EnvironmentsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Set as default' }));
     await waitFor(() => expect(setDefaultEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    // Reopening the menu before it finishes closing swallows the next click.
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Set as default' })).toBeNull());
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));
@@ -526,6 +530,95 @@ describe('EnvironmentsPage', () => {
     expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
     expect(screen.getByText('Environment is still referenced by an agent')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('reuses the cached environments list on remount within stale time', async () => {
+    const listEnvironments = vi.fn(async () => ({ data: sampleEnvironments }));
+    const environmentServer = createMockSandboxEnvironmentServer({ listEnvironments });
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog(),
+      sandboxEnvironments: environmentServer,
+      permissions: defaultPermissions(sampleEnvironments),
+    });
+
+    function Harness({ showPage }: { showPage: boolean }) {
+      return (
+        <ServerProvider server={server}>
+          <CurrentUserProvider currentUser={{ subjectId: 'user-1', displayName: 'alice' }}>
+            <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+              <ToasterProvider>{showPage ? <EnvironmentsPage /> : null}</ToasterProvider>
+            </ShellModeProvider>
+          </CurrentUserProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { rerender } = render(<Harness showPage />);
+    await waitFor(() => {
+      expect(screen.getByText('python-data')).toBeInTheDocument();
+    });
+    expect(listEnvironments).toHaveBeenCalledTimes(1);
+
+    rerender(<Harness showPage={false} />);
+    expect(screen.queryByText('python-data')).not.toBeInTheDocument();
+
+    rerender(<Harness showPage />);
+    await waitFor(() => {
+      expect(screen.getByText('python-data')).toBeInTheDocument();
+    });
+    expect(listEnvironments).toHaveBeenCalledTimes(1);
+  });
+
+  it('refetches the environments list after delete', async () => {
+    const listEnvironments = vi.fn(async () => ({ data: sampleEnvironments }));
+    const deleteEnvironment = vi.fn(async () => {});
+    const environmentServer = createMockSandboxEnvironmentServer({ listEnvironments, deleteEnvironment });
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog(),
+      sandboxEnvironments: environmentServer,
+      permissions: defaultPermissions(sampleEnvironments),
+    });
+    let queryClient: ReturnType<typeof useServerQueryClient> | undefined;
+    function Capture() {
+      queryClient = useServerQueryClient();
+      return <EnvironmentsPage />;
+    }
+
+    render(
+      <ServerProvider server={server}>
+        <CurrentUserProvider currentUser={{ subjectId: 'user-1', displayName: 'alice' }}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+            <ToasterProvider>
+              <Capture />
+            </ToasterProvider>
+          </ShellModeProvider>
+        </CurrentUserProvider>
+      </ServerProvider>,
+    );
+    if (queryClient == null) throw new Error('query client missing');
+    const client = queryClient;
+    // Inactive detail entry under environments.all() — stays invalidated after the live list refetches.
+    const detailKey = queryKeys.environments.detail('python-data');
+    const sample = sampleEnvironments[0];
+    if (sample === undefined) throw new Error('expected sample environment');
+    await client.fetchQuery({
+      queryKey: detailKey,
+      queryFn: async () => sample,
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+    expect(listEnvironments).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    await waitFor(() => {
+      expect(listEnvironments.mock.calls.length).toBeGreaterThan(1);
+    });
+    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(true);
   });
 });
 

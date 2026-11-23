@@ -352,7 +352,7 @@ describe('AgentDetailsPage', () => {
     });
 
     expect(await screen.findByRole('tab', { name: 'Metrics' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Metrics deep link')).toBeInTheDocument();
+    expect(await screen.findByText('Metrics deep link')).toBeInTheDocument();
   });
 
   it('shows an agent-scoped Schedules tab when supported', async () => {
@@ -389,7 +389,7 @@ describe('AgentDetailsPage', () => {
       expect(listSessions).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByRole('tab', { name: 'Schedules' }));
-      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
       expect(screen.queryByText('Schedules mounted')).not.toBeInTheDocument();
     });
   });
@@ -405,7 +405,7 @@ describe('AgentDetailsPage', () => {
       });
 
       expect(await screen.findByRole('tab', { name: 'Sessions' })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
       expect(screen.queryByText('Sessions mounted')).not.toBeInTheDocument();
       expect(listSessions).not.toHaveBeenCalled();
     });
@@ -423,7 +423,7 @@ describe('AgentDetailsPage', () => {
       });
 
       expect(await screen.findByRole('tab', { name: 'Schedules' })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
       expect(screen.queryByText('Schedules mounted')).not.toBeInTheDocument();
     });
   });
@@ -591,7 +591,7 @@ describe('AgentDetailsPage', () => {
         data: sessionRows.map(row => ({ ...row, id: 'sess-2', title: 'Second page session' })),
       });
     });
-    expect(screen.getByText('Second page session')).toBeInTheDocument();
+    expect(await screen.findByText('Second page session')).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: 'Loading more sessions' })).not.toBeInTheDocument();
   });
 
