@@ -37,27 +37,16 @@ export interface CreateArtifactInput {
   /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
   title: string;
   created_by_subject: Subject;
-  /** MUST name a session in the tenant; its `agent_id` becomes `created_by_agent_id`. */
   created_by_session_id: string;
-}
-
-/** `created_by_session_id` does not name a session in the tenant. */
-export class ArtifactSessionNotFoundError extends Error {
-  readonly tenant_id: string;
-  readonly session_id: string;
-
-  constructor({ tenant_id, session_id }: { tenant_id: string; session_id: string }) {
-    super(`Session not found: ${session_id}`);
-    this.name = 'ArtifactSessionNotFoundError';
-    this.tenant_id = tenant_id;
-    this.session_id = session_id;
-  }
+  /** The session's registry agent; null for inline-spec sessions. */
+  created_by_agent_id: string | null;
 }
 
 export interface ListArtifactsInput {
   tenant_id: string;
   created_by_subject_id: string;
   created_by_session_id: string | undefined;
+  created_by_agent_id: string | undefined;
   /** Case-insensitive substring match. */
   title: string | undefined;
   limit: number;
@@ -100,10 +89,7 @@ export function newArtifactIdentity(rawTitle: string): { id: string; title: stri
 }
 
 export interface IArtifactStore {
-  /**
-   * Generates the id and slug from the title (see `newArtifactIdentity`). Throws
-   * `ArtifactSessionNotFoundError` when the session is not in the tenant.
-   */
+  /** Generates the id and slug from the title (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;

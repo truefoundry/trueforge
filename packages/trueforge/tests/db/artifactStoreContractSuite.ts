@@ -1,18 +1,18 @@
-import type { ISessionStore, Subject } from '@truefoundry/trueforge-core/agent-session';
+import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import { ulid } from 'ulid';
-import { ArtifactSessionNotFoundError, type IArtifactStore, type ListArtifactsInput } from '../../src/db/artifactStore';
+import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
 const AGENT_ID = 'agent-1';
-const OTHER_SESSION = 'other-session';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
   created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
+  created_by_agent_id: undefined,
   title: undefined,
   limit: 10,
   page_token: undefined,
@@ -23,46 +23,20 @@ async function tick(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 5));
 }
 
-export interface ArtifactStoreContractEnv<TTransaction> {
-  store: IArtifactStore;
-  sessionStore: ISessionStore<TTransaction>;
-}
-
 /** Callers MUST `jest.mock('ulid')` with a pass-through `jest.fn` so ids can be pinned. */
-export function runArtifactStoreContractSuite<TTransaction>(
-  getEnv: () => ArtifactStoreContractEnv<TTransaction>,
-): void {
-  const getStore = () => getEnv().store;
-
-  beforeEach(async () => {
-    for (const { tenant_id, session_id } of [
-      { tenant_id: TENANT, session_id: 'session-1' },
-      { tenant_id: TENANT, session_id: 'session-2' },
-      { tenant_id: OTHER_TENANT, session_id: OTHER_SESSION },
-    ]) {
-      await getEnv().sessionStore.createSession({
-        tenant_id,
-        session_id,
-        created_by_subject: SUBJECT,
-        agent: { type: 'reference', id: AGENT_ID, name: 'Agent' },
-        custom: null,
-        metadata: {},
-        external_id: null,
-        source: null,
-      });
-    }
-  });
-
+export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
   async function createArtifact({
     tenantId = TENANT,
     title = 'Q3 report',
     sessionId = 'session-1',
-  }: { tenantId?: string; title?: string; sessionId?: string } = {}) {
+    agentId = AGENT_ID,
+  }: { tenantId?: string; title?: string; sessionId?: string; agentId?: string | null } = {}) {
     return getStore().createArtifact({
       tenant_id: tenantId,
       title,
       created_by_subject: SUBJECT,
       created_by_session_id: sessionId,
+      created_by_agent_id: agentId,
     });
   }
 
@@ -99,7 +73,8 @@ export function runArtifactStoreContractSuite<TTransaction>(
     );
     expect(created.slug).toBe(`q3-report-${created.id.slice(-6)}`);
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
-    await expect(createArtifact({ sessionId: OTHER_SESSION })).rejects.toBeInstanceOf(ArtifactSessionNotFoundError);
+    const inline = await createArtifact({ title: 'inline', agentId: null });
+    expect(inline.created_by_agent_id).toBeNull();
   });
 
   it('cleans the title into a URL-safe slug', async () => {
@@ -138,7 +113,7 @@ export function runArtifactStoreContractSuite<TTransaction>(
     }
     const first = await createArtifact();
     await expect(createArtifact()).rejects.toThrow();
-    const otherTenant = await createArtifact({ tenantId: OTHER_TENANT, sessionId: OTHER_SESSION });
+    const otherTenant = await createArtifact({ tenantId: OTHER_TENANT });
     expect(otherTenant.slug).toBe(first.slug);
   });
 
@@ -148,12 +123,13 @@ export function runArtifactStoreContractSuite<TTransaction>(
     for (const title of titles) {
       await createArtifact({ title });
     }
-    await createArtifact({ tenantId: OTHER_TENANT, sessionId: OTHER_SESSION });
+    await createArtifact({ tenantId: OTHER_TENANT });
     await store.createArtifact({
       tenant_id: TENANT,
       title: 'other',
       created_by_subject: { ...SUBJECT, subject_id: 'someone-else' },
       created_by_session_id: 'session-2',
+      created_by_agent_id: AGENT_ID,
     });
 
     const first = await store.listArtifacts({ ...LIST_DEFAULTS, limit: 2 });
@@ -173,6 +149,18 @@ export function runArtifactStoreContractSuite<TTransaction>(
     await createArtifact({ title: 'two', sessionId: 'session-2' });
     expect(await listTitles({ created_by_session_id: 'session-2' })).toEqual(['two']);
     expect(await listTitles({ created_by_session_id: 'session-3' })).toEqual([]);
+  });
+
+  it('filters the list by agent', async () => {
+    await createArtifact({ title: 'one', sessionId: 'session-1', agentId: AGENT_ID });
+    await createArtifact({ title: 'two', sessionId: 'session-2', agentId: AGENT_ID });
+    await createArtifact({ title: 'three', sessionId: 'session-3', agentId: 'agent-2' });
+    await createArtifact({ title: 'inline', sessionId: 'session-4', agentId: null });
+    expect(await listTitles({ created_by_agent_id: AGENT_ID })).toEqual(['one', 'two']);
+    expect(await listTitles({ created_by_agent_id: 'agent-2' })).toEqual(['three']);
+    expect(await listTitles({ created_by_agent_id: AGENT_ID, created_by_session_id: 'session-2' })).toEqual(['two']);
+    expect(await listTitles({ created_by_agent_id: 'agent-2', created_by_session_id: 'session-1' })).toEqual([]);
+    expect(await listTitles({ created_by_agent_id: 'agent-3' })).toEqual([]);
   });
 
   it('filters the list by case-insensitive title substring', async () => {

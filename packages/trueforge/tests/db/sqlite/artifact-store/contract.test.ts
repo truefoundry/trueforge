@@ -1,5 +1,4 @@
 import { SqliteArtifactStore } from '../../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
-import { SqliteSessionStore } from '../../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { runArtifactStoreContractSuite } from '../../artifactStoreContractSuite';
 import { createSqliteTestDatabase, type SqliteTestDatabase } from '../testDatabase';
 
@@ -19,8 +18,5 @@ describe('SqliteArtifactStore (IArtifactStore contract)', () => {
     await env?.teardown();
   });
 
-  runArtifactStoreContractSuite(() => ({
-    store: new SqliteArtifactStore(env.db),
-    sessionStore: new SqliteSessionStore(env.db),
-  }));
+  runArtifactStoreContractSuite(() => new SqliteArtifactStore(env.db));
 });

@@ -5,7 +5,6 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
-  ArtifactSessionNotFoundError,
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
@@ -58,34 +57,22 @@ export class SqliteArtifactStore implements IArtifactStore {
   }
 
   async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
-    const identity = newArtifactIdentity(input.title);
-    return this.#db.transaction().execute(async db => {
-      const session = await db
-        .selectFrom('session')
-        .select('agent_id')
-        .where('tenant_id', '=', input.tenant_id)
-        .where('session_id', '=', input.created_by_session_id)
-        .executeTakeFirst();
-      if (session === undefined) {
-        throw new ArtifactSessionNotFoundError({ tenant_id: input.tenant_id, session_id: input.created_by_session_id });
-      }
-      const timestamp = nowIso();
-      const row = await db
-        .insertInto('artifact')
-        .values({
-          ...identity,
-          tenant_id: input.tenant_id,
-          latest_version: 0,
-          created_by_subject: jsonbBind(input.created_by_subject),
-          created_by_session_id: input.created_by_session_id,
-          created_by_agent_id: session.agent_id,
-          created_at: timestamp,
-          updated_at: timestamp,
-        })
-        .returning(recordColumns)
-        .executeTakeFirstOrThrow();
-      return toArtifactRecord({ ...row, entry_point: null });
-    });
+    const timestamp = nowIso();
+    const row = await this.#db
+      .insertInto('artifact')
+      .values({
+        ...newArtifactIdentity(input.title),
+        tenant_id: input.tenant_id,
+        latest_version: 0,
+        created_by_subject: jsonbBind(input.created_by_subject),
+        created_by_session_id: input.created_by_session_id,
+        created_by_agent_id: input.created_by_agent_id,
+        created_at: timestamp,
+        updated_at: timestamp,
+      })
+      .returning(recordColumns)
+      .executeTakeFirstOrThrow();
+    return toArtifactRecord({ ...row, entry_point: null });
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
@@ -105,6 +92,9 @@ export class SqliteArtifactStore implements IArtifactStore {
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     if (input.created_by_session_id !== undefined) {
       query = query.where('created_by_session_id', '=', input.created_by_session_id);
+    }
+    if (input.created_by_agent_id !== undefined) {
+      query = query.where('created_by_agent_id', '=', input.created_by_agent_id);
     }
     if (input.title !== undefined) {
       // Case-insensitive title substring search.

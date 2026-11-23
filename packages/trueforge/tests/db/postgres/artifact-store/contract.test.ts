@@ -1,7 +1,6 @@
 import { sql } from 'kysely';
 
 import { PostgresArtifactStore } from '../../../../src/db/postgres/artifact-store/PostgresArtifactStore';
-import { PostgresSessionStore } from '../../../../src/db/postgres/session-store/PostgresSessionStore';
 import { runArtifactStoreContractSuite } from '../../artifactStoreContractSuite';
 import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
@@ -28,7 +27,7 @@ describePg('PostgresArtifactStore (IArtifactStore contract)', () => {
 
   beforeEach(async () => {
     if (env !== undefined) {
-      await sql`TRUNCATE TABLE artifact, artifact_version, session CASCADE`.execute(env.db);
+      await sql`TRUNCATE TABLE artifact, artifact_version`.execute(env.db);
     }
   });
 
@@ -36,6 +35,6 @@ describePg('PostgresArtifactStore (IArtifactStore contract)', () => {
     if (env === undefined) {
       throw new Error('Postgres test environment not initialized');
     }
-    return { store: new PostgresArtifactStore(env.db), sessionStore: new PostgresSessionStore(env.db) };
+    return new PostgresArtifactStore(env.db);
   });
 });
