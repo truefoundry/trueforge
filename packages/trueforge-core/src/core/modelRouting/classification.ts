@@ -51,16 +51,22 @@ export interface Classification {
  * The decision request for routing. Input is trimmed to the classifier's context window: a task keeps its start and
  * its end, and a conversation keeps its newest messages. `isTruncated` when anything was cut.
  */
-export function classificationRequest(
-  input: string | DecisionInputMessage[],
-  question: RoutingQuestion,
-  contextLength: number | undefined,
-): { body: DecisionModelCreateParams; isTruncated: boolean } {
+export function classificationRequest({
+  input,
+  question,
+  instructions,
+  contextLength,
+}: {
+  input: string | DecisionInputMessage[];
+  question: RoutingQuestion;
+  instructions: string;
+  contextLength: number | undefined;
+}): { body: DecisionModelCreateParams; isTruncated: boolean } {
   const questions: DecisionModelCreateParams['questions'] = [
     {
       type: 'choice',
       name: 'category',
-      instructions: question.instructions,
+      instructions,
       choices: Object.entries(question.categories).map(([value, description]) => ({ value, description })),
     },
   ];

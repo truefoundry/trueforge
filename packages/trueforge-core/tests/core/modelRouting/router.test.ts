@@ -2,7 +2,11 @@ import { createLogger } from 'winston';
 import type { Decision, IDecisionModel } from '../../../src/core/decision/IDecisionModel';
 import { classificationRequest, readClassification } from '../../../src/core/modelRouting/classification';
 import { routingConversation } from '../../../src/core/modelRouting/conversation';
-import { DEFAULT_ROUTING_QUESTION } from '../../../src/core/modelRouting/question';
+import {
+  CONVERSATION_ROUTING_INSTRUCTIONS,
+  DEFAULT_ROUTING_QUESTION,
+  TASK_ROUTING_INSTRUCTIONS,
+} from '../../../src/core/modelRouting/question';
 import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { internalSystemMessage } from '../../../src/core/runtime/contextUtils';
@@ -75,7 +79,11 @@ describe('selectModel', () => {
 });
 
 describe('createModelRouter', () => {
-  const routeInput = { threadId: 'child', input: 'Name: research\n\nTask:\nCompare pricing of three CI tools.' };
+  const routeInput = {
+    threadId: 'child',
+    input: 'Name: research\n\nTask:\nCompare pricing of three CI tools.',
+    instructions: TASK_ROUTING_INSTRUCTIONS,
+  };
 
   function route(classifier: IDecisionModel, listModels = () => Promise.resolve(models)) {
     return createModelRouter(
@@ -108,6 +116,40 @@ describe('createModelRouter', () => {
     await expect(route({ create: () => Promise.reject(new Error('HTTP 403')) })).resolves.toBeUndefined();
   });
 
+  it('picks nothing when listing models fails while the classifier is still starting', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (error: unknown) => {
+      unhandled.push(error);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    let releaseClassifier: () => void = () => undefined;
+    const classifierStarted = new Promise<void>(resolve => {
+      releaseClassifier = resolve;
+    });
+    try {
+      const pending = createModelRouter(
+        {
+          classifier: () =>
+            classifierStarted.then(() => ({
+              client: classifiesAs('direct'),
+              properties: { contextLength: 16_000 },
+            })),
+          question: DEFAULT_ROUTING_QUESTION,
+          listModels: () => Promise.reject(new Error('catalog down')),
+        },
+        logger,
+      )(routeInput);
+      releaseClassifier();
+      await expect(pending).resolves.toBeUndefined();
+      await new Promise<void>(resolve => {
+        setImmediate(resolve);
+      });
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('lists the models once per router', async () => {
     const listModels = jest.fn(() => Promise.resolve(models));
     const routeModel = createModelRouter(
@@ -127,7 +169,12 @@ describe('createModelRouter', () => {
 describe('classification', () => {
   it('keeps the start and the end of a task that exceeds the context window', () => {
     const task = `START${'x'.repeat(20_000)}END`;
-    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION, 4_000);
+    const { body, isTruncated } = classificationRequest({
+      input: task,
+      question: DEFAULT_ROUTING_QUESTION,
+      instructions: TASK_ROUTING_INSTRUCTIONS,
+      contextLength: 4_000,
+    });
     expect(isTruncated).toBe(true);
     expect(typeof body.input === 'string' && body.input.length <= 16_000).toBe(true);
     expect(body.input).toEqual(expect.stringMatching(/^START[\s\S]*END$/));
@@ -135,7 +182,12 @@ describe('classification', () => {
 
   it('leaves a task inside the context window unchanged', () => {
     const task = `START${'x'.repeat(20_000)}END`;
-    const { body, isTruncated } = classificationRequest(task, DEFAULT_ROUTING_QUESTION, 64_000);
+    const { body, isTruncated } = classificationRequest({
+      input: task,
+      question: DEFAULT_ROUTING_QUESTION,
+      instructions: TASK_ROUTING_INSTRUCTIONS,
+      contextLength: 64_000,
+    });
     expect(isTruncated).toBe(false);
     expect(body.input).toBe(task);
   });
@@ -145,11 +197,16 @@ describe('classification', () => {
       role: 'user' as const,
       content: `message ${String(index)} ${'x'.repeat(1_000)}`,
     }));
-    const { body, isTruncated } = classificationRequest(conversation, DEFAULT_ROUTING_QUESTION, 4_000);
+    const { body, isTruncated } = classificationRequest({
+      input: conversation,
+      question: DEFAULT_ROUTING_QUESTION,
+      instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
+      contextLength: 4_000,
+    });
     expect(isTruncated).toBe(true);
     expect(Array.isArray(body.input) && body.input.length < conversation.length).toBe(true);
     expect(Array.isArray(body.input) && body.input.at(-1)).toEqual(conversation.at(-1));
-    expect(body.questions[0]).toEqual(expect.objectContaining({ instructions: DEFAULT_ROUTING_QUESTION.instructions }));
+    expect(body.questions[0]).toEqual(expect.objectContaining({ instructions: CONVERSATION_ROUTING_INSTRUCTIONS }));
   });
 
   it('reads the category, or nothing when the decision has none', () => {

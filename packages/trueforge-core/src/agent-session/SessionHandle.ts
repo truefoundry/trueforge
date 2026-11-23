@@ -5,7 +5,8 @@ import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import { SUPPORTED_REASONING_EFFORTS } from '../core/llm/VercelAILLM';
 import { routingConversation } from '../core/modelRouting/conversation';
-import { AUTO_MODEL, createModelRouter, type RoutedModel, type RouteInput } from '../core/modelRouting/router';
+import { CONVERSATION_ROUTING_INSTRUCTIONS, TASK_ROUTING_INSTRUCTIONS } from '../core/modelRouting/question';
+import { AUTO_MODEL, type RouteInput, type RoutedModel } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -212,7 +213,8 @@ export class SessionHandle<
     try {
       const { orchestrator, agentThreads } = await this.assembleTurn({
         previous,
-        newUserInput: input.input ?? [],
+        resuming: false,
+        userMessage: input.input,
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents: [],
@@ -342,7 +344,8 @@ export class SessionHandle<
       });
       const { orchestrator } = await this.assembleTurn({
         previous: turn,
-        newUserInput: undefined,
+        resuming: true,
+        userMessage: undefined,
         resolver: input.resolver,
         abortController: input.abortController,
         pendingTurnEvents,
@@ -446,8 +449,8 @@ export class SessionHandle<
    */
   private async assembleTurn(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
-    /** The new turn's user messages; undefined when rebuilding a paused turn. */
-    newUserInput: UserMessage[] | undefined;
+    userMessage: UserMessage[] | undefined;
+    resuming: boolean;
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
@@ -463,14 +466,27 @@ export class SessionHandle<
       tracing,
     });
 
-    const { modelRouting } = input.resolver;
-    const routeModel = modelRouting === undefined ? undefined : createModelRouter(modelRouting, input.resolver.logger);
-    const rootModel = await this.autoRoutedModel({
-      spec,
-      previous: input.previous,
-      newUserInput: input.newUserInput,
-      routeModel,
-    });
+    const root = input.previous?.snapshot.threads[MAIN_THREAD_ID];
+    let rootModel: RoutedModel | undefined;
+    if (spec.model.name === AUTO_MODEL) {
+      const routeModel = input.resolver.routeModel;
+      if (routeModel === undefined) {
+        throw new AgentHarnessError(
+          'auto_model_unavailable',
+          'Auto model selection needs model routing for this tenant',
+        );
+      }
+      const routed = await this.selectRootModel({
+        resuming: input.resuming,
+        root,
+        userMessage: input.userMessage,
+        routeModel,
+      });
+      if (routed === undefined) {
+        throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
+      }
+      rootModel = routed;
+    }
 
     const definitionsByThreadId = await this.resolveAgentDefinitions({
       previous: input.previous,
@@ -503,7 +519,6 @@ export class SessionHandle<
       resolver: input.resolver,
       previous: input.previous,
       spec,
-      routeModel,
       rootModel,
       sandbox,
       tracing,
@@ -525,44 +540,25 @@ export class SessionHandle<
     return { orchestrator, agentThreads };
   }
 
-  /**
-   * The root's model when its spec asks for `auto`, else undefined. A new turn routes on the conversation and the new
-   * user input; a rebuilt turn resumes on the model and effort its root ran on.
-   */
-  private async autoRoutedModel(input: {
-    spec: AgentSpec;
-    previous: TurnRecord<TTurnCustom> | undefined;
-    newUserInput: UserMessage[] | undefined;
-    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  private async selectRootModel(input: {
+    root: AgentThreadSnapshot | undefined;
+    resuming: boolean;
+    userMessage: UserMessage[] | undefined;
+    routeModel: (route: RouteInput) => Promise<RoutedModel | undefined>;
   }): Promise<RoutedModel | undefined> {
-    if (input.spec.model.name !== AUTO_MODEL) {
-      return undefined;
-    }
-    const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
-    // If rebuilding a paused turn, resume on the model and effort it ran on.
-    if (input.newUserInput === undefined) {
-      const saved = previousRoot?.model;
-      if (saved == null) {
-        throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved model to resume on');
+    if (input.resuming) {
+      const model = input.root?.model;
+      const effort = SUPPORTED_REASONING_EFFORTS.find(candidate => candidate === model?.effort);
+      if (model == null || effort === undefined) {
+        throw new Error('Unreachable: auto root is missing its saved model or effort');
       }
-      const effort = SUPPORTED_REASONING_EFFORTS.find(candidate => candidate === saved.effort);
-      if (effort === undefined) {
-        throw new AgentHarnessError('auto_model_unavailable', 'This paused turn has no saved effort to resume on');
-      }
-      return { model: saved.name, effort };
+      return { model: model.name, effort };
     }
-    // If creating a new turn, route on the conversation and the new user input.
-    if (input.routeModel === undefined) {
-      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection needs model routing for this tenant');
-    }
-    const routed = await input.routeModel({
+    return input.routeModel({
       threadId: MAIN_THREAD_ID,
-      input: routingConversation(previousRoot?.context ?? [], input.newUserInput),
+      input: routingConversation(input.root?.context ?? [], input.userMessage ?? []),
+      instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
     });
-    if (routed === undefined) {
-      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
-    }
-    return routed;
   }
 
   private async resolveAgentDefinitions(input: {
@@ -675,7 +671,6 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
-    routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
     /** The root's auto-selected model and effort; a subagent the router can't place runs on it. */
     rootModel: RoutedModel | undefined;
     sandbox: HarnessSandbox | undefined;
@@ -684,7 +679,12 @@ export class SessionHandle<
     return async params => {
       // Route from the delegated task: the classifier requires the name and input to classify the task.
       const task = `Name: ${params.request.name}\n\nTask:\n${params.request.input}`;
-      const routed = (await input.routeModel?.({ threadId: params.threadId, input: task })) ?? input.rootModel;
+      const routed =
+        (await input.resolver.routeModel?.({
+          threadId: params.threadId,
+          input: task,
+          instructions: TASK_ROUTING_INSTRUCTIONS,
+        })) ?? input.rootModel;
 
       const { definition, model, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: specForRoutedModel(input.spec, routed),
