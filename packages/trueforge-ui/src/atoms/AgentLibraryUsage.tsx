@@ -31,9 +31,18 @@ function formatSparklineDay(iso: string): string {
 
 export const agentLibraryUsageLabels = {
   sessions: `Sessions, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
-  spend: `Spend, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
+  spend: `Your / Total Spend, ${String(AGENT_LIBRARY_METERS_WINDOW_DAYS)}d`,
   daily: `Daily, ${String(AGENT_LIBRARY_SPARKLINE_DAYS)}d`,
 } as const;
+
+/** Stands in for a value the server withheld or could not produce. */
+const UNAVAILABLE_VALUE = '—';
+
+function spendTooltipContent(hasTotal: boolean): string {
+  return hasTotal
+    ? "Your spend / spend across every user's sessions on this agent."
+    : 'Your spend. The agent-wide total is only visible to people who manage this agent.';
+}
 
 function nearestSparklineIndex({
   clientX,
@@ -213,20 +222,40 @@ export function AgentSpendCell({
       </div>
     );
   }
-  if (usage?.totalCostUsd == null) {
+  if (usage?.createdByMeCostUsd == null) {
     return (
       <span className="text-text-secondary text-sm" aria-label={`Spend unavailable for ${agentName}`}>
-        —
+        {UNAVAILABLE_VALUE}
       </span>
     );
   }
+  const hasTotal = usage.totalCostUsd != null;
+  const yourSpend = formatLibraryCostUsd(usage.createdByMeCostUsd);
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-text-primary text-sm font-medium">{formatLibraryCostUsd(usage.totalCostUsd)}</span>
-      {usage.costPerSessionUsd != null ? (
-        <span className="text-text-secondary text-xs">{formatLibraryCostUsd(usage.costPerSessionUsd)} / session</span>
-      ) : null}
-    </div>
+    <Tooltip content={spendTooltipContent(hasTotal)} className="max-w-xs whitespace-normal text-left">
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-text-primary text-sm font-medium">
+          <span aria-label={`Your spend ${yourSpend}`}>{yourSpend}</span>
+          <span aria-hidden className="text-text-secondary">
+            {' / '}
+          </span>
+          {usage.totalCostUsd == null ? (
+            <span className="text-text-secondary" aria-label={`Total spend unavailable for ${agentName}`}>
+              {UNAVAILABLE_VALUE}
+            </span>
+          ) : (
+            <span aria-label={`Total spend ${formatLibraryCostUsd(usage.totalCostUsd)}`}>
+              {formatLibraryCostUsd(usage.totalCostUsd)}
+            </span>
+          )}
+        </span>
+        {usage.costPerSessionUsd != null ? (
+          <span className="text-text-secondary text-xs">
+            {formatLibraryCostUsd(usage.costPerSessionUsd)} per session
+          </span>
+        ) : null}
+      </span>
+    </Tooltip>
   );
 }
 

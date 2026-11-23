@@ -533,6 +533,7 @@ export function ThreadListContainer({
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
   const threadItems = useAuiState(s => s.threads.threadItems);
+  const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const shell = useOptionalShellMode();
 
   const ThreadListShell = useSlot('ThreadListShell');
@@ -569,10 +570,13 @@ export function ThreadListContainer({
 
   // ponytail: first-page-only poll — rows past page 1 (or stuck server turns) never refresh;
   // upgrade via per-session status endpoint or server push.
+  // The open session's status comes from the live stream, so that row alone must not arm the poll.
   const lastTurnStatusPollIntervalMs = useMemo(() => {
     if (isIdle || isLoading || server == null) return null;
-    return sessionListPollIntervalMs(threadItems.map(item => readThreadLastTurnStatus(item.custom)));
-  }, [isIdle, isLoading, server, threadItems]);
+    return sessionListPollIntervalMs(
+      threadItems.flatMap(item => (item.id === mainThreadId ? [] : [readThreadLastTurnStatus(item.custom)])),
+    );
+  }, [isIdle, isLoading, mainThreadId, server, threadItems]);
 
   const listSessionsAgentId = shell?.listSessionsAgentId;
   useSessionListStatusPoll({

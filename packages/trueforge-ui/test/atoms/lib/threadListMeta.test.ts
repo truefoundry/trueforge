@@ -167,6 +167,25 @@ describe('threadListIndicesByRecency', () => {
     ).toEqual([1, 0]);
   });
 
+  it('moves a row above later-loaded chats when lastActivityAt is newer', () => {
+    const loadedLater = new Date('2026-08-06T12:00:00.000Z');
+    const loadedEarlier = new Date('2026-08-06T10:00:00.000Z');
+    expect(
+      threadListIndicesByRecency({
+        threadIds: ['first', 'fifth'],
+        threadItems: [
+          { id: 'first', remoteId: 'first', lastMessageAt: loadedLater },
+          {
+            id: 'fifth',
+            remoteId: 'fifth',
+            lastMessageAt: loadedEarlier,
+            custom: { lastActivityAt: '2026-08-06T13:00:00.000Z' },
+          },
+        ],
+      }),
+    ).toEqual([1, 0]);
+  });
+
   it('pins threads without lastMessageAt above dated history (empty New Chat)', () => {
     const older = new Date('2026-08-06T11:00:00.000Z');
     const newer = new Date('2026-08-06T12:00:00.000Z');
