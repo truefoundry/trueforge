@@ -43,11 +43,6 @@ export const ListArtifactsRequestQuerySchema = z
       .min(1)
       .optional()
       .describe('When set, only artifacts created in this session are returned.'),
-    created_by_agent_id: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('When set, only artifacts created by this agent are returned.'),
     title: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact title.'),
   })
   .openapi('ListArtifactsRequestQuery');

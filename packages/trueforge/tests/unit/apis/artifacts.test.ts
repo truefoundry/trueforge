@@ -71,11 +71,6 @@ describe('artifacts router', () => {
     expect(await listTitles('created_by_session_id=session-2')).toEqual(['Roadmap']);
   });
 
-  it('filters by created_by_agent_id', async () => {
-    expect(await listTitles('created_by_agent_id=agent-1')).toEqual(['Q3 Report']);
-    expect(await listTitles('created_by_agent_id=agent-2')).toEqual([]);
-  });
-
   it('filters by title substring', async () => {
     expect(await listTitles('title=report')).toEqual(['Q3 Report']);
   });

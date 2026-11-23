@@ -14,7 +14,7 @@ export const listArtifactsRoute = createRoute({
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'List artifacts',
   description:
-    'List artifacts created by the caller, most recently updated first. Optionally filter by session, agent, or title substring.',
+    'List artifacts created by the caller, most recently updated first. Optionally filter by session or title substring.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
