@@ -430,7 +430,7 @@ export class RemoteMCP implements ToolSource {
         this._connection = undefined;
         this.isConnected = false;
         await connection.close().catch(() => undefined);
-        return undefined;
+        throw new Error(`Remote MCP '${this.name}' was closed before the connection was ready`);
       }
       this.sessionId = connection.sessionId;
       if (existingSessionId === this.sessionId) {

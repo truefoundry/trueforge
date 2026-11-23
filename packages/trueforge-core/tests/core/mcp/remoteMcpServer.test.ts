@@ -178,6 +178,51 @@ describe('RemoteMCP + ToolSet', () => {
     expect(state.closes).toBe(1);
   });
 
+  it('fails an in-flight connect when the turn drops the source before it finishes', async () => {
+    const state = installFakeConnection();
+    const started = Promise.withResolvers<void>();
+    const gate = Promise.withResolvers<Awaited<ReturnType<typeof connectRemoteMcp>>>();
+    mockConnect.mockImplementation(() => {
+      state.connectCalls += 1;
+      started.resolve();
+      return gate.promise;
+    });
+    const remote = new RemoteMCP({
+      id: 'inline-id-123',
+      connection: {
+        url: 'https://mcp.example.com/mcp',
+        name: 'my-inline',
+        description: 'my-inline MCP server',
+      },
+      logger: noopLogger,
+      tracing: NOOP_AGENT_TRACING,
+      requestTimeoutMs: 60_000,
+      connectTimeoutMs: 5_000,
+      signal: new AbortController().signal,
+    });
+
+    const pendingList = remote.listTools();
+    await started.promise;
+    const pendingClose = remote.close();
+    gate.resolve({
+      transportType: 'streamable-http',
+      sessionId: null,
+      listTools: () => Promise.resolve({ tools: [READ_TOOL] }),
+      callTool: () => Promise.resolve({ content: [{ type: 'text', text: 'ok' }] }),
+      close: () => {
+        state.closes += 1;
+        return Promise.resolve();
+      },
+    });
+
+    await pendingClose;
+    await expect(pendingList).rejects.toMatchObject({
+      name: 'Error',
+      message: "Remote MCP 'my-inline' was closed before the connection was ready",
+    });
+    expect(state.closes).toBe(1);
+  });
+
   it('can label tools as truefoundry-system for built-in management MCP', async () => {
     const remote = new RemoteMCP({
       id: 'trueforge:mcp',
