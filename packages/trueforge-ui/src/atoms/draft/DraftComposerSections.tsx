@@ -13,7 +13,7 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js';
 
-export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: ComposerLeftSectionProps) {
+export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
@@ -53,16 +53,14 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      {!isBuilder ? <DraftCompositeSelector disabled={disabled} isRunning={isRunning} onAttach={onAttach} /> : null}
-      {isBuilder && compact ? (
-        <DraftComposerActionsMenu actions={compactActions} disabled={disabled || isRunning} />
-      ) : null}
-      {isBuilder && !compact && isMobile ? <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} /> : null}
+      {!isBuilder ? <DraftCompositeSelector disabled={disabled} onAttach={onAttach} /> : null}
+      {isBuilder && compact ? <DraftComposerActionsMenu actions={compactActions} disabled={disabled} /> : null}
+      {isBuilder && !compact && isMobile ? <DraftAgentConfigTrigger disabled={disabled} /> : null}
       {isBuilder && !compact && onAttach != null ? (
         <Tooltip content="Attach a file">
           <button
             type="button"
-            disabled={disabled || isRunning}
+            disabled={disabled}
             aria-label="Attach a file"
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={onAttach}
@@ -75,15 +73,15 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
   );
 }
 
-export function DraftComposerRightSection({ disabled, isRunning }: ComposerRightSectionProps) {
+export function DraftComposerRightSection({ disabled }: ComposerRightSectionProps) {
   const shell = useOptionalShellMode();
   const DraftModelSelector = useSlot('DraftModelSelector');
   const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
 
   return (
     <div className="flex min-w-0 items-center gap-1">
-      {!isBuilder ? <DraftModelSelector disabled={disabled} isRunning={isRunning} /> : null}
-      <DraftReasoningEffortSelector disabled={disabled} isRunning={isRunning} />
+      {!isBuilder ? <DraftModelSelector disabled={disabled} /> : null}
+      <DraftReasoningEffortSelector disabled={disabled} />
     </div>
   );
 }

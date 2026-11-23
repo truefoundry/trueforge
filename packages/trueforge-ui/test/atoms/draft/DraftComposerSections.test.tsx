@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useLayoutEffect, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '@/atoms/draft/DraftComposerSections.js';
@@ -64,6 +64,7 @@ function AgentConfigState() {
 
 describe('draft composer sections', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     agentSpec = {
       model: { name: 'openai/gpt-4.1', params: { reasoningEffort: 'high' } },
       mcpServers: [{ id: 'github', name: 'GitHub' }],
@@ -73,6 +74,10 @@ describe('draft composer sections', () => {
       ],
     };
     updateAgentSpec.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('composes the Tools count and standalone attachment control', () => {
@@ -181,16 +186,35 @@ describe('draft composer sections', () => {
     expect(screen.queryByTitle('Select reasoning effort')).not.toBeInTheDocument();
   });
 
-  it('propagates disabled and running state to composed controls', async () => {
-    const { rerender } = render(<DraftSections disabled />);
+  it('propagates disabled state to composed controls', async () => {
+    render(<DraftSections disabled />);
 
     expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
     expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
+  });
 
-    rerender(<DraftSections isRunning />);
-    expect(screen.getByRole('button', { name: 'Tools (4)' })).toBeDisabled();
-    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
-    expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
+  it('keeps tools and settings interactive while a chat is running', async () => {
+    render(<DraftSections isRunning />);
+
+    const tools = screen.getByRole('button', { name: 'Tools (4)' });
+    expect(tools).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeEnabled();
+    expect(await screen.findByTitle('Select reasoning effort')).toBeEnabled();
+
+    fireEvent.click(tools);
+    // GitHub is already selected — toggle removes it and flushes after the debounce.
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      mcpServers: [],
+      skills: [
+        { id: 'research', name: 'Research' },
+        { id: 'writer', name: 'Writer' },
+      ],
+    });
   });
 });

@@ -10,10 +10,9 @@ import { Tooltip } from '../primitives/Tooltip.js';
 
 export type DraftAgentConfigTriggerProps = {
   disabled?: boolean;
-  isRunning?: boolean;
 };
 
-export function DraftAgentConfigTrigger({ disabled, isRunning }: DraftAgentConfigTriggerProps) {
+export function DraftAgentConfigTrigger({ disabled }: DraftAgentConfigTriggerProps) {
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const open = shell?.agentConfigOpen === true;
@@ -25,7 +24,7 @@ export function DraftAgentConfigTrigger({ disabled, isRunning }: DraftAgentConfi
         aria-label="Agent config"
         aria-haspopup="dialog"
         aria-expanded={open}
-        disabled={disabled || isRunning || shell == null}
+        disabled={disabled || shell == null}
         className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
         onClick={() => {
           const nextOpen = !open;

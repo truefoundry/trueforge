@@ -14,10 +14,9 @@ import { hasReasoningEfforts, modelPatchWithReasoningEffort, resolveReasoningEff
 
 export type DraftReasoningEffortSelectorProps = {
   disabled?: boolean;
-  isRunning?: boolean;
 };
 
-export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReasoningEffortSelectorProps) {
+export function DraftReasoningEffortSelector({ disabled }: DraftReasoningEffortSelectorProps) {
   const { models, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
@@ -115,7 +114,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        disabled={disabled || isRunning}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
