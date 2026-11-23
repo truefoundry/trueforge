@@ -79,7 +79,7 @@ async function isAutoModelAvailable({
   if (enabledTenantModelRouting(trueFoundryModelRouting(), tenant_id) === undefined) {
     return false;
   }
-  return canRouteEveryCategory(await store.listModels({ tenant_id, has_catalog_info: true }));
+  return canRouteEveryCategory(await store.listModels({ tenant_id }));
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
