@@ -45,6 +45,14 @@ export function hasReasoningEfforts(efforts: ReasoningEfforts): efforts is strin
   return Array.isArray(efforts) && efforts.length > 0;
 }
 
+export const DEFAULT_REASONING_EFFORT_LABEL = 'Default';
+
+/** `undefined` means no effort is sent, so the provider's default applies. */
+export function reasoningEffortLabel(effort: string | undefined): string {
+  if (effort === undefined) return DEFAULT_REASONING_EFFORT_LABEL;
+  return effort.charAt(0).toUpperCase() + effort.slice(1);
+}
+
 const DEFAULT_REASONING_EFFORT_PREFERENCE = ['medium', 'high', 'low'] as const;
 
 /** Keep current if still listed; otherwise default by preference: "medium", then "high", then "low". */

@@ -25,6 +25,7 @@ const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: Permis
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(true),
         },
@@ -125,6 +126,7 @@ describe('useResolvedServer', () => {
           data: {
             sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
+            auto: { enabled: false },
             sessionSharing: tenantSessionSharing,
             settings: allSettingsSections(true),
           },

@@ -3,7 +3,6 @@
  * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
-import type { RoutableModel } from '@truefoundry/trueforge-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
@@ -20,12 +19,15 @@ export interface ModelProviderRecord {
 
 export interface ListModelProvidersInput {
   tenant_id: string;
-  /** Fill in the catalog fields; only a store with a model catalog (TrueFoundry) has them. */
-  has_catalog_info?: boolean;
 }
 
-/** A listed model; the catalog fields are undefined unless listed with `has_catalog_info` by a store that has them. */
-export interface AvailableModelWithCatalogInfo extends AvailableModel, RoutableModel {}
+/** Store model. `canonicalModel` and `cost` are undefined when the provider has no integration metadata. */
+export interface ModelInfo extends AvailableModel {
+  /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
+  canonicalModel: string | undefined;
+  /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
+  cost: number | undefined;
+}
 
 export interface GetModelProviderInput {
   tenant_id: string;
@@ -84,8 +86,8 @@ export interface IModelProviderStore<TTransaction = never> {
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
-  /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModelWithCatalogInfo[]>;
+  /** Flattens manifests into the FQN read view. Integration metadata fills canonicalModel and cost when the store has it. */
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelInfo[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
@@ -109,7 +111,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModelWithCatalogInfo[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): ModelInfo[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => {
       const warning = modelPropertiesWarning({ properties: model.properties });
