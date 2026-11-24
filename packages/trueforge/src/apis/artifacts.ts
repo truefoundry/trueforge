@@ -65,12 +65,20 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
     const { artifact_id } = c.req.valid('param');
     const { name } = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    const updated = await deps.artifactStore.updateArtifact({
-      tenant_id: requestContext.tenant_id,
-      id: artifact_id,
-      created_by_subject_id: requestContext.subject.id,
-      name,
-    });
+    let updated: ArtifactRecord | undefined;
+    try {
+      updated = await deps.artifactStore.updateArtifact({
+        tenant_id: requestContext.tenant_id,
+        id: artifact_id,
+        created_by_subject_id: requestContext.subject.id,
+        name,
+      });
+    } catch (error) {
+      if (error instanceof RangeError) {
+        throw new HTTPException(400, { message: error.message, cause: error });
+      }
+      throw error;
+    }
     if (updated === undefined) {
       throw new HTTPException(404, { message: `Artifact not found: ${artifact_id}` });
     }

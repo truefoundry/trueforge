@@ -56,29 +56,13 @@ export const ListArtifactsResponseSchema = z
 
 export const GetArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('GetArtifactResponse');
 
-/** Control characters, bidi embeddings/overrides/isolates, and characters disallowed in file names. */
-const FORBIDDEN_ARTIFACT_NAME_CHARACTERS = /[\p{Cc}\u202A-\u202E\u2066-\u2069/\\:*?"<>|]/u;
-
-/** Rejects forbidden characters, collapses whitespace (incl. line/paragraph separators) to one space, and trims. */
-export const ArtifactNameSchema = z
-  .string()
-  .refine(name => !FORBIDDEN_ARTIFACT_NAME_CHARACTERS.test(name), {
-    message: 'Artifact name must not contain control, bidi, or / \\ : * ? " < > | characters.',
-  })
-  .transform(name => name.replace(/\s+/gu, ' ').trim())
-  .pipe(
-    z
-      .string()
-      .min(1, 'Artifact name must not be empty.')
-      .max(MAX_TITLE_LENGTH, `Artifact name must be at most ${String(MAX_TITLE_LENGTH)} characters.`)
-      .refine(name => !name.endsWith('.'), { message: 'Artifact name must not end with a dot.' }),
-  );
-
 export const UpdateArtifactRequestSchema = z
   .object({
-    name: ArtifactNameSchema.describe(
-      `New artifact name, 1-${String(MAX_TITLE_LENGTH)} characters. Control, bidi, and / \\ : * ? " < > | characters are rejected; a trailing dot is not allowed.`,
-    ),
+    name: z
+      .string()
+      .describe(
+        `New artifact name. Whitespace is collapsed and trimmed; must be 1-${String(MAX_TITLE_LENGTH)} characters without control, bidi, or / \\ : * ? " < > | characters, and must not end with a dot.`,
+      ),
   })
   .strict()
   .openapi('UpdateArtifactRequest');

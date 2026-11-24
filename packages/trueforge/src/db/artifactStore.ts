@@ -1,5 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { ArtifactNameSchema } from '../schemas/artifact';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
 export interface ArtifactRecord {
   id: string;
   tenant_id: string;
@@ -74,13 +74,25 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/** Normalizes via `ArtifactNameSchema`. Throws `RangeError` when the name is invalid. */
+/** Control characters, bidi embeddings/overrides/isolates, and characters disallowed in file names. */
+const FORBIDDEN_ARTIFACT_NAME_CHARACTERS = /[\p{Cc}\u202A-\u202E\u2066-\u2069/\\:*?"<>|]/u;
+
+/**
+ * Rejects forbidden characters, collapses whitespace (incl. line/paragraph separators) to one space, and trims.
+ * Throws `RangeError` when the name has forbidden characters, is empty or longer than `MAX_TITLE_LENGTH`, or ends with a dot.
+ */
 export function normalizeArtifactName(rawName: string): string {
-  const result = ArtifactNameSchema.safeParse(rawName);
-  if (!result.success) {
-    throw new RangeError(result.error.issues.map(issue => issue.message).join(' '), { cause: result.error });
+  if (FORBIDDEN_ARTIFACT_NAME_CHARACTERS.test(rawName)) {
+    throw new RangeError('Artifact name must not contain control, bidi, or / \\ : * ? " < > | characters.');
   }
-  return result.data;
+  const name = rawName.replace(/\s+/gu, ' ').trim();
+  if (name.length === 0 || name.length > MAX_TITLE_LENGTH) {
+    throw new RangeError(`Artifact name must be 1-${String(MAX_TITLE_LENGTH)} characters.`);
+  }
+  if (name.endsWith('.')) {
+    throw new RangeError('Artifact name must not end with a dot.');
+  }
+  return name;
 }
 
 export interface IArtifactStore {
