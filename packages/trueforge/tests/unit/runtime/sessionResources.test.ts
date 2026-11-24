@@ -1,5 +1,6 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
+import { parseTrueFoundryModelRouting } from '../../../src/config';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISkillStore } from '../../../src/db/skillStore';
@@ -106,6 +107,8 @@ describe('validateAgentSpec', () => {
       memoryProviderStore: new SqliteMemoryProviderStore(db),
       configurationStore: new SqliteConfigurationStore(db),
       previousSpec: undefined,
+      agentId: undefined,
+      modelRouting: undefined,
     };
   }
 
@@ -148,6 +151,65 @@ describe('validateAgentSpec', () => {
       }),
     ).resolves.toBeUndefined();
     expect(getSandboxProvider).not.toHaveBeenCalled();
+  });
+
+  it('rejects auto when model routing is off for the tenant', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'auto' },
+          instructions: 'test',
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Model "auto" requires model routing to be enabled for this tenant',
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('accepts auto when model routing is on for the tenant, without a catalog lookup', async () => {
+    const stores = await setup();
+    const modelRouting = parseTrueFoundryModelRouting(
+      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+    );
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'auto' },
+          instructions: 'test',
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        modelRouting,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects params on an auto model', async () => {
+    const stores = await setup();
+    const modelRouting = parseTrueFoundryModelRouting(
+      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+    );
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'auto', params: { temperature: 0.2, reasoning_effort: 'high' } },
+          instructions: 'test',
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        modelRouting,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Model "auto" does not accept model params',
+    } satisfies Partial<HTTPException>);
   });
 
   it('rejects malformed model FQN with 422', async () => {
@@ -843,6 +905,7 @@ describe('validateAgentSpec', () => {
     expect(validateAgentSkills).toHaveBeenCalledWith({
       tenant_id: 'default',
       skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+      agent_id: undefined,
     });
   });
 

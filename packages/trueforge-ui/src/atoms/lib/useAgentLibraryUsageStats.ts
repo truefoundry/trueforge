@@ -25,14 +25,31 @@ export type AgentLibraryDailyPoint = {
 
 export type AgentLibraryUsageStats = {
   totalSessions: number | null;
+  /** Spend on the sessions the viewer created. */
+  createdByMeCostUsd: number | null;
+  /** Spend across every user's sessions; null when the viewer may not see it. */
   totalCostUsd: number | null;
   costPerSessionUsd: number | null;
   dailyPoints: AgentLibraryDailyPoint[] | null;
 };
 
-function meterValue(meters: readonly AgentMetricMeter[], name: string): number | null {
+function finite(value: number | null | undefined): number | null {
+  return value == null || !Number.isFinite(value) ? null : value;
+}
+
+function meterPair(
+  meters: readonly AgentMetricMeter[],
+  name: string,
+): { createdByMe: number | null; total: number | null } {
   const match = meters.find(meter => meter.name === name);
-  return match == null || !Number.isFinite(match.aggregateValue) ? null : match.aggregateValue;
+  if (match == null) return { createdByMe: null, total: null };
+  return { createdByMe: finite(match.createdByMeAggregateValue), total: finite(match.aggregateValue) };
+}
+
+/** Columns that show one number per agent prefer the agent-wide figure. */
+function meterValue(meters: readonly AgentMetricMeter[], name: string): number | null {
+  const { createdByMe, total } = meterPair(meters, name);
+  return total ?? createdByMe;
 }
 
 function chartPoints(points: readonly AgentMetricPoint[] | undefined): AgentLibraryDailyPoint[] | null {
@@ -52,9 +69,11 @@ type UsageQueries = {
 function usageFromQueries({ meters, chart }: UsageQueries): AgentLibraryUsageStats | undefined {
   if (meters?.isPending === true || chart?.isPending === true) return undefined;
   const meterRows = meters?.data;
+  const cost = meterRows == null ? { createdByMe: null, total: null } : meterPair(meterRows, 'total_cost_in_usd');
   return {
     totalSessions: meterRows == null ? null : meterValue(meterRows, 'total_sessions'),
-    totalCostUsd: meterRows == null ? null : meterValue(meterRows, 'total_cost_in_usd'),
+    createdByMeCostUsd: cost.createdByMe,
+    totalCostUsd: cost.total,
     costPerSessionUsd: meterRows == null ? null : meterValue(meterRows, 'cost_per_session_in_usd'),
     dailyPoints: chart?.data == null ? null : chartPoints(chart.data.graphs[0]?.graphLines[0]?.values),
   };

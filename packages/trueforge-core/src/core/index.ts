@@ -7,7 +7,10 @@
 export { ModelParamsSchema, ModelSchema } from './llm/model';
 export type { Model, ModelParams } from './llm/model';
 export type { AgentDefinition } from './runtime/AgentDefinition';
+export { modelSnapshotFromAgent } from './runtime/AgentModel';
+export type { AgentModel } from './runtime/AgentModel';
 export { AgentThread } from './runtime/AgentThread';
+export { ModelSnapshotSchema } from './runtime/AgentThread.types';
 export type {
   AgentInfo,
   AgentParent,
@@ -17,6 +20,7 @@ export type {
   AgentThreadEvent,
   AgentThreadExecutionEvent,
   AgentThreadExecutionResult,
+  ModelSnapshot,
   SubAgentCompletion,
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator, DEFAULT_MAX_PARALLEL_SUB_AGENTS } from './runtime/AgentThreadOrchestrator';
@@ -104,7 +108,35 @@ export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming, LL
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
-export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
+export type {
+  ReasoningEffort,
+  VercelAILLMConfig,
+  VercelAIProviderConfig,
+  VercelAIProviderName,
+} from './llm/VercelAILLM';
+
+// Decision model contracts
+export type { Decision, DecisionModel, DecisionModelCreateParams, IDecisionModel } from './decision/IDecisionModel';
+export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
+
+// Model routing
+export {
+  CONVERSATION_ROUTING_INSTRUCTIONS,
+  DEFAULT_ROUTING_QUESTION,
+  TASK_ROUTING_INSTRUCTIONS,
+  type RoutingCategory,
+  type RoutingQuestion,
+} from './modelRouting/question';
+export {
+  AUTO_MODEL,
+  canRouteEveryCategory,
+  createModelRouter,
+  selectModel,
+  type ModelRouterDeps,
+  type RoutableModel,
+  type RouteInput,
+  type RoutedModel,
+} from './modelRouting/router';
 
 // Event contracts
 export {

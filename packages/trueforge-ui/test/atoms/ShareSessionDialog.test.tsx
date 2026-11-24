@@ -96,6 +96,7 @@ function renderDialog({
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
+        auto: { enabled: false },
         sessionSharing,
       },
     }),

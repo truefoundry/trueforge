@@ -32,6 +32,13 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('applies secondary hover fill without a color transition', () => {
+    render(<Button.Secondary>Save</Button.Secondary>);
+    const button = screen.getByRole('button', { name: 'Save' });
+    expect(button).toHaveClass('aui-secondary-button-fill', 'transition-none');
+    expect(button).not.toHaveClass('transition-colors');
+  });
+
   it('sizes icons at 0.75rem for small buttons', () => {
     render(<Button.Primary size="small">Try</Button.Primary>);
     expect(screen.getByRole('button', { name: 'Try' }).className).toMatch(/\[&_svg\]:size-3/);

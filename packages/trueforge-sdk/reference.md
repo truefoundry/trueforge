@@ -416,6 +416,82 @@ await client.agents.delete("agent_id");
 </dl>
 </details>
 
+## Artifacts
+<details><summary><code>client.artifacts.<a href="/src/api/resources/artifacts/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Artifact, TrueForge.ListArtifactsResponse&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List artifacts created by the caller, most recently updated first. Optionally filter by session or name substring.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+const pageableResponse = await client.artifacts.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.artifacts.list();
+while (page.hasNextPage()) {
+    page = await page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListArtifactsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `ArtifactsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Auth
 <details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.GetMeResponse</code></summary>
 <dl>
@@ -4033,82 +4109,6 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dd>
 
 **request:** `TrueForge.internal.GetOrCreateSessionByExternalIdRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `SessionsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Service API key. Non-streaming; requires external_id and a non-null source.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.internal.sessions.createTurn("session_id", {
-    input: [{
-            content: "content",
-            type: "user.message"
-        }]
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.internal.InternalCreateSessionTurnRequest` 
     
 </dd>
 </dl>

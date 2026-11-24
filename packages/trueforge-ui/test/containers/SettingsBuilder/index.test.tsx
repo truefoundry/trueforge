@@ -207,6 +207,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
@@ -236,6 +237,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
@@ -280,6 +282,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
+          auto: { enabled: false },
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, memoryProviders: { enabled: false, manageProviders: true } },
         },
@@ -324,6 +327,7 @@ describe('TruefoundrySettingsBuilder', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
+        auto: { enabled: false },
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
       },

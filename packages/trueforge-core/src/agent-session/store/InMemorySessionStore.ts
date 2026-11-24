@@ -2,7 +2,7 @@ import type { TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
-import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
+import { MAIN_THREAD_ID, type TurnRecord, type TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { SessionLastTurnDetailsSchema } from '../schemas/session';
@@ -112,6 +112,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     thread_id: thread.thread_id,
     parent: thread.parent ?? null,
     agent_info: thread.agent_info ?? null,
+    model: thread.model,
     capability_state: null,
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
@@ -141,13 +142,15 @@ function buildSnapshotFromDelta(input: {
   new_threads: NewThreadInit[];
   new_context_appends: TurnContextAppend[];
   capability_states: CreateTurnInput['capability_states'];
+  main_thread_model: CreateTurnInput['main_thread_model'];
   created_at: Date;
 }): TurnSnapshot {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
     ? deepCopy(input.previousSnapshot.threads)
     : {};
-  for (const thread of Object.values(threads)) {
+  for (const [threadId, thread] of Object.entries(threads)) {
     thread.pending_mcp_auth = false;
+    thread.model = threadId === MAIN_THREAD_ID ? input.main_thread_model : thread.model;
   }
 
   assertCreateTurnThreadDelta({
@@ -158,7 +161,10 @@ function buildSnapshotFromDelta(input: {
   });
 
   for (const nt of input.new_threads) {
-    threads[nt.thread_id] = newThreadSnapshot(nt);
+    threads[nt.thread_id] = newThreadSnapshot({
+      ...nt,
+      model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
+    });
   }
 
   applyContextAppends(threads, input.new_context_appends);
@@ -362,10 +368,7 @@ export class InMemorySessionStore<
       if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
         continue;
       }
-      if (
-        input.source_id !== undefined &&
-        !(stored.record.source?.type === 'schedule' && stored.record.source.id === input.source_id)
-      ) {
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();
@@ -442,6 +445,7 @@ export class InMemorySessionStore<
       new_threads: input.new_threads,
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,
+      main_thread_model: input.main_thread_model,
       created_at: input.turn.created_at,
     });
 

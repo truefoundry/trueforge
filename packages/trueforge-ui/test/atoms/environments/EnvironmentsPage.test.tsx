@@ -411,6 +411,8 @@ describe('EnvironmentsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Set as default' }));
     await waitFor(() => expect(setDefaultEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    // Reopening the menu before it finishes closing swallows the next click.
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Set as default' })).toBeNull());
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for python-data' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));

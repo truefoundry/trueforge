@@ -1,6 +1,11 @@
+import { configure } from '@testing-library/dom';
 import '@testing-library/jest-dom/vitest';
 import { createElement, type ReactNode } from 'react';
 import { vi } from 'vitest';
+
+// Loaded CI runners (Windows most of all) stall past the 1s default while a menu
+// or dialog mounts, which fails waits that the app would satisfy.
+configure({ asyncUtilTimeout: 5_000 });
 
 // Mirror `src/index.ts`: agent SVGs register into the Icon map. Tests that import
 // atoms/theme modules directly never hit the package entry, so load them here.

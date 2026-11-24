@@ -1,6 +1,5 @@
 /**
- * DB-backed turns API (mounted at /api/v1/sessions) and internal create-turn
- * (mounted at /api/internal/sessions/{session_id}/turns).
+ * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type {
@@ -33,8 +32,10 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
+  DecisionModel,
   IWebSearchProvider,
   McpConnection,
+  ModelRouterDeps,
   ResolveHeadersResult,
 } from '@truefoundry/trueforge-core/core';
 import {
@@ -45,6 +46,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -69,16 +71,15 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
-import {
-  requestContextFromCreatedBySubject,
-  requestContextFromWire,
-  type RequestContext,
-  type ResolveRequestContext,
-} from '../auth/identity';
-import configuration from '../config';
+import { requestContextFromWire, type RequestContext, type ResolveRequestContext } from '../auth/identity';
+import configuration, {
+  enabledTenantModelRouting,
+  trueFoundryModelRouting,
+  type TrueFoundryModelRouting,
+} from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
+import type { ICapabilitiesStore } from '../db/capabilitiesStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -93,7 +94,6 @@ import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
-  createInternalSessionTurnRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -121,7 +121,7 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
-import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -363,6 +363,47 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
+/** This turn's model routing inputs, or undefined when routing is off for the tenant. */
+function turnModelRouting(input: {
+  routing: TrueFoundryModelRouting | undefined;
+  tenant_id: string;
+  modelProviderStore: IModelProviderStore;
+  turnMetadata: TurnMetadata;
+}): ModelRouterDeps | undefined {
+  const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
+  if (routing === undefined) {
+    return undefined;
+  }
+  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
+  if (tenantRouting === undefined) {
+    return undefined;
+  }
+  // Resolved on first use, so turns that route no thread skip the lookup.
+  let decisionModel: Promise<DecisionModel> | undefined;
+  const resolveDecisionModel = () => {
+    decisionModel ??= getModelDetails({
+      tenant_id,
+      name: tenantRouting.decision_model,
+      store: modelProviderStore,
+      turnMetadata,
+    }).then(resolved => ({
+      client: new OpenAIDecisionModel(resolved.providerConfig),
+      properties: { contextLength: resolved.modelProperties?.contextLength },
+    }));
+    decisionModel.catch(() => {
+      decisionModel = undefined;
+    });
+    return decisionModel;
+  };
+  return {
+    classifier: resolveDecisionModel,
+    question: {
+      categories: routing.categories,
+    },
+    listModels: () => modelProviderStore.listModels({ tenant_id }),
+  };
+}
+
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
  * the same way: async factories over the corresponding stores.
@@ -374,6 +415,7 @@ function createTurnResolver(deps: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
+  modelRouting: ModelRouterDeps | undefined;
   webSearchProvider: IWebSearchProvider | undefined;
   /** Root-thread memory for this turn; undefined when memory doesn't apply to the session. */
   memoryCapability: AgentCapability | undefined;
@@ -392,6 +434,7 @@ function createTurnResolver(deps: {
     sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
+    modelRouting,
     webSearchProvider,
     memoryCapability,
     logger,
@@ -406,6 +449,7 @@ function createTurnResolver(deps: {
   const sessionId = session.session_id;
 
   return new TurnResourceResolver({
+    modelRouting,
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id,
@@ -465,6 +509,7 @@ function createTurnResolver(deps: {
           : await skillStore.resolveTurnSkills({
               tenant_id,
               skills,
+              agent_id: undefined,
             });
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
@@ -516,7 +561,7 @@ function createTurnResolver(deps: {
 const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /**
- * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * Caps a title at {@link MAX_TITLE_LENGTH} UTF-16 units without splitting a
  * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
  * ZWJ sequences, which read as one unit but span several) are dropped whole.
  */
@@ -524,7 +569,7 @@ function truncateSessionTitle(title: string): string {
   let truncated = '';
   let length = 0;
   for (const { segment } of titleSegmenter.segment(title)) {
-    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+    if (length + segment.length > MAX_TITLE_LENGTH) {
       break;
     }
     truncated += segment;
@@ -535,7 +580,7 @@ function truncateSessionTitle(title: string): string {
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the
- * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
+ * trimmed text (capped at {@link MAX_TITLE_LENGTH}) or `undefined` when no usable
  * text is present (for example, a file-only message).
  */
 export function deriveSessionTitle(input: UserMessage[] | undefined): string | undefined {
@@ -757,6 +802,12 @@ async function prepareTurnExecution<TTransaction>(input: {
     requestContext: input.deps.requestContext,
     requestHeaders: input.requestHeaders,
   });
+  const turnMetadata: TurnMetadata = {
+    sessionId: input.session.session_id,
+    turnId: input.turnId,
+    ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
+    ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
+  };
   const resolver = createTurnResolver({
     mcpServerStore: input.deps.mcpServerStore,
     skillStore: input.deps.skillStore,
@@ -764,18 +815,19 @@ async function prepareTurnExecution<TTransaction>(input: {
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
     agentStore: input.deps.agentStore,
     modelProviderStore: input.deps.modelProviderStore,
+    modelRouting: turnModelRouting({
+      routing: trueFoundryModelRouting(),
+      tenant_id: input.session.tenant_id,
+      modelProviderStore: input.deps.modelProviderStore,
+      turnMetadata,
+    }),
     webSearchProvider,
     memoryCapability,
     logger: input.deps.logger,
     signal: abortController.signal,
     userRef: input.userRef,
     session: input.session,
-    turnMetadata: {
-      sessionId: input.session.session_id,
-      turnId: input.turnId,
-      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
-      ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
-    },
+    turnMetadata,
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
   });
@@ -1111,6 +1163,7 @@ export function getTurnExecutionError(error: unknown): TurnExecutionError | unde
       case 'invalid_send_input':
       case 'agent_sandbox_required':
       case 'tool_name_collision':
+      case 'auto_model_unavailable':
         return { status: 422, message: error.message };
       case 'capability_state_error':
       case 'mcp_connection_failed':
@@ -2384,113 +2437,4 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   deps.requestReplyRouter.registerRoute(TURNS_SEND_EVENTS_PATH, handlePeerTurnEvents(deps));
   return router;
-}
-
-/** Runtime + Context store resolvers for service-key create-turn (same shape as schedules). */
-export interface InternalSessionTurnsDeps<TTransaction = never> {
-  activeTurns: ActiveTurnRegistry<TTransaction>;
-  agentStore: IAgentStore<TTransaction>;
-  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  logger: Logger;
-  resolveMcpServerStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IMcpServerWithAuthStore<TTransaction>;
-  resolveModelProviderStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IModelProviderStore<TTransaction>;
-  resolveTurnSkillsStore: (input: {
-    c?: Context;
-    allowInlineResources?: boolean;
-  }) => Pick<ISkillStore, 'resolveTurnSkills'>;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  sessions: Sessions<TTransaction>;
-  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
-  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-}
-
-/** Register internal create-turn on a shared `/api/internal/sessions` router. */
-export function registerInternalSessionTurnRoutes<TTransaction>(
-  router: OpenAPIHono,
-  deps: InternalSessionTurnsDeps<TTransaction>,
-): void {
-  const handler: RouteHandler<typeof createInternalSessionTurnRoute> = async c => {
-    const { session_id: sessionId } = c.req.valid('param');
-    const body = c.req.valid('json');
-
-    // Same as schedule getRunById: session_id is the only trusted input.
-    const session = await deps.sessions.getById({ session_id: sessionId });
-    if (session === undefined) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-
-    // external_id + non-null source: service sessions already excluded from memory ingest.
-    if (session.record.external_id === null || session.record.source === null) {
-      return c.json({ error: { message: `Session is not eligible for internal turn create: ${sessionId}` } }, 403);
-    }
-
-    const tenantId = session.record.tenant_id;
-
-    // Saved-agent token exchange needs a named agent; inline sessions have no agent id to vend.
-    if (session.record.agent.type !== 'reference') {
-      return c.json(
-        {
-          error: {
-            message: 'Internal create-turn requires a session bound to a named agent (not an inline agent spec)',
-          },
-        },
-        422,
-      );
-    }
-
-    const agent = await deps.agentStore.getAgent({
-      tenant_id: tenantId,
-      id: session.record.agent.id,
-    });
-    if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
-    }
-
-    c.set(
-      'request_context',
-      requestContextFromCreatedBySubject({
-        tenant_id: tenantId,
-        created_by_subject: session.record.created_by_subject,
-        user_credential: null,
-      }),
-    );
-    updateLogContext({ tenant_id: tenantId, session_id: sessionId });
-
-    try {
-      const turn = await startTurnInProcess({
-        session,
-        input: body.input,
-        previous_turn_id: body.previous_turn_id,
-        userRef: session.record.created_by_subject.subject_id,
-        deps: {
-          activeTurns: deps.activeTurns,
-          eventSubscriptions: deps.eventSubscriptions,
-          agentStore: deps.agentStore,
-          modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: agent }),
-          mcpServerStore: deps.resolveMcpServerStore({ c, runAsAgent: agent }),
-          sandboxProviderStore: deps.sandboxProviderStore,
-          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-          webSearchProviderStore: deps.webSearchProviderStore,
-          // Registry resolve uses the service API key (same as schedules); omit `c`.
-          skillStore: deps.resolveTurnSkillsStore({}),
-          // Internal create-turn has no caller `x-tfg-tools`.
-          capabilitiesStore: new EmptyCapabilitiesStore(),
-          // Internal service turns never read or write memory (same as schedules).
-          memory: undefined,
-          logger: deps.logger,
-          sessionStore: deps.sessionStore,
-        },
-      });
-      return c.json({ data: toWireTurn(turn.record) }, 200);
-    } catch (error) {
-      const mapped = getTurnExecutionError(error);
-      if (mapped !== undefined) {
-        return c.json({ error: { message: mapped.message } }, mapped.status);
-      }
-      throw error;
-    }
-  };
-
-  router.openapi(createInternalSessionTurnRoute, handler);
 }

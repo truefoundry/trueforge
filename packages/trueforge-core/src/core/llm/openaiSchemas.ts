@@ -23,7 +23,7 @@ export const ChatCompletionContentPartImageSchema = z
     type: z.literal('image_url').describe('Image URL content part.'),
     image_url: z.object({
       url: z.string().describe('Image URL or data URI.'),
-      detail: z.enum(['auto', 'low', 'high']).optional().describe('Optional image detail level.'),
+      detail: z.enum(['auto', 'low', 'high', 'original']).optional().describe('Optional image detail level.'),
     }),
   })
   .openapi('ChatCompletionContentPartImage');

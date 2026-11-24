@@ -9,11 +9,12 @@ import {
   type GetModelProviderInput,
   type IModelProviderStore,
   type ListModelProvidersInput,
+  type ModelInfo,
   type ModelProviderRecord,
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { ModelProviderManifest } from '../schemas/modelProvider';
 import {
   accessTokenForRequest,
   actorAuthorizationHeaders,
@@ -55,7 +56,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
     void transaction;
-    return this.#records(input);
+    return (await this.#records(input)).records;
   }
 
   async getProvider(
@@ -63,7 +64,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     transaction?: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void transaction;
-    const records = await this.#records({
+    const { records } = await this.#records({
       tenant_id: input.tenant_id,
       filter: { provider_account_name: input.name, name: input.model_name },
     });
@@ -97,8 +98,17 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return trueFoundryManaged();
   }
 
-  async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
-    return flattenProviderModels(await this.listProviders(input, transaction));
+  async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelInfo[]> {
+    void transaction;
+    const { records, models } = await this.#records({ tenant_id: input.tenant_id });
+    const listed = flattenProviderModels(records);
+    const infoByName = new Map(
+      models.map(model => [
+        `${model.accountName}/${model.modelName}`,
+        { canonicalModel: model.canonicalModel, cost: model.cost },
+      ]),
+    );
+    return listed.map(model => ({ ...model, ...infoByName.get(model.name) }));
   }
 
   async resolveInvokeHeaders(input: {
@@ -113,10 +123,11 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     };
   }
 
+  /** The caller's provider records, and the parsed models they're built from. */
   async #records(input: {
     tenant_id: string;
     filter?: { provider_account_name: string; name: string };
-  }): Promise<ModelProviderRecord[]> {
+  }): Promise<{ records: ModelProviderRecord[]; models: TrueFoundryEnabledModel[] }> {
     const [serviceFoundryAccessToken, gatewayAuthorization] = await Promise.all([
       this.#resolveServiceFoundryAuthorization(),
       this.#resolveGatewayAuthorization(),
@@ -129,16 +140,21 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       this.#client.listGatewayInstallations(serviceFoundryAccessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
+    // A by-name lookup also resolves decision models (the model router's Jev); listings stay chat-only.
     const models = filterEnvModels({
       tenant_id: input.tenant_id,
-      models: mapEnabledModels({ integrations }),
+      models: mapEnabledModels({
+        integrations,
+        ...(input.filter !== undefined ? { modelTypes: ['chat', 'decision'] } : {}),
+      }),
     });
-    return toRecords({
+    const records = toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
       accessToken: gatewayAuthorization.subjectToken,
       models,
     });
+    return { records, models };
   }
 }
 

@@ -1,7 +1,9 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
+import type { RouteInput, RoutedModel } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
-import type { AgentInfo } from '../core/runtime/AgentThread.types';
+import type { AgentModel } from '../core/runtime/AgentModel';
+import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
@@ -11,6 +13,7 @@ import type { AgentSpec } from './schemas/agentSpec';
 /** Result of {@link ITurnResourceResolver.resolveAgentDefinition}. */
 export interface ResolvedAgentDefinition {
   definition: AgentDefinition;
+  model: AgentModel;
   extraCapabilities?: AgentCapability[] | undefined;
 }
 
@@ -59,10 +62,13 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
+    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
+  /** Picks a thread's model before it starts; undefined to not route. */
+  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

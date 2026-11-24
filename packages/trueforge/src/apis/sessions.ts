@@ -31,7 +31,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
+import configuration, { trueFoundryModelRouting } from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IConfigurationStore } from '../db/configurationStore';
@@ -379,6 +379,8 @@ function validateSessionSpec<TTransaction>({
     memoryProviderStore: deps.memoryProviderStore,
     configurationStore: deps.configurationStore,
     previousSpec,
+    agentId: runAsAgent?.id,
+    modelRouting: trueFoundryModelRouting(),
   });
 }
 
@@ -513,18 +515,10 @@ function createGetOrCreateSessionByExternalIdHandler<TTransaction>(
   };
 }
 
-/** Register internal session routes on a shared `/api/internal/sessions` router. */
-export function registerInternalSessionsRoutes<TTransaction>(
-  router: OpenAPIHono,
-  deps: InternalSessionsRouterDeps<TTransaction>,
-): void {
-  router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
-}
-
 /** Internal session operations (mounted at /api/internal/sessions). */
 export function createInternalSessionsRouter<TTransaction>(deps: InternalSessionsRouterDeps<TTransaction>) {
   const router = new OpenAPIHono();
-  registerInternalSessionsRoutes(router, deps);
+  router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
   return router;
 }
 

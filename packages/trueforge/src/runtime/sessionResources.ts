@@ -1,8 +1,9 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
+  AUTO_MODEL,
   Sandbox,
   SkillMounter,
-  type AgentDefinition,
+  type AgentModel,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
   type McpConnection,
@@ -14,7 +15,7 @@ import {
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
-import configuration from '../config';
+import configuration, { enabledTenantModelRouting, type TrueFoundryModelRouting } from '../config';
 import {
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
@@ -70,7 +71,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
-  modelProperties: AgentDefinition['modelProperties'];
+  modelProperties: AgentModel['properties'];
   reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);
@@ -288,6 +289,8 @@ export async function validateAgentSpec({
   memoryProviderStore,
   configurationStore,
   previousSpec,
+  agentId,
+  modelRouting,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -301,19 +304,36 @@ export async function validateAgentSpec({
   memoryProviderStore: IMemoryProviderStore;
   configurationStore: IConfigurationStore;
   previousSpec: AgentSpec | undefined;
+  agentId: string | undefined;
+  /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
+  modelRouting: TrueFoundryModelRouting | undefined;
 }): Promise<void> {
-  const resolved = await getModelDetails({
-    tenant_id,
-    name: spec.model.name,
-    store: modelProviderStore,
-  });
-  const reasoningEffort = spec.model.params?.reasoning_effort;
-  if (reasoningEffort !== undefined) {
-    const efforts = resolved.reasoningEfforts;
-    if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
+  // `auto` names no catalog model. It is only valid when this tenant routes models.
+  if (spec.model.name === AUTO_MODEL) {
+    if (enabledTenantModelRouting(modelRouting, tenant_id) === undefined) {
       throw new HTTPException(422, {
-        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
+        message: 'Model "auto" requires model routing to be enabled for this tenant',
       });
+    }
+    if (spec.model.params !== undefined && Object.keys(spec.model.params).length > 0) {
+      throw new HTTPException(422, {
+        message: 'Model "auto" does not accept model params',
+      });
+    }
+  } else {
+    const resolved = await getModelDetails({
+      tenant_id,
+      name: spec.model.name,
+      store: modelProviderStore,
+    });
+    const reasoningEffort = spec.model.params?.reasoning_effort;
+    if (reasoningEffort !== undefined) {
+      const efforts = resolved.reasoningEfforts;
+      if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
+        throw new HTTPException(422, {
+          message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
+        });
+      }
     }
   }
 
@@ -338,7 +358,11 @@ export async function validateAgentSpec({
 
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
-    await skillStore.validateAgentSkills({ tenant_id, skills: requestedSkills });
+    await skillStore.validateAgentSkills({
+      tenant_id,
+      skills: requestedSkills,
+      agent_id: agentId,
+    });
   }
 
   const wantsSandbox = spec.config.sandbox.enabled;

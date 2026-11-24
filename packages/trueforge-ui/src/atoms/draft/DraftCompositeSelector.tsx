@@ -292,7 +292,6 @@ function SearchField({
 
 export type DraftCompositeSelectorProps = {
   disabled?: boolean;
-  isRunning?: boolean;
   onAttach?: () => void;
 };
 
@@ -322,7 +321,7 @@ function RowNote({ children, icon = 'lock' }: { children: string; icon?: 'lock' 
   );
 }
 
-export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
+export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSelectorProps) {
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
   const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
@@ -909,12 +908,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center">
       {compactLayout ? (
-        <DraftComposerActionsMenu actions={compactActions} disabled={disabled || isRunning} />
+        <DraftComposerActionsMenu actions={compactActions} disabled={disabled} />
       ) : hasValidModel ? (
         <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
           <button
             type="button"
-            disabled={disabled || isRunning}
+            disabled={disabled}
             aria-label={`Tools (${toolsCount})`}
             aria-haspopup="dialog"
             aria-expanded={open}
@@ -941,7 +940,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <Tooltip content="Attach a file">
           <button
             type="button"
-            disabled={disabled || isRunning}
+            disabled={disabled}
             aria-label="Attach a file"
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={onAttach}

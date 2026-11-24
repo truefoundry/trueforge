@@ -195,7 +195,6 @@ export async function getSession(
   return mapRowToSessionRecord(row);
 }
 
-/** Internal execution lookup when the session id is the only trusted input. */
 export async function getSessionById(
   db: Kysely<Database>,
   input: GetSessionByIdInput,

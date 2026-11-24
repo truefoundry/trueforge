@@ -768,6 +768,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
                     thread_id: event.thread_id,
                     parent: event.parent,
                     agent_info: event.agent_info,
+                    model: event.model ?? null,
                     context: [],
                     current_context_usage: getEmptyCurrentContextUsage(),
                     completion: null,

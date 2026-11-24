@@ -1,6 +1,8 @@
 import { AgentSandboxRequiredError, InvalidFileInputError } from '../../../src/core/errors';
 import { EventType } from '../../../src/core/events/schema';
 import {
+  buildUploadedFilesAnnouncement,
+  extractUploadedFilesInAnnouncement,
   isEmptyMessageContent,
   processAgentUserInput,
   type FileContentPart,
@@ -92,5 +94,21 @@ describe('UserInputMessage validation', () => {
     await expect(processAgentUserInput(msg, sandbox)).rejects.toMatchObject({
       message: 'File data URI is missing or has unparseable MIME type',
     });
+  });
+
+  it('reads filename and content type back from an uploaded-files announcement', () => {
+    const text = buildUploadedFilesAnnouncement([
+      { filename: 'my report.csv', path: '/sandbox/my report.csv', mime: 'text/csv', size: 4 },
+      { filename: 'notes.txt', path: '/sandbox/notes.txt', mime: 'text/plain', size: 2 },
+    ]);
+    expect(extractUploadedFilesInAnnouncement(text)).toEqual([
+      { filename: 'my report.csv', mime: 'text/csv' },
+      { filename: 'notes.txt', mime: 'text/plain' },
+    ]);
+  });
+
+  it('returns nothing for text that is not an uploaded-files announcement', () => {
+    expect(extractUploadedFilesInAnnouncement('filename: only\nhello')).toEqual([]);
+    expect(extractUploadedFilesInAnnouncement('<tfy-internal>remember this</tfy-internal>')).toEqual([]);
   });
 });
