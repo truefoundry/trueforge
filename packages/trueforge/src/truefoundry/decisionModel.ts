@@ -39,7 +39,7 @@ export async function loadDecisionModel(input: {
       cause: error,
     });
   }
-  const model = mapEnabledModels({ integrations, modelTypes: ['chat', 'decision'] }).find(
+  const model = mapEnabledModels({ integrations, modelTypes: ['decision'] }).find(
     candidate => candidate.accountName === parsed.providerName && candidate.modelName === parsed.modelName,
   );
   if (model === undefined) {
