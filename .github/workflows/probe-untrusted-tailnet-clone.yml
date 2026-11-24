@@ -1,0 +1,58 @@
+name: Probe untrusted tailnet join
+
+# Not a Tailscale identity. Runs on a pull request into main and on pushes to
+# ci/tailnet-github-egress. trueforge-internal only deploys from main and
+# release-v*, so this job is refused before it can join or clone.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [ci/tailnet-github-egress]
+
+permissions: {}
+
+jobs:
+  probe:
+    name: Join and clone must both fail
+    if: github.head_ref == 'ci/tailnet-github-egress' || github.ref_name == 'ci/tailnet-github-egress'
+    runs-on: ubuntu-latest
+    environment: trueforge-internal
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Join the tailnet for GitHub egress
+        id: join
+        continue-on-error: true
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_DEPLOY_DEVTEST_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_DEPLOY_DEVTEST_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-probe-${{ github.run_id }}
+
+      - name: Clone trueforge-devtest-deployment
+        id: clone
+        continue-on-error: true
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: git clone --depth 1 https://github.com/truefoundry/trueforge-devtest-deployment.git /tmp/devtest
+
+      - name: Require both attempts to be rejected
+        env:
+          JOIN: ${{ steps.join.outcome }}
+          CLONE: ${{ steps.clone.outcome }}
+        run: |
+          set -euo pipefail
+          echo "join=$JOIN clone=$CLONE"
+          if [ "$JOIN" = success ]; then
+            echo "::error::untrusted workflow joined the tailnet"
+            exit 1
+          fi
+          if [ "$CLONE" = success ]; then
+            echo "::error::untrusted workflow cloned trueforge-devtest-deployment"
+            exit 1
+          fi
+          echo "### Probe passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Join was rejected and the deployment repo clone was rejected." >> "$GITHUB_STEP_SUMMARY"

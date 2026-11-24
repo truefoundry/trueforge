@@ -1,0 +1,46 @@
+name: Probe untrusted app token
+
+# No tailnet join. Runs on a pull request into main and on pushes to
+# ci/tailnet-github-egress. trueforge-internal only deploys from main and
+# release-v*, so this job is refused before it can mint a token.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [ci/tailnet-github-egress]
+
+permissions: {}
+
+jobs:
+  probe:
+    name: App token mint must fail
+    if: github.head_ref == 'ci/tailnet-github-egress' || github.ref_name == 'ci/tailnet-github-egress'
+    runs-on: ubuntu-latest
+    environment: trueforge-internal
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Mint a GitHub App token
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: read
+          owner: truefoundry
+          repositories: trueforge-devtest-deployment
+
+      - name: Require the mint to be rejected
+        env:
+          MINT: ${{ steps.app-token.outcome }}
+        run: |
+          set -euo pipefail
+          echo "mint=$MINT"
+          if [ "$MINT" = success ]; then
+            echo "::error::app token was minted without joining the tailnet"
+            exit 1
+          fi
+          echo "### Probe passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "App token mint was rejected." >> "$GITHUB_STEP_SUMMARY"
