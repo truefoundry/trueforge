@@ -22,9 +22,9 @@ export interface ObjectStore {
   direct?: DirectTransfer;
 }
 
-/** Rejects absolute, empty-segment, and `.` / `..` keys so no key can escape its prefix. */
+/** Rejects absolute, empty-segment, `.` / `..`, and backslash keys so no key can escape its prefix. */
 export function assertObjectKey(key: string): void {
-  if (key.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+  if (key.includes('\\') || key.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
     throw new Error(`Invalid object key: ${JSON.stringify(key)}`);
   }
 }

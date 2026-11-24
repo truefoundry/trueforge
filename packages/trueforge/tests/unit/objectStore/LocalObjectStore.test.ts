@@ -30,7 +30,7 @@ describe('LocalObjectStore', () => {
     await expect(store.get('artifacts/missing.txt')).resolves.toBeUndefined();
   });
 
-  it.each(['/abs/key', 'a/../b', 'a//b', 'a/./b', 'a/', ''])('rejects key %j', async key => {
+  it.each(['/abs/key', 'a/../b', 'a//b', 'a/./b', 'a/', '', '..\\x', 'a\\b'])('rejects key %j', async key => {
     await expect(store.put({ key, body: new Uint8Array() })).rejects.toThrow('Invalid object key');
     await expect(store.get(key)).rejects.toThrow('Invalid object key');
   });
