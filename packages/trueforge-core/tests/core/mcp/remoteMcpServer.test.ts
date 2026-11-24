@@ -218,7 +218,7 @@ describe('RemoteMCP + ToolSet', () => {
     await pendingClose;
     await expect(pendingList).rejects.toMatchObject({
       name: 'Error',
-      message: "Remote MCP 'my-inline' was closed before the connection was ready",
+      message: "Remote MCP 'my-inline' not connected - connectIfNeeded() must run first",
     });
     expect(state.closes).toBe(1);
   });
