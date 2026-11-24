@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class AutoCapabilityStatus(enum.StrEnum):
     """
-    Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable.
+    Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here.
     """
 
     NOT_CONFIGURED = "not_configured"

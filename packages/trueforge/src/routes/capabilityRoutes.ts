@@ -68,7 +68,7 @@ const AutoCapabilitySchema = z
     status: z
       .enum(['not_configured', 'disabled', 'enabled'])
       .describe(
-        'Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable.',
+        'Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here.',
       ),
     reason: z.string().optional().describe('Present when status is disabled. Explains why.'),
   })

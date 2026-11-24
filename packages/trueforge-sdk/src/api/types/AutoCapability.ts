@@ -5,6 +5,6 @@ import type * as TrueForge from "../index.js";
 export interface AutoCapability {
     /** Present when status is disabled. Explains why. */
     reason?: string;
-    /** Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable. */
+    /** Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here. */
     status: TrueForge.AutoCapabilityStatus;
 }
