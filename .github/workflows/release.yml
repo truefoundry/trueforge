@@ -165,7 +165,7 @@ jobs:
             git status --porcelain
             exit 1
           fi
-          git commit -m "Version Packages for ${TFY_CHART_VERSION}"
+          git commit -m "Version Packages for truefoundry release v${TFY_CHART_VERSION}"
           git push origin "HEAD:${RELEASE_BRANCH}"
           SHA="$(git rev-parse HEAD)"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
