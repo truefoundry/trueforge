@@ -1,4 +1,5 @@
 import { TURN_STATUS, type TurnStatus } from '../../server/types.js';
+import { readSessionIsCreateAgent } from './sessionCreateAgent.js';
 
 /** Matches TrueForge `PATCH /sessions/{id}` title max. */
 export const MAX_SESSION_TITLE_LENGTH = 50;
@@ -125,6 +126,21 @@ export function readThreadIsMutable(custom: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
+/** Builder intent from thread-list custom.metadata (pass-through from session DTO). */
+export function readThreadIsCreateAgent(custom: unknown): boolean {
+  if (custom == null || typeof custom !== 'object') return false;
+  if (!('metadata' in custom)) return false;
+  const metadata = Reflect.get(custom, 'metadata');
+  if (typeof metadata !== 'object' || metadata === null) return false;
+  const record: Record<string, string> = {};
+  for (const key of Object.keys(metadata)) {
+    const value = Reflect.get(metadata, key);
+    if (typeof value !== 'string') continue;
+    record[key] = value;
+  }
+  return readSessionIsCreateAgent(record);
+}
+
 /** Activity time stamped by the status poll. Newer than `lastMessageAt` after a fresh pause. */
 export function readThreadLastActivityAt(custom: unknown): Date | undefined {
   if (custom == null || typeof custom !== 'object') return undefined;
@@ -192,13 +208,16 @@ export function threadListItemIsMutable(custom: unknown): boolean {
  * safe to keep. Blank drafts (no agentName/agentId) may share one shell; an
  * Edit-bound shell must remount via `openHistorySession` when leaving its
  * pending session so Update does not keep the previous agentName over another
- * draft's runtime spec.
+ * draft's runtime spec. Builder vs normal chat also remounts so the config
+ * drawer opens or closes with the row.
  */
 export function canReuseMutableShell({
   sessionMutable,
   shellMutable,
   shellAgentName,
   shellAgentId,
+  sessionIsCreateAgent = false,
+  shellIsCreateAgent = false,
   remoteId,
   pendingSessionId,
 }: {
@@ -206,10 +225,13 @@ export function canReuseMutableShell({
   shellMutable: boolean;
   shellAgentName?: string;
   shellAgentId?: string;
+  sessionIsCreateAgent?: boolean;
+  shellIsCreateAgent?: boolean;
   remoteId?: string | null;
   pendingSessionId?: string;
 }): boolean {
   if (!sessionMutable || !shellMutable) return false;
+  if (sessionIsCreateAgent !== shellIsCreateAgent) return false;
   const editBound = (shellAgentName != null && shellAgentName !== '') || (shellAgentId != null && shellAgentId !== '');
   if (!editBound) return true;
   return remoteId != null && remoteId === pendingSessionId;

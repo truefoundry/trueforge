@@ -18,12 +18,14 @@ import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../atoms/lib/sessionListPoll.js';
 import {
   canReuseMutableShell,
   isNewerActivityAt,
   laterActivityAt,
   readThreadAgentName,
+  readThreadIsCreateAgent,
   readThreadIsMutable,
   readThreadLastActivityAt,
   readThreadLastTurnStatus,
@@ -39,7 +41,7 @@ import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { sessionListStartTimestamp } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useToasterOptional } from './ToasterContainer.js';
@@ -252,7 +254,15 @@ function ThreadListItemRow({
     }
   };
 
-  const openRow = ({ sessionMutable, rowAgentName }: { sessionMutable: boolean; rowAgentName: string | undefined }) => {
+  const openRow = ({
+    sessionMutable,
+    rowAgentName,
+    rowIsCreateAgent,
+  }: {
+    sessionMutable: boolean;
+    rowAgentName: string | undefined;
+    rowIsCreateAgent: boolean;
+  }) => {
     const sameImmutable =
       !sessionMutable &&
       shell?.mode.status === 'active' &&
@@ -263,6 +273,8 @@ function ThreadListItemRow({
     const sameMutable = canReuseMutableShell({
       sessionMutable,
       shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
+      sessionIsCreateAgent: rowIsCreateAgent,
+      shellIsCreateAgent: shell?.mode != null && shellIsCreateAgent(shell.mode),
       ...(shell?.mode.status === 'active' && shell.mode.isMutable
         ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
         : {}),
@@ -279,6 +291,7 @@ function ThreadListItemRow({
       shell?.openHistorySession({
         sessionId: remoteId,
         isMutable: sessionMutable,
+        isCreateAgent: rowIsCreateAgent,
         ...(rowAgentName != null ? { agentName: rowAgentName } : {}),
       });
       return;
@@ -314,8 +327,16 @@ function ThreadListItemRow({
             void server
               .getSession({ sessionId: remoteId })
               .then(
-                session => ({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
-                () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
+                session => ({
+                  sessionMutable: session.isMutable,
+                  rowAgentName: session.agentName ?? undefined,
+                  rowIsCreateAgent: sessionIsCreateAgent(session),
+                }),
+                () => ({
+                  sessionMutable: threadListItemIsMutable(custom),
+                  rowAgentName: agentName,
+                  rowIsCreateAgent: readThreadIsCreateAgent(custom),
+                }),
               )
               .then(resolved => {
                 // A later row click supersedes this open; New Chat / agent switches remount the runtime.
@@ -325,7 +346,11 @@ function ThreadListItemRow({
             return;
           }
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
-          openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName });
+          openRow({
+            sessionMutable: threadListItemIsMutable(custom),
+            rowAgentName: agentName,
+            rowIsCreateAgent: readThreadIsCreateAgent(custom),
+          });
         }}
         actions={
           showActions ? (

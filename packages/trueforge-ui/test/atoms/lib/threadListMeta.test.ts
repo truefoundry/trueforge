@@ -10,6 +10,7 @@ import {
   laterActivityAt,
   PAUSED_STATUS_DOT_MAX_AGE_MS,
   readThreadAgentName,
+  readThreadIsCreateAgent,
   readThreadIsMutable,
   readThreadLastActivityAt,
   readThreadLastTurnStatus,
@@ -203,6 +204,15 @@ describe('threadListIndicesByRecency', () => {
   });
 });
 
+describe('readThreadIsCreateAgent', () => {
+  it('reads builder intent from custom.metadata', () => {
+    expect(readThreadIsCreateAgent({ metadata: { is_create_agent: 'true' } })).toBe(true);
+    expect(readThreadIsCreateAgent({ metadata: { is_create_agent: 'false' } })).toBe(false);
+    expect(readThreadIsCreateAgent({ isMutable: true })).toBe(false);
+    expect(readThreadIsCreateAgent(null)).toBe(false);
+  });
+});
+
 describe('canReuseMutableShell', () => {
   it('allows blank drafts to share the mutable shell', () => {
     expect(
@@ -234,6 +244,42 @@ describe('canReuseMutableShell', () => {
         shellMutable: true,
         shellAgentName: 'writer',
         remoteId: 'sess-a',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks reuse when builder vs normal chat flags differ', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        sessionIsCreateAgent: true,
+        shellIsCreateAgent: false,
+        remoteId: 'sess-b',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(false);
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        sessionIsCreateAgent: false,
+        shellIsCreateAgent: true,
+        remoteId: 'sess-b',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows reuse when both sides are builder chats', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        sessionIsCreateAgent: true,
+        shellIsCreateAgent: true,
+        remoteId: 'sess-b',
         pendingSessionId: 'sess-a',
       }),
     ).toBe(true);
