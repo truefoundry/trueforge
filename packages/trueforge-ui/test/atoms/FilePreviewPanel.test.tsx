@@ -71,6 +71,23 @@ describe('FilePreviewPanel', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('reloads from the header', () => {
+    const onReload = vi.fn();
+    render(
+      <FilePreviewPanel
+        name="report.txt"
+        placement="side"
+        view={{ status: 'text', text: 'draft' }}
+        onClose={vi.fn()}
+        onDownload={vi.fn()}
+        onReload={onReload}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reload preview' }));
+    expect(onReload).toHaveBeenCalledOnce();
+  });
+
   it('widens the side pane from the resize handle', () => {
     const onWidthChange = vi.fn();
     render(

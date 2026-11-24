@@ -24,6 +24,7 @@ export type FilePreviewPanelProps = {
   onDownload: () => void;
   onEnterFullPage?: () => void;
   onExitFullPage?: () => void;
+  onReload?: () => void;
   onRetry?: () => void;
   downloadBusy?: boolean;
   /** Side-pane width in CSS pixels. Overlay and full-page placement ignore this. */
@@ -114,6 +115,7 @@ export function FilePreviewPanel({
   onDownload,
   onEnterFullPage,
   onExitFullPage,
+  onReload,
   onRetry,
   downloadBusy = false,
   widthPx,
@@ -220,6 +222,18 @@ export function FilePreviewPanel({
         {view.status === 'error' && onRetry != null ? (
           <button type="button" onClick={onRetry} className={auiButtonClass({ variant: 'ghost', size: 'small' })}>
             Retry
+          </button>
+        ) : null}
+        {onReload != null ? (
+          <button
+            type="button"
+            onClick={onReload}
+            disabled={view.status === 'loading'}
+            aria-label="Reload preview"
+            title="Reload preview"
+            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-7 w-7' })}
+          >
+            <Icon name="refresh-cw" size={14} className={cn(view.status === 'loading' && 'animate-spin')} />
           </button>
         ) : null}
         {placement === 'full' && onExitFullPage != null ? (

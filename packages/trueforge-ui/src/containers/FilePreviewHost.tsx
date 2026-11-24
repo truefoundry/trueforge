@@ -55,6 +55,7 @@ export function FilePreviewHost() {
   }, [placement, target, widthPx]);
 
   if (target == null) return null;
+  const reload = () => setReloadToken(token => token + 1);
   const canRetry = loaded.view.status === 'error';
 
   const handleDownload = () => {
@@ -80,6 +81,7 @@ export function FilePreviewHost() {
       view={loaded.view}
       onClose={preview.close}
       onDownload={handleDownload}
+      onReload={reload}
       onEnterFullPage={() => preview.setPresentation('full')}
       onExitFullPage={() => preview.setPresentation('panel')}
       downloadBusy={downloadBusy}
@@ -92,7 +94,7 @@ export function FilePreviewHost() {
             },
           }
         : {})}
-      {...(canRetry ? { onRetry: () => setReloadToken(token => token + 1) } : {})}
+      {...(canRetry ? { onRetry: reload } : {})}
     />
   );
 }
