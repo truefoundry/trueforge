@@ -555,6 +555,9 @@ export function useTrueForgeAgentMessages({
   const runningTurnRef = useRef<Turn | undefined>(undefined);
   const actionSubmissionsRef = useRef(new Set<string>());
   const loadGenerationRef = useRef(0);
+  // A thread runtime stays mounted across switches. Reloading it must not blank a transcript we already showed.
+  const loadedSessionIdRef = useRef<string | null>(null);
+  const hasLoadedRef = useRef(false);
   const streamGenerationRef = useRef(0);
   // Bumped once a send has applied its message. An earlier failure must not
   // discard the in-flight load or cancel the painted tip.
@@ -898,9 +901,16 @@ export function useTrueForgeAgentMessages({
     markResumeUnavailable(false);
     abortControllerRef.current?.abort();
     loadOlderInflightRef.current = null;
-    createdAtByMessageIdRef.current = new Map();
-    setSnapshot(createEmptySessionSnapshot());
-    setIsLoading(true);
+    if (loadedSessionIdRef.current !== sessionId) {
+      loadedSessionIdRef.current = sessionId;
+      hasLoadedRef.current = false;
+    }
+    // First open has nothing to show. A later visit keeps the transcript up while events refresh.
+    if (!hasLoadedRef.current) {
+      createdAtByMessageIdRef.current = new Map();
+      setSnapshot(createEmptySessionSnapshot());
+      setIsLoading(true);
+    }
     setIsLoadingOlderHistory(false);
 
     try {
@@ -910,6 +920,7 @@ export function useTrueForgeAgentMessages({
           return;
         }
         // The events window is paintable before getTurn confirms the tip.
+        hasLoadedRef.current = true;
         setSnapshot(snap);
         setIsLoading(false);
       });
@@ -920,6 +931,7 @@ export function useTrueForgeAgentMessages({
       }
 
       createdAtByMessageIdRef.current = new Map();
+      hasLoadedRef.current = true;
       setSnapshot(loadedSnapshot);
       runningTurnRef.current = loadedSnapshot.runningTurn;
 

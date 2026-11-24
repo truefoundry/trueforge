@@ -23,8 +23,9 @@ import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
+import { useServerQueryClient } from '../server/queryClient.js';
 import { ServerProvider } from '../server/ServerContext.js';
-import { createSessionListCache, withSessionListCache } from '../server/sessionListCache.js';
+import { withSessionQueries } from '../server/sessionQueries.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
 import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
@@ -188,8 +189,7 @@ function ChatProviderFromShell({
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
 
-  // Keep one isolated cache per shell, preserved across chat runtime remounts.
-  const [sessionListCache] = useState(createSessionListCache);
+  const queryClient = useServerQueryClient();
 
   const serverWithCreateIntent = useMemo((): AgentUIServer => {
     return {
@@ -211,8 +211,8 @@ function ChatProviderFromShell({
   }, [server, isCreateAgent]);
 
   const cachedRuntimeServer = useMemo(
-    () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
-    [serverWithCreateIntent, sessionListCache],
+    () => withSessionQueries({ server: serverWithCreateIntent, queryClient }),
+    [serverWithCreateIntent, queryClient],
   );
   const runtimeServer = useMemo<AgentUIServer>(() => {
     if (historyAgentFilter == null || historyAgentFilter.agentId != null) return cachedRuntimeServer;

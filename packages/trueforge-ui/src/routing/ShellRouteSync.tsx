@@ -5,6 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
+import { useServerQueryClient } from '../server/queryClient.js';
+import { toEffectiveRoutes } from '../server/serverChrome.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
@@ -15,8 +17,8 @@ import {
   useServerCapabilities,
   useServerCapabilitiesSettled,
 } from '../server/ServerContext.js';
+import { fetchSessionDetail } from '../server/sessionQueries.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
-import { toEffectiveRoutes } from '../server/serverChrome.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import {
   readHistoryAgentSearch,
@@ -51,6 +53,7 @@ export function ShellRouteSync({
 }) {
   const shell = useShellMode();
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const catalog = useOptionalCatalogServer();
   const sessions = useOptionalAgentSessionsServer();
   const permissions = useOptionalPermissionsServer();
@@ -170,7 +173,7 @@ export function ShellRouteSync({
               .then(response => (response.data.permissions[sessionId] ?? []).includes('MANAGE'))
               .catch(() => true);
 
-      void Promise.all([server.getSession({ sessionId }), canManagePromise])
+      void Promise.all([fetchSessionDetail({ queryClient, server, sessionId }), canManagePromise])
         .then(([session, canManage]) => {
           if (requestedSessionRef.current !== sessionId) {
             releaseAbandonedBootSession(sessionId);
@@ -205,7 +208,7 @@ export function ShellRouteSync({
           });
         });
     },
-    [permissions, releaseAbandonedBootSession, server, sessions, shell],
+    [permissions, queryClient, releaseAbandonedBootSession, server, sessions, shell],
   );
 
   const applyHistoryAgentSearch = useCallback(

@@ -1,5 +1,6 @@
 'use client';
 
+import { useInfiniteQuery, useQuery, type InfiniteData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
@@ -8,14 +9,21 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
-import { useSessionListStatusPoll } from '../../hooks/useSessionListStatusPoll.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useAgentSessionsServer, useOptionalScheduleServer, useServer } from '../../server/ServerContext.js';
+import {
+  invalidateOutdatedSessionDetails,
+  isLastTurnRunning,
+  removeSessionQueries,
+  sessionDetailQuery,
+} from '../../server/sessionQueries.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
+import type { ListResult, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
@@ -24,12 +32,7 @@ import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
-import {
-  mergePolledSessionRow,
-  mergeSessionListFirstPage,
-  SESSION_LIST_FIRST_PAGE_LIMIT,
-  sessionListPollIntervalMs,
-} from '../lib/sessionListPoll.js';
+import { SESSION_LIST_FIRST_PAGE_LIMIT, sessionListPollIntervalMs } from '../lib/sessionListPoll.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { Skeleton } from '../primitives/Skeleton.js';
@@ -81,22 +84,92 @@ export function AgentSessions({
   const AgentSessionDetailHeader = useSlot('AgentSessionDetailHeader');
   const AgentSessionTimelineContainer = useSlot('AgentSessionTimelineContainer');
 
-  const [entries, setEntries] = useState<SessionListEntry[]>([]);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
-  const [listLoading, setListLoading] = useState(true);
-  const [listLoadingMore, setListLoadingMore] = useState(false);
-  const [listLoadMoreFailed, setListLoadMoreFailed] = useState(false);
-  const [listFailed, setListFailed] = useState(false);
-  const listRequestIdRef = useRef(0);
-  const loadMoreInflightRef = useRef(false);
+  const queryClient = useServerQueryClient();
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
-  const [detailEvents, setDetailEvents] = useState<SessionEventItem[]>();
-  const [detailSession, setDetailSession] = useState<Session>();
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailFailed, setDetailFailed] = useState(false);
-  const [detailErrorMessage, setDetailErrorMessage] = useState('This session could not be loaded.');
   const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
+
+  const listRequest = useMemo(
+    () => ({
+      order: 'desc' as const,
+      limit: SESSION_LIST_FIRST_PAGE_LIMIT,
+      ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
+      ...(startTimestamp == null ? {} : { startTimestamp }),
+      ...(endTimestamp == null ? {} : { endTimestamp }),
+      ...(createdByMe ? { createdByMe: true } : {}),
+    }),
+    [agentId, createdByMe, endTimestamp, startTimestamp],
+  );
+  const listKey = queryKeys.sessions.pages(listRequest);
+
+  const listQuery = useInfiniteQuery(
+    {
+      queryKey: listKey,
+      queryFn: async ({ pageParam }) => {
+        const page = await sessionsServer.listSessions({
+          ...listRequest,
+          ...(pageParam === '' ? {} : { pageToken: pageParam }),
+        });
+        invalidateOutdatedSessionDetails({ queryClient, sessions: page.data });
+        return page;
+      },
+      // Empty token means the first page.
+      initialPageParam: '',
+      getNextPageParam: lastPage =>
+        lastPage.nextPageToken == null || lastPage.nextPageToken === '' ? undefined : lastPage.nextPageToken,
+      enabled: !detailOnly,
+      // ponytail: a poll refetches every loaded page (pages × one request per 30s while a row is live);
+      // upgrade to patching only the first page via setQueryData if long lists make that costly.
+      refetchInterval: query =>
+        sessionListPollIntervalMs(
+          (query.state.data?.pages ?? []).flatMap(page => page.data.map(entry => entry.lastTurnDetails?.state.status)),
+        ) ?? false,
+    },
+    queryClient,
+  );
+  const entries = useMemo(() => listQuery.data?.pages.flatMap(page => page.data) ?? [], [listQuery.data]);
+  const listLoading = !detailOnly && listQuery.isPending;
+  // A failed poll keeps the last rows on screen; only a list that never loaded shows the error.
+  const listFailed = listQuery.isError && listQuery.data == null;
+  const hasNextPage = listQuery.hasNextPage;
+  const listLoadingMore = listQuery.isFetchingNextPage;
+  const listLoadMoreFailed = listQuery.isFetchNextPageError;
+
+  const hasSelection = selectedSessionId != null && selectedSessionId.length > 0;
+  const detailQuery = useQuery(
+    {
+      ...sessionDetailQuery({ server: chatServer, sessionId: selectedSessionId ?? '' }),
+      enabled: hasSelection,
+    },
+    queryClient,
+  );
+  const detailSession = hasSelection ? detailQuery.data : undefined;
+  const eventsQuery = useQuery(
+    {
+      queryKey: queryKeys.sessions.events({
+        sessionId: selectedSessionId ?? '',
+        version: detailSession?.updatedAt ?? '',
+      }),
+      queryFn: async () => {
+        const itemsNewestFirst = await drainListPages({
+          fetchPage: pageToken =>
+            sessionsServer.listSessionEvents({
+              sessionId: selectedSessionId ?? '',
+              ...(pageToken == null ? {} : { pageToken }),
+            }),
+        });
+        return [...itemsNewestFirst].reverse();
+      },
+      enabled: detailSession != null,
+      // A running turn appends events without bumping `updatedAt`, so that timeline must not be reused.
+      staleTime: isLastTurnRunning(detailSession) ? 0 : Infinity,
+    },
+    queryClient,
+  );
+  const detailEvents = detailSession == null ? undefined : eventsQuery.data;
+  const detailError = hasSelection ? (detailQuery.error ?? eventsQuery.error) : null;
+  const detailFailed = detailError != null;
+  const detailErrorMessage = getErrorMessage(detailError, 'This session could not be loaded.');
 
   const canDeleteSession = typeof chatServer.deleteSession === 'function';
   const permissionResourceIds = useMemo(() => {
@@ -110,170 +183,38 @@ export function AgentSessions({
   });
   const canResume = allows(selectedSessionId, 'MANAGE');
 
-  const listRequest = useMemo(
-    () => ({
-      order: 'desc' as const,
-      limit: SESSION_LIST_FIRST_PAGE_LIMIT,
-      ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
-      ...(startTimestamp == null ? {} : { startTimestamp }),
-      ...(endTimestamp == null ? {} : { endTimestamp }),
-      ...(createdByMe ? { createdByMe: true } : {}),
-    }),
-    [agentId, createdByMe, endTimestamp, startTimestamp],
-  );
-
-  useEffect(() => {
-    const requestId = ++listRequestIdRef.current;
-    let cancelled = false;
-    loadMoreInflightRef.current = false;
-    setNextPageToken(undefined);
-    if (detailOnly) {
-      setEntries([]);
-      setListLoading(false);
-      setListLoadingMore(false);
-      setListLoadMoreFailed(false);
-      setListFailed(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setListLoading(true);
-    setListLoadingMore(false);
-    setListLoadMoreFailed(false);
-    setListFailed(false);
-    void sessionsServer
-      .listSessions(listRequest)
-      .then(page => {
-        if (cancelled || listRequestIdRef.current !== requestId) return;
-        setEntries(page.data);
-        setNextPageToken(page.nextPageToken);
-      })
-      .catch(() => {
-        if (cancelled || listRequestIdRef.current !== requestId) return;
-        setEntries([]);
-        setNextPageToken(undefined);
-        setListFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled && listRequestIdRef.current === requestId) setListLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailOnly, listRequest, refreshKey, sessionsServer]);
-
-  // ponytail: first-page-only poll — rows past page 1 (or stuck server turns) never refresh;
-  // upgrade via per-session status endpoint or server push.
-  const lastTurnStatusPollIntervalMs = useMemo(() => {
-    if (detailOnly || listLoading || listFailed) return null;
-    return sessionListPollIntervalMs(entries.map(entry => entry.lastTurnDetails?.state.status));
-  }, [detailOnly, entries, listFailed, listLoading]);
-
-  useSessionListStatusPoll({
-    intervalMs: lastTurnStatusPollIntervalMs,
-    poll: useCallback(async () => {
-      const requestId = listRequestIdRef.current;
-      try {
-        const page = await sessionsServer.listSessions(listRequest);
-        if (listRequestIdRef.current !== requestId) return;
-        setEntries(current =>
-          mergeSessionListFirstPage({
-            current,
-            firstPage: page.data,
-            mergeItem: mergePolledSessionRow,
-          }),
-        );
-      } catch {
-        // Keep showing the last known status on transient poll failures.
-      }
-    }, [listRequest, sessionsServer]),
-  });
-
-  const loadMore = useCallback(async () => {
-    // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
-    if (listLoading || nextPageToken == null || loadMoreInflightRef.current) return;
-    const requestId = listRequestIdRef.current;
-    loadMoreInflightRef.current = true;
-    setListLoadingMore(true);
-    setListLoadMoreFailed(false);
-    try {
-      const page = await sessionsServer.listSessions({ ...listRequest, pageToken: nextPageToken });
-      if (listRequestIdRef.current !== requestId) return;
-      setEntries(current => [...current, ...page.data]);
-      setNextPageToken(page.nextPageToken);
-    } catch {
-      if (listRequestIdRef.current === requestId) setListLoadMoreFailed(true);
-    } finally {
-      if (listRequestIdRef.current === requestId) {
-        loadMoreInflightRef.current = false;
-        setListLoadingMore(false);
-      }
-    }
-  }, [listLoading, listRequest, nextPageToken, sessionsServer]);
+  const { fetchNextPage } = listQuery;
+  const loadMore = useCallback(() => {
+    // The observer can fire twice before a re-render; `cancelRefetch: false` joins the in-flight page.
+    void fetchNextPage({ cancelRefetch: false });
+  }, [fetchNextPage]);
 
   // `entries.length` re-arms the observer: an already-intersecting sentinel emits no new entry.
   useEffect(() => {
-    if (listLoading || nextPageToken == null || listEl == null || sentinelEl == null) return;
+    if (listLoading || !hasNextPage || listEl == null || sentinelEl == null) return;
 
     const observer = new IntersectionObserver(
       observed => {
-        if (observed.some(entry => entry.isIntersecting)) void loadMore();
+        if (observed.some(entry => entry.isIntersecting)) loadMore();
       },
       { root: listEl, rootMargin: LOAD_MORE_ROOT_MARGIN },
     );
     observer.observe(sentinelEl);
     return () => observer.disconnect();
-  }, [entries.length, listEl, listLoading, loadMore, nextPageToken, sentinelEl]);
+  }, [entries.length, hasNextPage, listEl, listLoading, loadMore, sentinelEl]);
 
+  // Reload from the page header refetches the list and the open session, including its timeline.
+  const refreshKeyRef = useRef(refreshKey);
   useEffect(() => {
-    if (selectedSessionId == null || selectedSessionId.length === 0) {
-      setDetailEvents(undefined);
-      setDetailSession(undefined);
-      setDetailFailed(false);
-      setDetailErrorMessage('This session could not be loaded.');
-      setDetailLoading(false);
-      return;
-    }
+    if (refreshKeyRef.current === refreshKey) return;
+    refreshKeyRef.current = refreshKey;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all() });
+  }, [queryClient, refreshKey]);
 
-    let cancelled = false;
-    setDetailLoading(true);
-    setDetailFailed(false);
-    setDetailErrorMessage('This session could not be loaded.');
-    setDetailEvents(undefined);
-    setDetailSession(undefined);
-
-    void Promise.all([
-      drainListPages({
-        fetchPage: pageToken =>
-          sessionsServer.listSessionEvents({
-            sessionId: selectedSessionId,
-            ...(pageToken == null ? {} : { pageToken }),
-          }),
-      }),
-      chatServer.getSession({ sessionId: selectedSessionId }),
-    ])
-      .then(([itemsNewestFirst, session]) => {
-        if (cancelled) return;
-        setDetailEvents([...itemsNewestFirst].reverse());
-        setDetailSession(session);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setDetailErrorMessage(getErrorMessage(error, 'This session could not be loaded.'));
-        setDetailFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setDetailLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chatServer, refreshKey, selectedSessionId, sessionsServer]);
+  const loading = listQuery.isFetching || (hasSelection && (detailQuery.isFetching || eventsQuery.isFetching));
   useEffect(() => {
-    onLoadingChange?.(listLoading || detailLoading);
-  }, [detailLoading, listLoading, onLoadingChange]);
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
 
   const selectSession = (entry: SessionListEntry) => {
     const pinned = shareView === 'sessions' ? sessionTimeRangeFromCreatedAt(entry.createdAt) : null;
@@ -327,7 +268,16 @@ export function AgentSessions({
         AnalyticsEvents.Session.DELETED,
         withSessionProps(undefined, { sessionId: entry.id, agentName: entry.agentName }),
       );
-      setEntries(current => current.filter(item => item.id !== entry.id));
+      // Drop the row now; the list invalidation below refetches it without the deleted session.
+      queryClient.setQueryData<InfiniteData<ListResult<SessionListEntry>, string>>(listKey, data =>
+        data == null
+          ? data
+          : {
+              ...data,
+              pages: data.pages.map(page => ({ ...page, data: page.data.filter(item => item.id !== entry.id) })),
+            },
+      );
+      void removeSessionQueries({ queryClient, sessionId: entry.id });
       if (selectedSessionId === entry.id) {
         updateShareSearch({ sessionId: null });
       }
@@ -391,7 +341,7 @@ export function AgentSessions({
             canShare={canResume}
             {...resumeProps}
           />
-          {detailLoading || detailEvents === undefined ? (
+          {detailEvents === undefined ? (
             <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">
               <Skeleton className="min-h-64 flex-1 rounded-lg" />
             </div>
@@ -480,7 +430,7 @@ export function AgentSessions({
               ))
             )}
 
-            {nextPageToken != null && !listLoading && !listFailed ? (
+            {hasNextPage && !listLoading && !listFailed ? (
               <div ref={setSentinelEl} className="px-3 py-2">
                 {listLoadingMore ? (
                   <Skeleton className="h-16 rounded-md" role="status" aria-label="Loading more sessions" />
@@ -488,7 +438,7 @@ export function AgentSessions({
                   <button
                     type="button"
                     className="h-8 w-full rounded-md border border-border text-xs font-medium text-text-primary hover:bg-ghost-button-hover"
-                    onClick={() => void loadMore()}
+                    onClick={loadMore}
                   >
                     Retry loading sessions
                   </button>

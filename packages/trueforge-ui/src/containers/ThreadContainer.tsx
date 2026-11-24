@@ -59,6 +59,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
   const isEmpty = useAuiState(isNewChatView);
   const isLoading = useAuiState(s => s.thread.isLoading);
+  const remoteId = useAuiState(s => s.threadListItem.remoteId);
   const welcomeHeading =
     shell?.mode.status === 'active'
       ? shell.mode.agentName != null && shell.mode.agentName.length > 0
@@ -102,7 +103,8 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
                     </ThreadViewportShell>
                   </ThreadPrimitive.Viewport>
 
-                  {!isLoading && !isEmpty && (
+                  {/* Startup has no remote id yet. An open session keeps the composer while history loads. */}
+                  {!isEmpty && (remoteId != null || !isLoading) && (
                     <ThreadComposerAreaShell isEmpty={isEmpty}>
                       <ThreadPrimitive.ScrollToBottom asChild>
                         <ScrollToBottomButton />
