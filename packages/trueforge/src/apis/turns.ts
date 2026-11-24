@@ -80,6 +80,7 @@ import configuration, {
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { ICapabilitiesStore } from '../db/capabilitiesStore';
+import { isAutoEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -195,6 +196,7 @@ export interface TurnExecutionStores<TTransaction = never> {
   skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
 }
@@ -255,6 +257,7 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
   /** Previous-turn cancel, and rebuilding a missing event stream. */
@@ -363,15 +366,16 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
-/** This turn's model routing inputs, or undefined when routing is off for the tenant. */
+/** This turn's model routing inputs, or undefined when routing is off for the tenant or its Auto mode switch is off. */
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
+  isAutoAllowed: boolean;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   turnMetadata: TurnMetadata;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  if (routing === undefined) {
+  if (routing === undefined || !input.isAutoAllowed) {
     return undefined;
   }
   const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
@@ -779,7 +783,7 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const [webSearchProvider, memoryCapability] = await Promise.all([
+  const [webSearchProvider, memoryCapability, isAutoAllowed] = await Promise.all([
     resolveWebSearchProvider({
       tenant_id: input.session.tenant_id,
       store: input.deps.webSearchProviderStore,
@@ -793,6 +797,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       agentStore: input.deps.agentStore,
       logger: input.deps.logger,
     }),
+    isAutoEnabledForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
   ]);
   const sessionAgent = input.session.record.agent;
 
@@ -817,6 +822,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
       routing: trueFoundryModelRouting(),
+      isAutoAllowed,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       turnMetadata,

@@ -401,8 +401,30 @@
       },
       "AutoCapability": {
         "properties": {
+          "reason": {
+            "description": "Present when status is disabled. Explains why.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here.",
+            "enum": [
+              "not_configured",
+              "disabled",
+              "enabled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "AutoModelRoutingConfiguration": {
+        "additionalProperties": false,
+        "properties": {
           "enabled": {
-            "description": "Whether Auto mode can be selected: the user has at least one model in every routing cluster.",
+            "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
@@ -1061,6 +1083,9 @@
       "ConfigurationManifest": {
         "additionalProperties": false,
         "properties": {
+          "auto_model_routing": {
+            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
           },
@@ -1070,13 +1095,17 @@
         },
         "required": [
           "web_search",
-          "memory"
+          "memory",
+          "auto_model_routing"
         ],
         "type": "object"
       },
       "ConfigurationManifestPatch": {
         "additionalProperties": false,
         "properties": {
+          "auto_model_routing": {
+            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
+          },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
           },

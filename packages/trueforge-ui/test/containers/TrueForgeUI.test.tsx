@@ -47,7 +47,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(true),
         },
@@ -241,7 +241,7 @@ describe('TrueForgeUI', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           sessionSharing: tenantSessionSharing,
         },
       })
@@ -249,7 +249,7 @@ describe('TrueForgeUI', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false, reason: 'Select Sandbox first' },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           sessionSharing: tenantSessionSharing,
         },
       });
@@ -844,7 +844,7 @@ describe('SidebarLayout', () => {
               data: {
                 sandbox: { enabled: true, environments: { enabled: true } },
                 skill: { enabled: true },
-                auto: { enabled: false },
+                auto: { status: 'not_configured' },
                 sessionSharing: tenantSessionSharing,
                 settings: allSettingsSections(false),
               },

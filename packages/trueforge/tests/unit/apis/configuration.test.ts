@@ -32,11 +32,14 @@ describe('settings configuration router', () => {
     const response = await router.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { manifest: { web_search: { enabled: true }, memory: { enabled: true } }, updated_at: expect.any(String) },
+      data: {
+        manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
+        updated_at: expect.any(String),
+      },
     });
     await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toEqual({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
       updated_at: expect.any(String),
     });
   });
@@ -90,6 +93,17 @@ describe('settings configuration router', () => {
     });
   });
 
+  it('PATCH turns Auto mode off without touching the other switches', async () => {
+    const { router, store } = await createRouter();
+
+    const patched = await router.request('/', patchInit({ auto_model_routing: { enabled: false } }));
+    expect(patched.status).toBe(200);
+
+    await expect(store.getConfiguration(STANDALONE_REQUEST_CONTEXT.tenant_id)).resolves.toMatchObject({
+      manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: false } },
+    });
+  });
+
   it('PATCH leaves switches the body does not mention', async () => {
     const { router, store } = await createRouter();
 
@@ -112,7 +126,11 @@ describe('settings configuration router', () => {
       getOrCreateConfiguration: async input => {
         await store.upsertConfiguration({
           tenant_id,
-          manifest: { web_search: { enabled: false }, memory: { enabled: false } },
+          manifest: {
+            web_search: { enabled: false },
+            memory: { enabled: false },
+            auto_model_routing: { enabled: true },
+          },
         });
         return await store.getOrCreateConfiguration(input);
       },
@@ -152,6 +170,7 @@ describe('settings configuration router', () => {
     expect(JSON.parse(stored.rows[0]?.raw ?? 'null')).toEqual({
       web_search: { enabled: false },
       memory: { enabled: true },
+      auto_model_routing: { enabled: true },
     });
   });
 

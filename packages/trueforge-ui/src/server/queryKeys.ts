@@ -71,6 +71,7 @@ export const queryKeys = {
   /** Admin settings lists; mutations also invalidate the matching `catalog` entries pickers read. */
   settings: {
     all: () => key('settings'),
+    configuration: () => key('settings', 'configuration'),
     modelProviderCatalog: () => key('settings', 'model-provider-catalog'),
     modelProviders: () => key('settings', 'model-providers'),
     connectors: (query?: string) => key('settings', 'connectors', query ?? ''),
