@@ -77,7 +77,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
         shell?.setLibraryOpen(true);
       }}
     >
-      <Icon name="book-text" size={compact ? 16 : undefined} />
+      <Icon name="agent-2" size={compact ? 16 : undefined} />
       {compact ? null : (
         <>
           <span className="truncate">

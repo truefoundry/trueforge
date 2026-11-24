@@ -77,7 +77,7 @@ describe('TrueForgeChatProvider', () => {
           id: 'builder-session',
           title: 'Builder',
           isMutable: true,
-          metadata: { is_create_agent: 'true' },
+          metadata: { 'tfg.is_create_agent': 'true' },
           createdAt: '2026-09-09T00:00:00.000Z',
           updatedAt: '2026-09-09T00:00:00.000Z',
         },
