@@ -3,7 +3,7 @@ import type { CatalogServer } from '@/server/types.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTrueForgeServer } from '@/server/createTrueForgeServer.js';
-import { createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
+import { autoNotConfigured, createMockAgentUIServer, tenantSessionSharing } from './mockServer.js';
 
 describe('createTrueForgeServer', () => {
   it('composes chat server with builder callbacks', async () => {
@@ -23,7 +23,7 @@ describe('createTrueForgeServer', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
       },
     };
@@ -194,7 +194,7 @@ describe('createTrueForgeServer', () => {
         data: {
           sandbox: { enabled: false, environments: { enabled: false } },
           skill: { enabled: false },
-          auto: { enabled: false },
+          auto: autoNotConfigured,
           sessionSharing: tenantSessionSharing,
         },
       }),

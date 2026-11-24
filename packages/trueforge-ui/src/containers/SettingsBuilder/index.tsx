@@ -38,7 +38,7 @@ type SettingsSectionItem = {
   label: string;
   icon: 'type' | 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
   /** Client-only sections omit a capability and always stay visible. */
-  capability?: keyof SettingsCapability;
+  capability?: keyof SettingsCapability | undefined;
 };
 
 function SettingsSectionFallback() {
@@ -54,7 +54,10 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
   const configuration = useOptionalConfigurationServer();
-  const settings = useServerCapabilities()?.settings;
+  const capabilities = useServerCapabilities();
+  const settings = capabilities?.settings;
+  // The Models tab also hosts the tenant Auto switch, which the catalog capability does not gate.
+  const hasAutoModelRouting = capabilities != null && capabilities.auto.status !== 'not_configured';
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const track = useTrackAnalytics();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
@@ -100,7 +103,12 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
 
   const sections = useMemo<SettingsSectionItem[]>(() => {
     const mounted: SettingsSectionItem[] = [
-      { id: 'models', label: 'Models', icon: 'cpu', capability: 'modelProviders' },
+      {
+        id: 'models',
+        label: 'Models',
+        icon: 'cpu',
+        capability: hasAutoModelRouting ? undefined : 'modelProviders',
+      },
       { id: 'connectors', label: 'Connectors', icon: 'plug', capability: 'mcpServers' },
     ];
     if (hasSkills) {
@@ -120,7 +128,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     return mounted.filter(
       item => item.capability == null || isSettingsSectionEnabled({ settings, section: item.capability }),
     );
-  }, [hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
+  }, [hasAutoModelRouting, hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
 
   // A section the caller may not open (or the host never mounted) hands over to the first it may.
   const activeSection = sections.find(item => item.id === section);

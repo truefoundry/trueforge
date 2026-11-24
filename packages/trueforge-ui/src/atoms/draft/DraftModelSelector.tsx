@@ -17,7 +17,7 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_PATCH, AUTO_MODEL_UNAVAILABLE_HINT, keepsAutoModel } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ModelWarningMark, ProviderMark } from './DraftModelCatalogPanel.js';
 import { DraftReasoningEffortMenu } from './DraftReasoningEffortMenu.js';
@@ -51,7 +51,9 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
   const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
-  const showConfigureSettingsCta = loaded && models.length === 0 && settingsChromeEnabled && shell != null;
+  const canManageModelProviders = capabilities?.settings?.modelProviders?.manageProviders === true;
+  const showConfigureSettingsCta =
+    loaded && models.length === 0 && settingsChromeEnabled && canManageModelProviders && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
   const isAutoModelKept = keepsAutoModel(capabilities);
 
@@ -158,10 +160,15 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
         setEffortTarget(null);
       }}
       listboxId={menuId}
-      autoOption={{
-        enabled: capabilities?.auto.enabled === true,
-        onSelect: () => commit(AUTO_MODEL_PATCH),
-      }}
+      autoOption={
+        capabilities == null || capabilities.auto.status === 'not_configured'
+          ? undefined
+          : {
+              enabled: capabilities.auto.status === 'enabled',
+              unavailableHint: capabilities.auto.reason ?? AUTO_MODEL_UNAVAILABLE_HINT,
+              onSelect: () => commit(AUTO_MODEL_PATCH),
+            }
+      }
       reasoning={{
         effortLabel: model =>
           hasReasoningEfforts(model.properties.reasoningEfforts) ? reasoningEffortLabel(effortFor(model)) : undefined,

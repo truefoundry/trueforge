@@ -30,6 +30,7 @@ import {
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore } from '../db/capabilitiesStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -90,6 +91,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   /** Previous-turn cancel, and rebuilding a missing event stream. */
   sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -132,6 +134,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
+      configurationStore: deps.configurationStore,
       skillStore: deps.resolveTurnSkillsStore({}),
       // Schedules have no caller `x-tfg-tools`.
       capabilitiesStore: new EmptyCapabilitiesStore(),

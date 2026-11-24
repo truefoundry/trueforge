@@ -18,7 +18,7 @@ function capabilitiesResponse(settingsEnabled: boolean): AgentBuilderCapabilitie
       sandbox: { enabled: true },
       skill: { enabled: true },
       settings: allSettingsSections(settingsEnabled),
-      auto: { enabled: false },
+      auto: { status: 'not_configured' },
       sessionSharing: tenantSessionSharing,
     },
   };

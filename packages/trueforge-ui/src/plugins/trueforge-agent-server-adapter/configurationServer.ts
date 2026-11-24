@@ -9,6 +9,7 @@ function toUiConfiguration(manifest: TrueForgeApi.ConfigurationManifest): Tenant
   return {
     webSearch: { enabled: manifest.webSearch.enabled },
     memory: { enabled: manifest.memory.enabled },
+    autoModelRouting: { enabled: manifest.autoModelRouting.enabled },
   };
 }
 
@@ -23,6 +24,9 @@ export function createConfigurationServer(client: TrueForge): ConfigurationServe
         manifest: {
           ...(req.webSearch === undefined ? {} : { webSearch: { enabled: req.webSearch.enabled } }),
           ...(req.memory === undefined ? {} : { memory: { enabled: req.memory.enabled } }),
+          ...(req.autoModelRouting === undefined
+            ? {}
+            : { autoModelRouting: { enabled: req.autoModelRouting.enabled } }),
         },
       });
       return toUiConfiguration(body.data.manifest);

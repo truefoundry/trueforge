@@ -471,10 +471,7 @@ export class SessionHandle<
     if (spec.model.name === AUTO_MODEL) {
       const routeModel = input.resolver.routeModel;
       if (routeModel === undefined) {
-        throw new AgentHarnessError(
-          'auto_model_unavailable',
-          'Auto model selection needs model routing for this tenant',
-        );
+        throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
       }
       const routed = await this.selectRootModel({
         resuming: input.resuming,

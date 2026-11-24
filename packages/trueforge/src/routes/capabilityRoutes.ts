@@ -65,9 +65,12 @@ const MemoryCapabilitySchema = z
 
 const AutoCapabilitySchema = z
   .object({
-    enabled: z
-      .boolean()
-      .describe('Whether Auto mode can be selected: the user has at least one model in every routing cluster.'),
+    status: z
+      .enum(['not_configured', 'disabled', 'enabled'])
+      .describe(
+        'Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here.',
+      ),
+    reason: z.string().optional().describe('Present when status is disabled. Explains why.'),
   })
   .openapi('AutoCapability');
 
@@ -81,6 +84,7 @@ const SessionSharingCapabilitySchema = z
   })
   .openapi('SessionSharingCapability');
 
+export type AutoCapability = z.infer<typeof AutoCapabilitySchema>;
 export type SessionSharingCapability = z.infer<typeof SessionSharingCapabilitySchema>;
 
 const CapabilitiesDataSchema = z
