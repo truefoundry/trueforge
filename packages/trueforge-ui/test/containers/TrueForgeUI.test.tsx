@@ -124,7 +124,7 @@ describe('TrueForgeUI', () => {
       switch (layout) {
         case 'sidebar':
           expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-          expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
           break;
         case 'drawer':
           expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
@@ -599,7 +599,7 @@ describe('SidebarLayout', () => {
     }
   });
 
-  it('shows the default wordmark in the permanent sidebar', () => {
+  it('shows the default logomark, title, and collapse control in the permanent sidebar', () => {
     const { container } = render(
       <SlotsProvider>
         <RuntimeHarness messages={[]}>
@@ -610,13 +610,13 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    const mark = container.querySelector('aside svg');
-    expect(mark).toHaveAttribute('viewBox', '0 0 614 100');
-    expect(screen.queryByText('TrueForge')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+    // Expanded rail uses the compact logomark slot (same as collapsed) so the icon column stays fixed.
+    expect(container.querySelector('aside svg')).toBeInTheDocument();
+    expect(screen.getByText('TrueForge')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
-  it('uses the wide brand wordmark in the sidebar (not the square icon)', () => {
+  it('uses the square brand icon plus title in the sidebar rail (logo mode still collapses to icon)', () => {
     const { container } = render(
       <SlotsProvider
         theme={{ brand: { mode: 'logo', name: 'Acme', icon: '/acme-icon.svg', logo: '/acme-wordmark.svg' } }}
@@ -629,8 +629,8 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-wordmark.svg');
-    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
+    expect(screen.getByText('Acme')).toBeInTheDocument();
   });
 
   it('supports icon-only branding in the sidebar', () => {
@@ -649,7 +649,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows a labeled sidebar with New Chat and no expand control', () => {
+  it('shows a labeled sidebar with New Chat and a collapse control', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -665,8 +665,9 @@ describe('SidebarLayout', () => {
     const newChat = screen.getByRole('button', { name: 'Start new chat' });
     expect(newChat).toBeInTheDocument();
     expect(newChat).toHaveTextContent('New Chat');
-    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+    // Docs live under Schedules / mobile drawer — desktop rail footer omits them.
+    expect(screen.queryByRole('link', { name: 'Documentation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
   it('keeps recent history visible when a named chat loads in the same page', async () => {

@@ -269,7 +269,9 @@ export function ShellRouteSync({
         case 'settings':
           // Environments owns `/environments`. Restoring `/settings` must leave that
           // section or derivePlace remaps immediately back to `/environments`.
-          shell.setSettingsOpen(true, shell.settingsSection === 'environments' ? 'models' : undefined);
+          // Appearance is always mounted (no capability gate), so it stays valid when
+          // Models is hidden — unlike falling back to sections[0], which can be Environments.
+          shell.setSettingsOpen(true, shell.settingsSection === 'environments' ? 'appearance' : undefined);
           return;
         case 'library':
           shell.setLibraryOpen(true);

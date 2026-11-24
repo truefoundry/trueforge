@@ -773,7 +773,7 @@ describe('ShellRouteSync', () => {
     await waitFor(() => {
       expect(pathname).toBe('/settings');
       expect(shell.settingsOpen).toBe(true);
-      expect(shell.settingsSection).not.toBe('environments');
+      expect(shell.settingsSection).toBe('appearance');
       expect(shell.environmentsOpen).toBe(false);
     });
   });
