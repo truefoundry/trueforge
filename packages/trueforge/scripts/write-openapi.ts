@@ -26,6 +26,7 @@ import configuration from '../src/config';
 import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
 import { SqliteAccessControlStore } from '../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
+import { SqliteArtifactStore } from '../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -107,6 +108,7 @@ const app = createServerApp({
   configurationStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
+  artifactStore: new SqliteArtifactStore(db),
   tokenStore,
   sessionStore,
   accessControlStore: new SqliteAccessControlStore(db),

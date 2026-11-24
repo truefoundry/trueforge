@@ -8,7 +8,7 @@ import {
   SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
-import { NameSchema, PAGE_LIMIT } from './common';
+import { MAX_TITLE_LENGTH, NameSchema, PAGE_LIMIT } from './common';
 import { foldDeepObjectQueryParam } from './deepObjectQuery';
 
 /** Create arm: bind by unique registry agent name. */
@@ -51,14 +51,11 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
 
-/** Matches auto-derived titles from the first user message on turn 1. */
-export const MAX_SESSION_TITLE_LENGTH = 50;
-
 export const SessionTitleSchema = z
   .string()
   .trim()
   .min(1)
-  .max(MAX_SESSION_TITLE_LENGTH)
+  .max(MAX_TITLE_LENGTH)
   .describe('Human-readable session title.');
 
 /** Only inline sessions may replace `agent`; named (reference) sessions reject agent updates. Title/metadata apply to both. */
