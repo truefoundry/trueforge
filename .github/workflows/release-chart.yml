@@ -86,7 +86,7 @@ jobs:
       group: release-chart-${{ inputs.branch }}
       cancel-in-progress: false
     permissions:
-      contents: write
+      contents: read
       id-token: write
     env:
       CHART_DIR: charts/trueforge
@@ -235,6 +235,7 @@ jobs:
           HUSKY: '0'
         run: |
           set -euo pipefail
+          git config --local --unset-all http.https://github.com/.extraheader || true
           gh auth setup-git
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"

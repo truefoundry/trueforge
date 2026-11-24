@@ -54,8 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: trueforge-internal
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v7

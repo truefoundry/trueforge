@@ -33,7 +33,7 @@ jobs:
       github.actor != 'github-actions[bot]' &&
       github.actor != 'trueforge-dev-bot[bot]'
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - name: Check out branch

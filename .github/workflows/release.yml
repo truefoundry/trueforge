@@ -73,7 +73,7 @@ jobs:
       mode: ${{ steps.select-mode.outputs.mode }}
       publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - name: Check out repo
@@ -529,7 +529,8 @@ jobs:
       && (needs.build-image-private.result == 'success' || needs.build-image-private.result == 'skipped') }}
     uses: ./.github/workflows/release-chart.yml
     permissions:
-      contents: write
+      contents: read
+      id-token: write
     with:
       branch: ${{ github.ref_name }}
       chart_version: ${{ inputs.tfy_chart_version }}
@@ -572,8 +573,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
@@ -653,6 +653,7 @@ jobs:
           HUSKY: '0'
         run: |
           set -euo pipefail
+          git config --local --unset-all http.https://github.com/.extraheader || true
           gh auth setup-git
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
