@@ -76,6 +76,7 @@ export class PostgresArtifactStore implements IArtifactStore {
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
+      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);
   }
@@ -86,6 +87,7 @@ export class PostgresArtifactStore implements IArtifactStore {
       .set({ name: normalizeArtifactName(input.name), updated_at: now() })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
+      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
       .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);

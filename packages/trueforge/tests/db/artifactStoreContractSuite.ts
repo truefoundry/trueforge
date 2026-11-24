@@ -5,11 +5,12 @@ import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
+const OWNER = SUBJECT.subject_id;
 const AGENT_ID = 'agent-1';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
-  created_by_subject_id: SUBJECT.subject_id,
+  created_by_subject_id: OWNER,
   created_by_session_id: undefined,
   name: undefined,
   limit: 10,
@@ -132,36 +133,77 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('gets an artifact only within its tenant', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
-    expect(await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id })).toBeUndefined();
-    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      artifact,
+    );
+    expect(
+      await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id, created_by_subject_id: OWNER }),
+    ).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing', created_by_subject_id: OWNER })).toBeUndefined();
+  });
+
+  it('gets an artifact only for its creator', async () => {
+    const artifact = await createArtifact();
+    expect(
+      await getStore().getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: 'someone-else' }),
+    ).toBeUndefined();
   });
 
   it('renames an artifact within the tenant', async () => {
     const store = getStore();
     const artifact = await createArtifact();
     await tick();
-    const renamed = await store.updateArtifact({ tenant_id: TENANT, id: artifact.id, name: '  Renamed  ' });
+    const renamed = await store.updateArtifact({
+      tenant_id: TENANT,
+      id: artifact.id,
+      created_by_subject_id: OWNER,
+      name: '  Renamed  ',
+    });
     expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
     expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(renamed);
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      renamed,
+    );
   });
 
   it('rejects a blank rename and keeps the stored name', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    await expect(store.updateArtifact({ tenant_id: TENANT, id: artifact.id, name: '   ' })).rejects.toBeInstanceOf(
-      RangeError,
+    await expect(
+      store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER, name: '   ' }),
+    ).rejects.toBeInstanceOf(RangeError);
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      artifact,
     );
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
   });
 
   it('does not rename an artifact from another tenant', async () => {
     const store = getStore();
     const artifact = await createArtifact();
     await tick();
-    expect(await store.updateArtifact({ tenant_id: OTHER_TENANT, id: artifact.id, name: 'x' })).toBeUndefined();
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
+    expect(
+      await store.updateArtifact({ tenant_id: OTHER_TENANT, id: artifact.id, created_by_subject_id: OWNER, name: 'x' }),
+    ).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      artifact,
+    );
+  });
+
+  it('does not rename an artifact created by another subject', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    expect(
+      await store.updateArtifact({
+        tenant_id: TENANT,
+        id: artifact.id,
+        created_by_subject_id: 'someone-else',
+        name: 'x',
+      }),
+    ).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      artifact,
+    );
   });
 
   it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {

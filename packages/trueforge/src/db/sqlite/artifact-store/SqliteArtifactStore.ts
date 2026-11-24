@@ -83,6 +83,7 @@ export class SqliteArtifactStore implements IArtifactStore {
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);
   }
@@ -93,6 +94,7 @@ export class SqliteArtifactStore implements IArtifactStore {
       .set({ name: normalizeArtifactName(input.name), updated_at: nowIso() })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
       .returning(recordColumns)
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);

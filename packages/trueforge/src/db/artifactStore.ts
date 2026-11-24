@@ -53,11 +53,13 @@ export interface ListArtifactsInput {
 export interface GetArtifactInput {
   tenant_id: string;
   id: string;
+  created_by_subject_id: string;
 }
 
 export interface UpdateArtifactInput {
   tenant_id: string;
   id: string;
+  created_by_subject_id: string;
   /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
   name: string;
 }
@@ -92,9 +94,12 @@ export function newArtifactIdentity(rawName: string): { id: string; name: string
 export interface IArtifactStore {
   /** Generates the id and validates the name (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
-  /** Undefined when the artifact is not in the tenant. */
+  /** Undefined when the artifact is not in the tenant or was not created by the subject. */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
-  /** Normalizes the name and refreshes `updated_at`. Undefined when the artifact is not in the tenant. */
+  /**
+   * Normalizes the name and refreshes `updated_at`. Undefined when the artifact is not in the tenant
+   * or was not created by the subject.
+   */
   updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
