@@ -17,9 +17,6 @@ export function createServerTimingMiddleware(): MiddlewareHandler {
       await next();
     } finally {
       const durationMs = performance.now() - started;
-      // `Timing-Allow-Origin` is what lets DevTools show this metric when the page
-      // and the API are different origins (a local UI talking to a remote server).
-      c.header('Timing-Allow-Origin', '*');
       c.header('Server-Timing', `server;dur=${durationMs.toFixed(1)}`);
     }
   };
