@@ -212,7 +212,7 @@ const MAX_HISTORY_BOUNDARY_PAGES = 10;
 
 interface FetchSessionEventsOptions {
   /**
-   * Newest turn in the listing window (initial load only). Lists that turn and
+   * Newest turn in the listing window (initial load and rewind). Lists that turn and
    * its ancestors. Omit to use the session last turn. Running-turn events are
    * excluded by the API — subscribe to that turn for live events.
    */
@@ -339,29 +339,6 @@ async function fetchSessionEventsWindow(
     pageToken = window.olderPageToken;
   }
   return window;
-}
-
-/**
- * Fetches session-level events via `server.listEvents()`. The API returns pages
- * in desc order (newest first); the collected array is reversed before returning
- * so callers receive events in chronological (asc) order.
- *
- * Used by rewind/edit paths that need the full ancestor window.
- */
-async function fetchAllSessionEvents(
-  server: AgentChatServer,
-  sessionId: string,
-  options?: FetchSessionEventsOptions,
-): Promise<SessionEventItem[]> {
-  const items = await drainListPages(pageToken =>
-    server.listEvents({
-      sessionId,
-      ...(options?.lastTurnId != null ? { lastTurnId: options.lastTurnId } : {}),
-      ...(pageToken != null ? { pageToken } : {}),
-    }),
-  );
-  items.reverse();
-  return items;
 }
 
 function cloneThreadBucket(bucket: ThreadBucket): ThreadBucket {
@@ -1815,16 +1792,22 @@ function stripDroppedTurnsFromFold(fold: PeerThreadFoldState, droppedMessageIds:
 
 /**
  * Turns on the parent chain of `parentId`, including that parent.
- * `null` when the chain is incomplete, so the caller refetches from the server.
+ * The parent itself must be loaded. When the window starts below it and older
+ * pages remain, the rest of the chain is still on the session's history pages,
+ * so the walk stops there. `null` otherwise, so the caller refetches from the server.
  */
 function keptTurnsThroughParent(
   turns: readonly SessionTurnRecord[],
   parentId: string | null,
+  hasOlderHistory: boolean,
 ): SessionTurnRecord[] | null {
   if (parentId == null) {
     return [];
   }
   const turnsById = new Map(turns.map(turn => [turn.id, turn]));
+  if (!turnsById.has(parentId)) {
+    return null;
+  }
   const chain: SessionTurnRecord[] = [];
   const seen = new Set<string>();
   let cursor: string | null = parentId;
@@ -1835,7 +1818,7 @@ function keptTurnsThroughParent(
     seen.add(cursor);
     const turn = turnsById.get(cursor);
     if (turn == null) {
-      return null;
+      return hasOlderHistory ? chain.reverse() : null;
     }
     const parent = sessionRecordPreviousTurnId(turn.previousTurnId);
     if (parent === undefined) {
@@ -1848,7 +1831,7 @@ function keptTurnsThroughParent(
   return chain;
 }
 
-function loadedRetriedTurnParent(snapshot: SessionSnapshot, turnId: string): string | null | undefined {
+export function loadedRetriedTurnParent(snapshot: SessionSnapshot, turnId: string): string | null | undefined {
   const record = snapshot.turns.find(turn => turn.id === turnId);
   const running = snapshot.runningTurn?.id === turnId ? snapshot.runningTurn : undefined;
   if (record == null && running == null) {
@@ -1876,7 +1859,7 @@ export function rewindLoadedSnapshotThroughTurn(
   if (parentId === undefined) {
     return null;
   }
-  const kept = keptTurnsThroughParent(snapshot.turns, parentId);
+  const kept = keptTurnsThroughParent(snapshot.turns, parentId, snapshot.historyPagination?.hasOlder === true);
   if (kept == null) {
     return null;
   }
@@ -1906,7 +1889,9 @@ export function rewindLoadedSnapshotThroughTurn(
 /**
  * Rebuilds the conversation through `anchorTurnId`, including that turn.
  * The server follows parent links from the anchor, so turns from abandoned
- * branches are excluded. A null anchor represents an empty conversation.
+ * branches are excluded. Only the newest window is loaded; older turns arrive
+ * through `historyPagination` (`prependOlderSessionHistory`). A null anchor
+ * represents an empty conversation.
  */
 export async function buildSnapshotThroughTurn(
   server: AgentChatServer,
@@ -1916,12 +1901,13 @@ export async function buildSnapshotThroughTurn(
   if (anchorTurnId == null) {
     return createEmptySessionSnapshot();
   }
-  const items = await fetchAllSessionEvents(server, sessionId, {
-    lastTurnId: anchorTurnId,
-  });
+  const window = await fetchSessionEventsWindow(server, sessionId, { lastTurnId: anchorTurnId });
   const snapshot = createEmptySessionSnapshot();
-  ingestSessionEventsIntoSnapshot(snapshot, items);
-  return snapshot;
+  ingestSessionEventsIntoSnapshot(snapshot, window.itemsAsc);
+  return replaceSessionSnapshot(snapshot, {
+    historyEvents: window.itemsAsc,
+    historyPagination: toHistoryPagination(window),
+  });
 }
 
 /**

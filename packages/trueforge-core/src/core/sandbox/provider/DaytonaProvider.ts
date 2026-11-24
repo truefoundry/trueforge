@@ -398,7 +398,19 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     };
   }
 
-  // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
+  /**
+   * Resume a non-started sandbox. Recoverable error → recover() (Daytona restores from backup);
+   * otherwise start() (stopped/archived). Throws on unrecoverable error/destroyed.
+   */
+  private static async resumeSandbox(sandbox: Sandbox): Promise<void> {
+    if (sandbox.recoverable === true) {
+      await sandbox.recover();
+      return;
+    }
+    await sandbox.start();
+  }
+
+  // Returns true iff the caller should retry: either we resumed the sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
   private static recoverSandboxIfStopped(sandboxId: string): Promise<boolean> {
     const existing = DaytonaSandboxProvider.inFlightRecoveries.get(sandboxId);
     if (existing) {
@@ -416,8 +428,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       if (cached.sandbox.state === SANDBOX_STATE_STARTED) {
         return false;
       }
-      // start() covers both stopped and archived per Daytona; throws on unrecoverable states (error/destroyed).
-      await cached.sandbox.start();
+      await DaytonaSandboxProvider.resumeSandbox(cached.sandbox);
       return true;
     })().finally(() => {
       DaytonaSandboxProvider.inFlightRecoveries.delete(sandboxId);
@@ -470,7 +481,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     try {
       const sandbox = await this.daytona.get(sandboxId);
       if (sandbox.state !== SANDBOX_STATE_STARTED) {
-        await sandbox.start();
+        await DaytonaSandboxProvider.resumeSandbox(sandbox);
       }
       return sandbox;
     } catch (ex) {

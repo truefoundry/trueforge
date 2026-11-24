@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ArtifactsButton } from '@/atoms/ArtifactsButton.js';
@@ -55,12 +55,14 @@ function renderWith(artifactServer: ArtifactServer | undefined, ui = <ArtifactsP
 }
 
 describe('ArtifactsPage', () => {
-  it('lists artifacts with type and version', async () => {
+  it('lists artifacts with the creator name and without type or version', async () => {
     renderWith(createMockArtifactServer({ listArtifacts: vi.fn(async () => ({ data: sample })) }));
     expect(await screen.findByText('Q4 brief')).toBeInTheDocument();
-    expect(screen.getAllByText('v2')).toHaveLength(2);
-    expect(screen.getByText('Markdown')).toBeInTheDocument();
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(screen.getAllByText('alice')).toHaveLength(2);
+    expect(screen.queryByRole('columnheader', { name: 'Type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Version' })).not.toBeInTheDocument();
+    expect(screen.queryByText('v2')).not.toBeInTheDocument();
   });
 
   it('shows the empty state and a friendly load error', async () => {
@@ -103,7 +105,19 @@ describe('ArtifactsPage', () => {
       readArtifactFile,
     });
     function RefProbe() {
-      return <span data-testid="ref">{useOptionalShellMode()?.artifactRef ?? 'none'}</span>;
+      const shell = useOptionalShellMode();
+      // The shell only publishes artifactRef while the artifacts page is open.
+      const opened = useRef(false);
+      useEffect(() => {
+        if (shell == null || opened.current) return;
+        opened.current = true;
+        shell.setArtifactsOpen(true);
+      }, [shell]);
+      return (
+        <span data-testid="ref" data-open={shell?.artifactsOpen === true ? 'true' : 'false'}>
+          {shell?.artifactRef ?? 'none'}
+        </span>
+      );
     }
     renderWith(
       artifacts,
@@ -112,6 +126,7 @@ describe('ArtifactsPage', () => {
         <RefProbe />
       </>,
     );
+    await waitFor(() => expect(screen.getByTestId('ref')).toHaveAttribute('data-open', 'true'));
     fireEvent.click(await screen.findByText('Q4 brief'));
     await waitFor(() => expect(screen.getByTestId('ref')).toHaveTextContent('q4-brief--a1'));
     expect(getArtifact).not.toHaveBeenCalled();
@@ -132,6 +147,7 @@ describe('ArtifactsButton', () => {
     withoutPort.unmount();
 
     renderWith(createMockArtifactServer(), <ArtifactsButton compact />);
-    expect(screen.getByRole('button', { name: 'Artifacts' })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Artifacts' });
+    expect(button.querySelector('svg')).toHaveClass('lucide-gallery-horizontal-end');
   });
 });

@@ -16,6 +16,14 @@ describe('artifactRef', () => {
     expect(artifactIdFromRef('a1')).toBe('a1');
   });
 
+  it('truncates long names without leaving a trailing hyphen', () => {
+    const ref = artifactRef({ name: `${'word '.repeat(30)}`, id: '01hzx' });
+    const slug = ref.slice(0, ref.lastIndexOf('--'));
+    expect(slug.length).toBeLessThanOrEqual(32);
+    expect(slug.endsWith('-')).toBe(false);
+    expect(artifactIdFromRef(ref)).toBe('01hzx');
+  });
+
   it('round-trips a name whose slug contains single hyphens', () => {
     const ref = artifactRef({ name: 'Roadmap - v2', id: '01hzx' });
     expect(ref).toBe('roadmap-v2--01hzx');

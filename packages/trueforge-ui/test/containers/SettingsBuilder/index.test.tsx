@@ -13,7 +13,12 @@ import type {
   SkillCatalogServer,
   WebSearchCatalogServer,
 } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import {
+  autoNotConfigured,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 vi.mock('@/containers/SettingsBuilder/ModelSettings.js', () => ({
@@ -207,7 +212,7 @@ describe('TruefoundrySettingsBuilder', () => {
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: autoNotConfigured,
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
@@ -225,19 +230,43 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.queryByText('Model settings content')).not.toBeInTheDocument();
   });
 
+  it('keeps the Models tab for the Auto switch when the catalog capability is off', async () => {
+    const sections = allSettingsSections(false);
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({}),
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          auto: { status: 'enabled' },
+          sessionSharing: tenantSessionSharing,
+          settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
+        },
+      }),
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+
+    expect(await screen.findByRole('button', { name: 'Models' })).toBeInTheDocument();
+  });
+
   it('mounts web search for a host that only exposes the tenant configuration', async () => {
     const sections = allSettingsSections(false);
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          autoModelRouting: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: autoNotConfigured,
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, webSearch: { enabled: true, manageProviders: false } },
         },
@@ -260,7 +289,11 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          autoModelRouting: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
     });
@@ -275,14 +308,18 @@ describe('TruefoundrySettingsBuilder', () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog({}),
       configuration: {
-        getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          autoModelRouting: { enabled: true },
+        }),
         updateConfiguration: unavailable,
       },
       getCapabilities: async () => ({
         data: {
           sandbox: { enabled: true },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: autoNotConfigured,
           sessionSharing: tenantSessionSharing,
           settings: { ...sections, memoryProviders: { enabled: false, manageProviders: true } },
         },
@@ -327,7 +364,7 @@ describe('TruefoundrySettingsBuilder', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
       },
