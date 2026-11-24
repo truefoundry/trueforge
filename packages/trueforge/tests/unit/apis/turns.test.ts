@@ -182,7 +182,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -278,7 +278,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: {
@@ -378,7 +378,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -449,7 +449,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -557,7 +557,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions,
@@ -688,7 +688,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
@@ -807,7 +807,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -909,7 +909,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -1027,7 +1027,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          decisionModelProviderStore: undefined,
+          decisionModel: undefined,
           activeTurns,
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions,

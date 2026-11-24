@@ -135,7 +135,7 @@ async function createHarness(initial: { executorId: string; state: 'paused' | 'r
   app.route(
     '/',
     createTurnsRouter({
-      decisionModelProviderStore: undefined,
+      decisionModel: undefined,
       accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),

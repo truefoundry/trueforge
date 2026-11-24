@@ -168,12 +168,8 @@ const TrueFoundryModelRoutingSchema = z.object({
     })
     .strict()
     .default(DEFAULT_ROUTING_QUESTION.categories),
-  /**
-   * The decision model every tenant classifies with (`account/model`). `owner_tenant_id` scopes the model lookup and
-   * its account allowlist, so it must be the tenant of the virtual account behind `api_key`.
-   */
+  /** The decision model every tenant classifies with (`account/model`), called with the virtual account's `api_key`. */
   decision_model: z.object({
-    owner_tenant_id: z.string().min(1),
     name: z.string().min(1),
     api_key: z.string().min(1),
   }),
@@ -191,7 +187,7 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
     return TrueFoundryModelRoutingSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with "decision_model" (owner_tenant_id, name, api_key) and per-tenant "tenants" entries (e.g. {"decision_model":{"owner_tenant_id":"<tenant_id>","name":"typesafe/jev-1.13.0","api_key":"<token>"},"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with "decision_model" (name, api_key) and per-tenant "tenants" entries (e.g. {"decision_model":{"name":"typesafe/jev-1.13.0","api_key":"<token>"},"tenants":{"<tenant_id>":{"enabled":"on"}}})',
       { cause: error },
     );
   }

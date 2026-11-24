@@ -153,7 +153,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
-import { createDecisionModelProviderStore } from './truefoundry/decisionModelProviderStore';
+import { loadDecisionModel } from './truefoundry/decisionModel';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
@@ -575,7 +575,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   } = persistence;
 
   const memoryProviders = new MemoryProviderCache({ logger });
-  const decisionModelProviderStore = createDecisionModelProviderStore({ client: serviceFoundryClient, logger });
+  const decisionModel = await loadDecisionModel({ client: serviceFoundryClient });
 
   const activeTurns = new ActiveTurnRegistry<TTransaction>({
     pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
@@ -663,7 +663,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     artifactStore,
     authenticator,
     authorizer,
-    decisionModelProviderStore,
+    decisionModel,
     eventSubscriptions,
     logger,
     mcpCatalog: McpCatalog.load(),

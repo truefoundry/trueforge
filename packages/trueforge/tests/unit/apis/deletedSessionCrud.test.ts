@@ -79,7 +79,7 @@ describe('public CRUD after session deletion', () => {
     app.route(
       '/',
       createTurnsRouter({
-        decisionModelProviderStore: undefined,
+        decisionModel: undefined,
         activeTurns,
         authorizer: new TrueForgeAuthorizer(),
         eventSubscriptions: new EventSubscriptionRegistry(undefined),

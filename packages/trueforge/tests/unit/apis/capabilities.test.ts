@@ -277,7 +277,7 @@ describe('capabilities routers', () => {
   describe('auto', () => {
     const routingForDefaultTenant = parseTrueFoundryModelRouting(
       JSON.stringify({
-        decision_model: { owner_tenant_id: 'default', name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
         tenants: { default: { enabled: 'on' } },
       }),
     );

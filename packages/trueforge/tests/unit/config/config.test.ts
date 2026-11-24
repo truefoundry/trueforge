@@ -217,12 +217,11 @@ describe('parseTrueFoundryModelRouting', () => {
   it('reads the shared decision model and the per-tenant enabled flag', () => {
     const parsed = parseTrueFoundryModelRouting(
       JSON.stringify({
-        decision_model: { owner_tenant_id: 'internal', name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
         tenants: { internal: { enabled: 'on' } },
       }),
     );
     expect(parsed?.decision_model).toEqual({
-      owner_tenant_id: 'internal',
       name: 'typesafe/jev-1.13.0',
       api_key: 'test-routing-key',
     });
@@ -233,7 +232,7 @@ describe('parseTrueFoundryModelRouting', () => {
     expect(() =>
       parseTrueFoundryModelRouting(
         JSON.stringify({
-          decision_model: { owner_tenant_id: 'internal', name: 'typesafe/jev-1.13.0' },
+          decision_model: { name: 'typesafe/jev-1.13.0' },
           tenants: { internal: { enabled: 'on' } },
         }),
       ),

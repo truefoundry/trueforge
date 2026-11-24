@@ -46,7 +46,6 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
-  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -205,7 +204,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
   accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
-  decisionModelProviderStore: IModelProviderStore | undefined;
+  decisionModel: DecisionModel | undefined;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -248,7 +247,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
  */
 export type BeginTurnExecutionDeps<TTransaction> = Pick<
   TurnsRouterDeps<TTransaction>,
-  'activeTurns' | 'decisionModelProviderStore' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'decisionModel' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
   capabilitiesStore: ICapabilitiesStore;
@@ -346,7 +345,7 @@ async function executionDepsForCaller<TTransaction>(input: {
   const stores = await input.deps.resolveTurnExecutionStores(input);
   return {
     activeTurns: input.deps.activeTurns,
-    decisionModelProviderStore: input.deps.decisionModelProviderStore,
+    decisionModel: input.deps.decisionModel,
     eventSubscriptions: input.deps.eventSubscriptions,
     logger: input.deps.logger,
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
@@ -374,41 +373,17 @@ function turnModelRouting(input: {
   isAutoAllowed: boolean;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
-  decisionModelProviderStore: IModelProviderStore | undefined;
-  turnMetadata: TurnMetadata;
+  decisionModel: DecisionModel | undefined;
 }): ModelRouterDeps | undefined {
-  const { routing, tenant_id, modelProviderStore, decisionModelProviderStore, turnMetadata } = input;
-  if (routing === undefined || decisionModelProviderStore === undefined || !input.isAutoAllowed) {
+  const { routing, tenant_id, modelProviderStore, decisionModel } = input;
+  if (routing === undefined || decisionModel === undefined || !input.isAutoAllowed) {
     return undefined;
   }
   if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
     return undefined;
   }
-  // The shared decision account serves every tenant, so tenant-supplied metadata (caller headers, agent name)
-  // would be stored in its traces even with logging off. Only server-generated IDs are sent.
-  const decisionCallMetadata: TurnMetadata = {
-    sessionId: turnMetadata.sessionId,
-    turnId: turnMetadata.turnId,
-  };
-  // Resolved on first use, so turns that route no thread skip the lookup.
-  let decisionModel: Promise<DecisionModel> | undefined;
-  const resolveDecisionModel = () => {
-    decisionModel ??= getModelDetails({
-      tenant_id: routing.decision_model.owner_tenant_id,
-      name: routing.decision_model.name,
-      store: decisionModelProviderStore,
-      turnMetadata: decisionCallMetadata,
-    }).then(resolved => ({
-      client: new OpenAIDecisionModel(resolved.providerConfig),
-      properties: { contextLength: resolved.modelProperties?.contextLength },
-    }));
-    decisionModel.catch(() => {
-      decisionModel = undefined;
-    });
-    return decisionModel;
-  };
   return {
-    classifier: resolveDecisionModel,
+    classifier: () => Promise.resolve(decisionModel),
     question: {
       categories: routing.categories,
     },
@@ -833,8 +808,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       isAutoAllowed,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
-      decisionModelProviderStore: input.deps.decisionModelProviderStore,
-      turnMetadata,
+      decisionModel: input.deps.decisionModel,
     }),
     webSearchProvider,
     memoryCapability,

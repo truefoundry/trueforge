@@ -2,5 +2,5 @@
 '@truefoundry/trueforge': patch
 ---
 
-Model routing uses one shared decision model for all tenants, called with `decision_model.api_key` in `TRUEFOUNDRY_MODEL_ROUTING`.
+Model routing loads one shared decision model at startup from `decision_model.name` and `decision_model.api_key` in `TRUEFOUNDRY_MODEL_ROUTING`, and every tenant classifies with it.
 `decision_model` is top-level there; turn off gateway logging for its virtual account.
