@@ -89,8 +89,8 @@ jobs:
         if: steps.pin-uri.outputs.changed == 'true'
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_PUSH_SANDBOX_IMAGE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_PUSH_SANDBOX_IMAGE_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-sandbox-${{ github.run_id }}
 

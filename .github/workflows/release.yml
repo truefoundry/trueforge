@@ -132,8 +132,8 @@ jobs:
         if: steps.version-dirty.outputs.changed == 'true'
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-release-${{ github.run_id }}
 
@@ -384,8 +384,8 @@ jobs:
       - name: Join the tailnet for GitHub egress
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-resolve-${{ github.run_id }}
 
@@ -580,8 +580,8 @@ jobs:
       - name: Join the tailnet for GitHub egress
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-backmerge-${{ github.run_id }}
 
