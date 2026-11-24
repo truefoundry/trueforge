@@ -1,5 +1,5 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import { ArtifactNotOwnedError, type IArtifactStore, type ListArtifactsInput } from '../../src/db/artifactStore';
+import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
@@ -144,9 +144,9 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
 
   it('gets an artifact only for its creator', async () => {
     const artifact = await createArtifact();
-    await expect(
-      getStore().getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: 'someone-else' }),
-    ).rejects.toBeInstanceOf(ArtifactNotOwnedError);
+    expect(
+      await getStore().getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: 'someone-else' }),
+    ).toBeUndefined();
   });
 
   it('renames an artifact within the tenant', async () => {
@@ -193,9 +193,14 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const store = getStore();
     const artifact = await createArtifact();
     await tick();
-    await expect(
-      store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: 'someone-else', name: 'x' }),
-    ).rejects.toBeInstanceOf(ArtifactNotOwnedError);
+    expect(
+      await store.updateArtifact({
+        tenant_id: TENANT,
+        id: artifact.id,
+        created_by_subject_id: 'someone-else',
+        name: 'x',
+      }),
+    ).toBeUndefined();
     expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
       artifact,
     );

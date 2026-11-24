@@ -5,7 +5,6 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
-  ArtifactNotOwnedError,
   newArtifactIdentity,
   normalizeArtifactName,
   type ArtifactRecord,
@@ -84,15 +83,9 @@ export class SqliteArtifactStore implements IArtifactStore {
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
       .executeTakeFirst();
-    if (row === undefined) {
-      return undefined;
-    }
-    const artifact = toArtifactRecord(row);
-    if (artifact.created_by_subject.subject_id !== input.created_by_subject_id) {
-      throw new ArtifactNotOwnedError({ tenant_id: input.tenant_id, artifact_id: input.id });
-    }
-    return artifact;
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
@@ -104,19 +97,7 @@ export class SqliteArtifactStore implements IArtifactStore {
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
       .returning(recordColumns)
       .executeTakeFirst();
-    if (row !== undefined) {
-      return toArtifactRecord(row);
-    }
-    const existing = await this.#db
-      .selectFrom('artifact')
-      .select('id')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .executeTakeFirst();
-    if (existing !== undefined) {
-      throw new ArtifactNotOwnedError({ tenant_id: input.tenant_id, artifact_id: input.id });
-    }
-    return undefined;
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
