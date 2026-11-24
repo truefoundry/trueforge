@@ -6,7 +6,10 @@
  *
  * Changesets pre mode follows that version. Published packages still at
  * `0.0.0` move to `X.Y.0` or `X.Y.0-rc.0`; private packages (`packages/frontend`)
- * stay `0.0.0`. Bootstrapping `packages/trueforge-sdk` deliberately leaves
+ * stay `0.0.0`. An RC bootstrap also writes a patch changeset naming every
+ * package that moved so `changeset version` advances them together to
+ * `X.Y.0-rc.1` (packages with no feature changesets would otherwise stay at
+ * `-rc.0`). Bootstrapping `packages/trueforge-sdk` deliberately leaves
  * `python/trueforge_sdk/pyproject.toml` alone: `pnpm run version` runs straight
  * after this script, and `scripts/version.mjs` syncs Poetry whenever the Python
  * version diverges from the TS SDK's - not only when `changeset version` moves
@@ -51,6 +54,23 @@ export function preModeCommand(chartVersion, preState) {
     return 'exit';
   }
   return 'keep';
+}
+
+export function bootstrapChangesetPath(rootDir, chartVersion) {
+  const parsed = parseChartVersion(chartVersion);
+  const core = `${parsed.major}.${parsed.minor}.0`;
+  return path.join(rootDir, '.changeset', `release-line-${core}-bootstrap.md`);
+}
+
+export function formatBootstrapChangeset({ packageNames, chartVersion }) {
+  const parsed = parseChartVersion(chartVersion);
+  const core = `${parsed.major}.${parsed.minor}.0`;
+  const unique = [...new Set(packageNames)].sort();
+  if (unique.length === 0) {
+    throw new Error('bootstrap changeset requires at least one package name');
+  }
+  const frontmatter = unique.map(name => `"${name}": patch`).join('\n');
+  return `---\n${frontmatter}\n---\n\nStart the ${core} release candidate line.\n`;
 }
 
 function defaultRun(command, args, cwd) {
@@ -147,6 +167,9 @@ async function bootstrapZeroVersions(rootDir, chartVersion) {
     if (parsed.private === true || parsed.version !== '0.0.0') {
       continue;
     }
+    if (typeof parsed.name !== 'string' || parsed.name.length === 0) {
+      throw new Error(`${packagePath} is missing a non-empty name`);
+    }
     // Patch the one field instead of re-stringifying: these files are committed
     // on the release branch, and JSON.stringify would reflow the whole manifest.
     const next = raw.replace(/("version"\s*:\s*")0\.0\.0(")/, `$1${target}$2`);
@@ -154,9 +177,22 @@ async function bootstrapZeroVersions(rootDir, chartVersion) {
       throw new Error(`${packagePath} is 0.0.0 but the version field could not be replaced`);
     }
     await writeFile(packagePath, next);
-    changed.push(entry.name);
+    changed.push({ dir: entry.name, name: parsed.name });
   }
   return changed;
+}
+
+async function writeBootstrapChangeset(rootDir, chartVersion, bootstrapped) {
+  if (!parseChartVersion(chartVersion).prerelease || bootstrapped.length === 0) {
+    return null;
+  }
+  const outfile = bootstrapChangesetPath(rootDir, chartVersion);
+  const body = formatBootstrapChangeset({
+    packageNames: bootstrapped.map(entry => entry.name),
+    chartVersion,
+  });
+  await writeFile(outfile, body);
+  return outfile;
 }
 
 export async function prepareRelease({ rootDir = rootDirDefault, chartVersion, branch, run = defaultRun }) {
@@ -167,8 +203,11 @@ export async function prepareRelease({ rootDir = rootDirDefault, chartVersion, b
   await setBaseBranch(rootDir, branch);
   const pre = await applyPreMode(rootDir, chartVersion, run);
   const bootstrapped = await bootstrapZeroVersions(rootDir, chartVersion);
-  console.log(`prepared ${branch} for ${chartVersion} (pre=${pre}, bootstrapped=${bootstrapped.join(',') || 'none'})`);
-  return { pre, bootstrapped };
+  const bootstrapChangeset = await writeBootstrapChangeset(rootDir, chartVersion, bootstrapped);
+  console.log(
+    `prepared ${branch} for ${chartVersion} (pre=${pre}, bootstrapped=${bootstrapped.map(entry => entry.dir).join(',') || 'none'}, bootstrapChangeset=${bootstrapChangeset ?? 'none'})`,
+  );
+  return { pre, bootstrapped, bootstrapChangeset };
 }
 
 async function main() {
