@@ -11,7 +11,7 @@ on:
       - 'packages/trueforge/scripts/**'
       - 'packages/trueforge-core/src/**'
       - '.github/fern/**'
-      - '.github/workflows/internal-generate-sdk.yaml'
+      - '.github/workflows/generate-sdk.yaml'
       - 'scripts/generate-sdk.sh'
 
 concurrency:
@@ -69,20 +69,11 @@ jobs:
           fi
 
       - name: Join the tailnet for GitHub egress
-        if: steps.dirty.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        if: steps.dirty.outputs.changed == 'true'
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_MAIN_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_MAIN_AUDIENCE }}
-          tags: tag:ci-github-egress
-          hostname: gh-trueforge-sdk-${{ github.run_id }}
-
-      - name: Join the tailnet for GitHub egress
-        if: steps.dirty.outputs.changed == 'true' && startsWith(github.ref, 'refs/heads/release-v')
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
-        with:
-          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_GENERATE_SDK_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_GENERATE_SDK_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-sdk-${{ github.run_id }}
 

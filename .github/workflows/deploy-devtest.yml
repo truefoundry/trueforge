@@ -21,20 +21,10 @@ jobs:
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
-        if: github.ref == 'refs/heads/main'
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          oauth-client-id: ${{ secrets.TS_CI_MAIN_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_MAIN_AUDIENCE }}
-          tags: tag:ci-github-egress
-          hostname: gh-trueforge-devtest-${{ github.run_id }}
-
-      - name: Join the tailnet for GitHub egress
-        if: startsWith(github.ref, 'refs/heads/release-v')
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
-        with:
-          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          oauth-client-id: ${{ secrets.TS_CI_DEPLOY_DEVTEST_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_DEPLOY_DEVTEST_AUDIENCE }}
           tags: tag:ci-github-egress
           hostname: gh-trueforge-devtest-${{ github.run_id }}
 
