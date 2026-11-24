@@ -50,7 +50,7 @@ export function ArtifactsButton({ className, compact = false }: ArtifactsButtonP
         shell.setArtifactsOpen(!open);
       }}
     >
-      <Icon name="file" size={compact ? 16 : undefined} />
+      <Icon name="gallery-horizontal-end" size={compact ? 16 : undefined} />
       {compact ? null : (
         <>
           <span className="truncate">Artifacts</span>

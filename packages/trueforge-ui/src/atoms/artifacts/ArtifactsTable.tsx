@@ -5,14 +5,14 @@ import { useState } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import type { Artifact } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { CreatedByCell } from '../CreatedByCell.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatRelativeTime } from '../lib/dateFormat.js';
-import { Badge } from '../primitives/Badge.js';
 import { DropdownMenu, DropdownMenuSeparator } from '../primitives/DropdownMenu.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../primitives/Table.js';
 import { RowActionItem } from '../RowActionItem.js';
-import { artifactPreviewKey, artifactTypeLabel, NO_ENTRY_POINT_REASON } from './artifactDisplay.js';
+import { artifactPreviewKey, NO_ENTRY_POINT_REASON } from './artifactDisplay.js';
 
 export type ArtifactsTableProps = {
   artifacts: Artifact[];
@@ -41,8 +41,7 @@ export function ArtifactsTable({
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Version</TableHead>
+          <TableHead>Created by</TableHead>
           <TableHead>Updated</TableHead>
           <TableHead className="w-16" />
         </TableRow>
@@ -63,11 +62,8 @@ export function ArtifactsTable({
                 <span className="truncate font-medium text-text-primary">{artifact.name}</span>
               </TableCell>
               <TableCell>
-                <Badge variant="outline" shape="pill">
-                  {artifactTypeLabel(artifact.entryPoint)}
-                </Badge>
+                <CreatedByCell subject={artifact.createdBySubject} />
               </TableCell>
-              <TableCell className="text-sm text-text-secondary">v{artifact.latestVersion}</TableCell>
               <TableCell className="text-sm text-text-secondary">{formatRelativeTime(artifact.updatedAt)}</TableCell>
               {/* Swallow here so menu clicks do not also open the preview. */}
               <TableCell className="relative" onClick={event => event.stopPropagation()}>

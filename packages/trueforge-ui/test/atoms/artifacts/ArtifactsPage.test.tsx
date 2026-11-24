@@ -55,12 +55,14 @@ function renderWith(artifactServer: ArtifactServer | undefined, ui = <ArtifactsP
 }
 
 describe('ArtifactsPage', () => {
-  it('lists artifacts with type and version', async () => {
+  it('lists artifacts with the creator name and without type or version', async () => {
     renderWith(createMockArtifactServer({ listArtifacts: vi.fn(async () => ({ data: sample })) }));
     expect(await screen.findByText('Q4 brief')).toBeInTheDocument();
-    expect(screen.getAllByText('v2')).toHaveLength(2);
-    expect(screen.getByText('Markdown')).toBeInTheDocument();
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(screen.getAllByText('alice')).toHaveLength(2);
+    expect(screen.queryByRole('columnheader', { name: 'Type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Version' })).not.toBeInTheDocument();
+    expect(screen.queryByText('v2')).not.toBeInTheDocument();
   });
 
   it('shows the empty state and a friendly load error', async () => {
@@ -132,6 +134,7 @@ describe('ArtifactsButton', () => {
     withoutPort.unmount();
 
     renderWith(createMockArtifactServer(), <ArtifactsButton compact />);
-    expect(screen.getByRole('button', { name: 'Artifacts' })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Artifacts' });
+    expect(button.querySelector('svg')).toHaveClass('lucide-gallery-horizontal-end');
   });
 });
