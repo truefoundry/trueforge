@@ -234,7 +234,6 @@ export * from "./SessionSharingCapability.js";
 export * from "./SessionSharingCapabilityGranularity.js";
 export * from "./SessionSource.js";
 export * from "./SessionSourceSchedule.js";
-export * from "./SessionSourceService.js";
 export * from "./SessionSourceType.js";
 export * from "./SettingsCapability.js";
 export * from "./SettingsCapabilitySection.js";
