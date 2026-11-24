@@ -33,7 +33,7 @@ function SessionMetricTile({
 }) {
   const content = (
     <div
-      className="h-full w-full border-b border-r border-border bg-primary-bg px-3 py-2"
+      className="h-full w-full border-b border-r border-border bg-card-bg px-3 py-2"
       data-slot={`session-metric-${id}`}
     >
       <div className="mb-0.5 flex items-center gap-1 text-[0.625rem] font-medium uppercase tracking-wider text-text-secondary">
@@ -80,7 +80,7 @@ function SessionTurnsMetricTile({
 
   const tile = (
     <div
-      className="h-full w-full border-b border-r border-border bg-primary-bg px-3 py-2"
+      className="h-full w-full border-b border-r border-border bg-card-bg px-3 py-2"
       data-slot="session-metric-turns"
     >
       <div className="mb-0.5 flex items-center gap-1 text-[0.625rem] font-medium uppercase tracking-wider text-text-secondary">

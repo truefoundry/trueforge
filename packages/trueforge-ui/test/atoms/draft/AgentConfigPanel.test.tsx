@@ -98,7 +98,7 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Skills' }).closest('div.items-start')?.querySelector('svg'),
-    ).toHaveClass('lucide-lightbulb');
+    ).toHaveClass('lucide-scroll-text');
     expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
       'min-h-14',
       'border-b',

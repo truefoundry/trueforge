@@ -202,16 +202,26 @@ export class TurnResourceResolver<
    * process's connection (local bridge); the sandbox VM keeps running and the
    * next turn reattaches via `existing.sandbox_id`.
    *
-   * Tool sources (MCP connections) are intentionally NOT closed: the run's
-   * AbortSignal already aborts their in-flight calls, and connections are
-   * per-run objects that are simply dropped. If deterministic MCP socket
-   * release is ever needed, add it here — no contract change required.
+   * Also closes each RemoteMCP. SSE keeps a GET open after the turn is done,
+   * and dropping the object waits for that GET to time out. Model clients are
+   * created per request on the process-wide model fetch pool, so this does not
+   * close them.
    *
    * Subclasses that acquire additional resources MUST override, release
    * their own resources best-effort, and call `await super.close()`.
    * Idempotent; never throws.
    */
   async close(): Promise<void> {
+    const sources = [...this.#sources.values()];
+    this.#sources.clear();
+    await Promise.all(
+      sources.map(async sourcePromise => {
+        const source = await sourcePromise.catch(() => undefined);
+        if (source instanceof RemoteMCP) {
+          await source.close().catch(() => undefined);
+        }
+      }),
+    );
     const sandbox = this.#sandbox;
     this.#sandbox = undefined;
     await sandbox?.close().catch(() => {

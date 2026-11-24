@@ -4839,7 +4839,7 @@ client.internal.schedules.execute_run(
 </details>
 
 ## Internal Sessions
-<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py#L34-L80">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py#L31-L77">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -4911,7 +4911,6 @@ client.internal.sessions.get_or_create_by_external_id(
 <dd>
 
 **source:** `typing.Optional[SessionSourceSchedule]` 
-
     
 </dd>
 </dl>

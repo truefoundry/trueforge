@@ -21,14 +21,15 @@ describe('ensureStyles', () => {
     expect(nodes[0]?.textContent).toBe('.aui-theme-root{color:red}');
   });
 
-  it('injects Geist stylesheet once', () => {
+  it('injects IBM Plex Sans stylesheet once', () => {
     ensureStyles('.aui-theme-root{color:red}');
     ensureStyles('.aui-theme-root{color:blue}');
 
     const links = document.querySelectorAll(`#${DEFAULT_TYPEFACE_LINK_ID}`);
     expect(links).toHaveLength(1);
     expect(links[0]?.getAttribute('rel')).toBe('stylesheet');
-    expect(links[0]?.getAttribute('href')).toContain('family=Geist');
+    expect(links[0]?.getAttribute('href')).toContain('family=IBM+Plex+Sans');
+    expect(links[0]?.getAttribute('href')).toContain('family=IBM+Plex+Mono');
   });
 
   it('still loads fonts when css is empty', () => {

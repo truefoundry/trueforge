@@ -164,7 +164,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full flex-col bg-card-bg">
       <AgentDetailsHeader agentId={agentId} detail={detail} onBack={goBack} />
       {sessionsServer != null && !detailFailed ? (
         <AgentDetailsTabs

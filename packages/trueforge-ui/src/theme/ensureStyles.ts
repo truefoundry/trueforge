@@ -6,7 +6,7 @@ export const TRUEFORGE_UI_STYLE_ID = 'trueforge-ui-styles';
 
 /**
  * Injects the published SDK stylesheet once into `document.head`, and loads
- * Geist for the brand default typeface.
+ * IBM Plex Sans for the brand default typeface.
  * No-ops when a host already loaded styles (same id) or when CSS was not
  * embedded (dev without a prior CSS build).
  */
