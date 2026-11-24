@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L83">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L32-L87">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -577,6 +577,159 @@ client.artifacts.list()
 <dd>
 
 **name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L89-L119">get</a>(...) -> GetArtifactResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get an artifact by id. Only the artifact creator may read it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.artifacts.get(
+    artifact_id="artifact_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**artifact_id:** `str` — Artifact identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L121-L157">update</a>(...) -> GetArtifactResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Rename an artifact. Only the artifact creator may update it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.artifacts.update(
+    artifact_id="artifact_id",
+    name="name",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**artifact_id:** `str` — Artifact identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**name:** `str` — New artifact name.
     
 </dd>
 </dl>
@@ -4839,7 +4992,7 @@ client.internal.schedules.execute_run(
 </details>
 
 ## Internal Sessions
-<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py#L34-L80">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py#L31-L77">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -4911,7 +5064,6 @@ client.internal.sessions.get_or_create_by_external_id(
 <dd>
 
 **source:** `typing.Optional[SessionSourceSchedule]` 
-
     
 </dd>
 </dl>
