@@ -475,7 +475,6 @@ jobs:
 
   build-image-private:
     name: Build and push hardened server image
-    environment: trueforge-internal
     # DRY-RUN (temporary): `&& inputs.dry_run != true`
     if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
     # version-release must be a DIRECT dependency: the needs context only
