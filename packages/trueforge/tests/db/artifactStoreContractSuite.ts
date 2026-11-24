@@ -81,6 +81,11 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
+  it('rejects forbidden characters and normalizes whitespace in the name', async () => {
+    await expect(createArtifact({ name: 'a/b' })).rejects.toBeInstanceOf(RangeError);
+    expect((await createArtifact({ name: 'a\u2028  b' })).name).toBe('a b');
+  });
+
   it('allows artifacts with the same name', async () => {
     const first = await createArtifact();
     const second = await createArtifact();
@@ -157,21 +162,23 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       tenant_id: TENANT,
       id: artifact.id,
       created_by_subject_id: OWNER,
-      name: '  Renamed  ',
+      name: '  Re\u2028  named  ',
     });
-    expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
+    expect(renamed).toEqual({ ...artifact, name: 'Re named', updated_at: renamed?.updated_at });
     expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
       renamed,
     );
   });
 
-  it('rejects a blank rename and keeps the stored name', async () => {
+  it('rejects an invalid rename and keeps the stored name', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    await expect(
-      store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER, name: '   ' }),
-    ).rejects.toBeInstanceOf(RangeError);
+    for (const name of ['   ', 'a:b']) {
+      await expect(
+        store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER, name }),
+      ).rejects.toBeInstanceOf(RangeError);
+    }
     expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
       artifact,
     );

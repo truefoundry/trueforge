@@ -1,5 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { MAX_TITLE_LENGTH } from '../schemas/common';
+import { ArtifactNameSchema } from '../schemas/artifact';
 export interface ArtifactRecord {
   id: string;
   tenant_id: string;
@@ -30,7 +30,7 @@ export interface ArtifactVersionRecord {
 
 export interface CreateArtifactInput {
   tenant_id: string;
-  /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
+  /** Validated and normalized by `normalizeArtifactName`. */
   name: string;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -74,13 +74,13 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/** Trimmed name. Throws `RangeError` when it is empty or longer than `MAX_TITLE_LENGTH`. */
+/** Normalizes via `ArtifactNameSchema`. Throws `RangeError` when the name is invalid. */
 export function normalizeArtifactName(rawName: string): string {
-  const name = rawName.trim();
-  if (name.length === 0 || name.length > MAX_TITLE_LENGTH) {
-    throw new RangeError(`Artifact name must be 1-${String(MAX_TITLE_LENGTH)} characters`);
+  const result = ArtifactNameSchema.safeParse(rawName);
+  if (!result.success) {
+    throw new RangeError(result.error.issues.map(issue => issue.message).join(' '), { cause: result.error });
   }
-  return name;
+  return result.data;
 }
 
 export interface IArtifactStore {
