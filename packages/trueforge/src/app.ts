@@ -62,6 +62,7 @@ import type { WithTransaction } from './db/transaction';
 import type { IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { HttpMetrics } from './http/prometheus';
+import { createServerTimingMiddleware } from './http/serverTiming';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -375,6 +376,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
   const resolveHttpAgentStore = (c: Context) => deps.resolveAgentStore(resolveRequestContext(c));
   const httpMetrics = deps.httpMetrics;
+  app.use('*', createServerTimingMiddleware());
   app.use('*', createRequestLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/*', createSessionPathLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/turns/:turn_id/*', createSessionPathLogContextMiddleware());
@@ -525,6 +527,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sessions: deps.sessions,
     sessionStore: deps.sessionStore,
     webSearchProviderStore: deps.webSearchProviderStore,
+    configurationStore: deps.configurationStore,
   };
   app.route(
     '/api/internal/schedules',

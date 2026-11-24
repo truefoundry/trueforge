@@ -218,6 +218,32 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
+  it('rejects auto when the tenant turned Auto mode off, even with model routing on', async () => {
+    const stores = await setup();
+    await stores.configurationStore.upsertConfiguration({
+      tenant_id: 'default',
+      manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: false } },
+    });
+    const modelRouting = parseTrueFoundryModelRouting(
+      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+    );
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'auto' },
+          instructions: 'test',
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        modelRouting,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Auto mode is turned off for this tenant',
+    } satisfies Partial<HTTPException>);
+  });
+
   it('rejects malformed model FQN with 422', async () => {
     const stores = await setup();
     await expect(
@@ -388,7 +414,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -412,7 +438,7 @@ describe('validateAgentSpec', () => {
     jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(true);
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -458,7 +484,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -483,7 +509,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -506,7 +532,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
     const memorySpec = AgentSpecSchema.parse({
       model: { name: 'test-provider/test-model' },
@@ -532,7 +558,7 @@ describe('validateAgentSpec', () => {
     });
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: false } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -560,7 +586,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     await expect(
       validateAgentSpec({
@@ -603,7 +629,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: true }, memory: { enabled: true } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     await stores.memoryProviderStore.upsertProvider({
       tenant_id: 'default',

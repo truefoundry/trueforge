@@ -428,6 +428,7 @@ export function createRequestStoreResolvers<TTransaction>(input: {
       skillStore: turnSkillStoreFor({ headers: turnInput.requestHeaders, allowInlineResources }),
       sandboxProviderStore,
       webSearchProviderStore,
+      configurationStore,
       memory,
     });
   };

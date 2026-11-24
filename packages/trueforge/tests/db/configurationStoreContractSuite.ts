@@ -2,7 +2,11 @@
  * Backend-agnostic behavioural contract for IConfigurationStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import { isMemoryEnabledForTenant, type IConfigurationStore } from '../../src/db/configurationStore';
+import {
+  isAutoEnabledForTenant,
+  isMemoryEnabledForTenant,
+  type IConfigurationStore,
+} from '../../src/db/configurationStore';
 import type { ConfigurationManifest } from '../../src/schemas/configuration';
 
 export interface ConfigurationStoreContractEnv {
@@ -14,11 +18,11 @@ export interface ConfigurationStoreContractEnv {
 }
 
 function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }): ConfigurationManifest {
-  return { web_search: { enabled: webSearch }, memory: { enabled: memory } };
+  return { web_search: { enabled: webSearch }, memory: { enabled: memory }, auto_model_routing: { enabled: true } };
 }
 
 const LEGACY_MANIFEST_JSON = '{"web_search":{"enabled":false}}';
-const SEEDED = { web_search: { enabled: false }, memory: { enabled: true } };
+const SEEDED = { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } };
 
 export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationStoreContractEnv): void {
   it('lists only tenants whose stored row has the given feature on', async () => {
@@ -46,6 +50,7 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
     expect((await store.getConfiguration('legacy'))?.manifest).toEqual(SEEDED);
     expect(await readRawManifest('legacy')).toEqual(SEEDED);
     await expect(isMemoryEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
+    await expect(isAutoEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
   });
 
   it('getOrCreateConfiguration seeds a missing switch without replacing the stored ones', async () => {
