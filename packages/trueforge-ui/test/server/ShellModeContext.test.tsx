@@ -15,6 +15,7 @@ import { ServerProvider, useServerCapabilities, useServerCapabilitiesSettled } f
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import {
+  autoNotConfigured,
   createMockAgentSessionsServer,
   createMockAgentUIServer,
   createMockCatalog,
@@ -115,7 +116,7 @@ describe('ShellModeProvider', () => {
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: autoNotConfigured,
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(false),
         },
@@ -603,7 +604,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: true },
@@ -643,7 +644,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
         settings: allSettingsSections(true),
         webSearch: { enabled: false },
@@ -1179,7 +1180,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
       },
     }));
@@ -1205,7 +1206,7 @@ describe('ShellModeProvider', () => {
       data: {
         sandbox: { enabled: false, environments: { enabled: false } },
         skill: { enabled: false },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
       },
     }));

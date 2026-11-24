@@ -5,7 +5,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import MemorySettings from '@/containers/SettingsBuilder/MemorySettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, MemoryCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import {
+  autoNotConfigured,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
@@ -30,7 +35,11 @@ const memoryCatalog: MemoryCatalogServer = {
 };
 
 const memoryOn: ConfigurationServer = {
-  getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+  getConfiguration: async () => ({
+    webSearch: { enabled: true },
+    memory: { enabled: true },
+    autoModelRouting: { enabled: true },
+  }),
   updateConfiguration: unavailable,
 };
 
@@ -43,7 +52,7 @@ function renderSettings(
     data: {
       sandbox: { enabled: true },
       skill: { enabled: true },
-      auto: { enabled: false },
+      auto: autoNotConfigured,
       sessionSharing: tenantSessionSharing,
       settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
     },
@@ -64,7 +73,11 @@ function renderSettings(
 describe('MemorySettings tenant switch', () => {
   it('shows the stored value', async () => {
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: false },
+        autoModelRouting: { enabled: true },
+      }),
       updateConfiguration: unavailable,
     });
 
@@ -74,9 +87,17 @@ describe('MemorySettings tenant switch', () => {
   });
 
   it('saves only the memory switch and re-renders from the response', async () => {
-    const updateConfiguration = vi.fn(async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }));
+    const updateConfiguration = vi.fn(async () => ({
+      webSearch: { enabled: true },
+      memory: { enabled: false },
+      autoModelRouting: { enabled: true },
+    }));
     renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: true },
+        autoModelRouting: { enabled: true },
+      }),
       updateConfiguration,
     });
 
@@ -93,8 +114,16 @@ describe('MemorySettings tenant switch', () => {
 
   it('refreshes capabilities after saving, so the agent Memory toggle unlocks right away', async () => {
     const { getCapabilities } = renderSettings({
-      getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: false } }),
-      updateConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true } }),
+      getConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: false },
+        autoModelRouting: { enabled: true },
+      }),
+      updateConfiguration: async () => ({
+        webSearch: { enabled: true },
+        memory: { enabled: true },
+        autoModelRouting: { enabled: true },
+      }),
     });
 
     const toggle = await screen.findByRole('switch', { name: 'Allow memory' });
@@ -163,8 +192,11 @@ describe('MemorySettings providers', () => {
   });
 
   it('waits for the switch before listing providers, so an off tenant never flashes them', async () => {
-    let resolveConfiguration: (value: { webSearch: { enabled: boolean }; memory: { enabled: boolean } }) => void = () =>
-      undefined;
+    let resolveConfiguration: (value: {
+      webSearch: { enabled: boolean };
+      memory: { enabled: boolean };
+      autoModelRouting: { enabled: boolean };
+    }) => void = () => undefined;
     const getMemoryProviderCatalog = vi.fn(memoryCatalog.getMemoryProviderCatalog);
     renderSettings(
       {
@@ -184,7 +216,11 @@ describe('MemorySettings providers', () => {
     await act(() => new Promise(resolve => setTimeout(resolve, 20)));
     expect(screen.queryByText('Zep')).not.toBeInTheDocument();
 
-    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true } });
+    resolveConfiguration({
+      webSearch: { enabled: true },
+      memory: { enabled: true },
+      autoModelRouting: { enabled: true },
+    });
     expect(await screen.findByText('Zep')).toBeInTheDocument();
   });
 });

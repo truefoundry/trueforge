@@ -11,7 +11,7 @@ describe("ServerClient", () => {
 
         const rawResponseBody = {
             data: {
-                auto: { enabled: true },
+                auto: { reason: "reason", status: "not_configured" },
                 memory: { enabled: true, reason: "reason" },
                 sandbox: { enabled: true, environments: { enabled: true } },
                 session_sharing: { granularity: "tenant" },
@@ -40,7 +40,8 @@ describe("ServerClient", () => {
         expect(response).toEqual({
             data: {
                 auto: {
-                    enabled: true,
+                    reason: "reason",
+                    status: "not_configured",
                 },
                 memory: {
                     enabled: true,

@@ -1,7 +1,6 @@
 /**
  * Turn route definitions.
- * Public DB-backed routes mount at /api/v1/sessions.
- * Internal create-turn mounts at /api/internal/sessions (same `/{session_id}/turns` path).
+ * DB-backed routes mount at /api/v1/sessions.
  * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
@@ -16,7 +15,6 @@ import {
   CreateTurnRequestSchema,
   DownloadSandboxFileRequestQuerySchema,
   GetTurnResponseSchema,
-  InternalCreateSessionTurnRequestSchema,
   ListTurnEventsRequestQuerySchema,
   ListTurnEventsResponseSchema,
   ListTurnsRequestQuerySchema,
@@ -295,59 +293,6 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
         '(named agent, model, MCP server, skill, or sandbox provider), sandbox is required but ' +
         'unavailable (e.g. file uploads), or the turn input conflicts with current state ' +
         '(e.g. unresolved tool calls or approvals, tool name collision).',
-    },
-  },
-});
-
-/** Service-key create-turn under `/api/internal/sessions`. */
-export const createInternalSessionTurnRoute = createRoute({
-  method: 'post',
-  path: '/{session_id}/turns',
-  tags: [OpenApiTag.INTERNAL],
-  summary: 'Create and execute a turn in a session (internal)',
-  description: 'Service API key. Non-streaming; requires external_id and a non-null source.',
-  'x-fern-sdk-group-name': ['internal', 'sessions'],
-  'x-fern-sdk-method-name': 'create_turn',
-  'x-excluded': true,
-  request: {
-    params: SessionIdParamsSchema,
-    body: {
-      content: { 'application/json': { schema: InternalCreateSessionTurnRequestSchema } },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetTurnResponseSchema } },
-      description: 'The running turn.',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid service credential.',
-    },
-    403: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session lacks external_id or source and is not eligible.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session, prior turn, or referenced agent not found.',
-    },
-    412: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Requested action cannot be performed on the session because it is no longer usable.',
-    },
-    413: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES).',
-    },
-    422: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Missing agent/resource, sandbox unavailable, or turn input conflicts with session state.',
     },
   },
 });

@@ -95,6 +95,7 @@ describe('public CRUD after session deletion', () => {
             skillStore,
             sandboxProviderStore,
             webSearchProviderStore,
+            configurationStore,
             memory: undefined,
           }),
         sandboxEnvironmentStore,

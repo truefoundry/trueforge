@@ -48,7 +48,7 @@ function renderBridge({ memory }: { memory?: { enabled: boolean } } = {}) {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: { status: 'not_configured' },
         sessionSharing: tenantSessionSharing,
         webSearch: { enabled: false },
         ...(memory === undefined ? {} : { memory }),

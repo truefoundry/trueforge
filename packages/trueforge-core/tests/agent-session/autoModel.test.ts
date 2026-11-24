@@ -238,7 +238,7 @@ describe('auto model selection', () => {
       }),
     ).rejects.toMatchObject({
       code: 'auto_model_unavailable',
-      message: 'Auto model selection needs model routing for this tenant',
+      message: 'Auto mode is turned off for this tenant',
     } satisfies Partial<AgentHarnessError>);
   });
 

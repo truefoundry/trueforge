@@ -22,6 +22,8 @@ if typing.TYPE_CHECKING:
     from .artifact import Artifact
     from .ask_user_questions_config import AskUserQuestionsConfig
     from .auto_capability import AutoCapability
+    from .auto_capability_status import AutoCapabilityStatus
+    from .auto_model_routing_configuration import AutoModelRoutingConfiguration
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -240,7 +242,6 @@ if typing.TYPE_CHECKING:
     from .session_sharing_capability_granularity import SessionSharingCapabilityGranularity
     from .session_source import SessionSource
     from .session_source_schedule import SessionSourceSchedule
-    from .session_source_service import SessionSourceService
     from .session_source_type import SessionSourceType
     from .settings_capability import SettingsCapability
     from .settings_capability_section import SettingsCapabilitySection
@@ -325,6 +326,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Artifact": ".artifact",
     "AskUserQuestionsConfig": ".ask_user_questions_config",
     "AutoCapability": ".auto_capability",
+    "AutoCapabilityStatus": ".auto_capability_status",
+    "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -543,7 +546,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionSharingCapabilityGranularity": ".session_sharing_capability_granularity",
     "SessionSource": ".session_source",
     "SessionSourceSchedule": ".session_source_schedule",
-    "SessionSourceService": ".session_source_service",
     "SessionSourceType": ".session_source_type",
     "SettingsCapability": ".settings_capability",
     "SettingsCapabilitySection": ".settings_capability_section",
@@ -652,6 +654,8 @@ __all__ = [
     "Artifact",
     "AskUserQuestionsConfig",
     "AutoCapability",
+    "AutoCapabilityStatus",
+    "AutoModelRoutingConfiguration",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",
@@ -870,7 +874,6 @@ __all__ = [
     "SessionSharingCapabilityGranularity",
     "SessionSource",
     "SessionSourceSchedule",
-    "SessionSourceService",
     "SessionSourceType",
     "SettingsCapability",
     "SettingsCapabilitySection",

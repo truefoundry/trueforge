@@ -10,6 +10,8 @@ import type {
 } from '@/server/types.js';
 import { allSettingsSections } from './settingsCapabilityFixture.js';
 
+export const autoNotConfigured: AgentBuilderCapabilitiesResponse['data']['auto'] = { status: 'not_configured' };
+
 export const tenantSessionSharing: AgentBuilderCapabilitiesResponse['data']['sessionSharing'] = {
   granularity: 'tenant',
 };
@@ -118,7 +120,7 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
         sandbox: { enabled: true, environments: { enabled: true } },
         skill: { enabled: true },
         settings: allSettingsSections(true),
-        auto: { enabled: false },
+        auto: { status: 'disabled' },
         sessionSharing: tenantSessionSharing,
       },
     }),
