@@ -175,7 +175,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
-        decision_model: { tenant_id: 'default', name: 'typesafe/jev-1.13.0' },
+        decision_model: { owner_tenant_id: 'default', name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
         tenants: { default: { enabled: 'on' } },
       }),
     );
@@ -197,7 +197,7 @@ describe('validateAgentSpec', () => {
     const stores = await setup();
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
-        decision_model: { tenant_id: 'default', name: 'typesafe/jev-1.13.0' },
+        decision_model: { owner_tenant_id: 'default', name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
         tenants: { default: { enabled: 'on' } },
       }),
     );
@@ -226,7 +226,7 @@ describe('validateAgentSpec', () => {
     });
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
-        decision_model: { tenant_id: 'default', name: 'typesafe/jev-1.13.0' },
+        decision_model: { owner_tenant_id: 'default', name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
         tenants: { default: { enabled: 'on' } },
       }),
     );

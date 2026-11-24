@@ -17,21 +17,20 @@ export function createDecisionModelProviderStore(input: {
     return undefined;
   }
   const routing = trueFoundryModelRouting();
-  const apiKey = configuration.TRUEFOUNDRY_MODEL_ROUTING_API_KEY;
-  if (routing === undefined || apiKey === undefined) {
+  if (routing === undefined) {
     return undefined;
   }
   return new TrueFoundryModelProviderStore({
     client: input.client,
     requestContext: createTrueFoundryRequestContext({
-      tenant_id: routing.decision_model.tenant_id,
+      tenant_id: routing.decision_model.owner_tenant_id,
       subject: {
         id: 'trueforge-auto-model-router',
         type: 'virtualaccount',
         display_name: 'trueforge-auto-model-router',
       },
       roles: [],
-      user_credential: apiKey,
+      user_credential: routing.decision_model.api_key,
     }),
     agent: undefined,
     logger: input.logger,

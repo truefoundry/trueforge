@@ -205,7 +205,6 @@ export interface TurnsRouterDeps<TTransaction = never> {
   accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
-  /** Shared by every tenant for model routing classification. Undefined when routing is not configured. */
   decisionModelProviderStore: IModelProviderStore | undefined;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -395,7 +394,7 @@ function turnModelRouting(input: {
   let decisionModel: Promise<DecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
-      tenant_id: routing.decision_model.tenant_id,
+      tenant_id: routing.decision_model.owner_tenant_id,
       name: routing.decision_model.name,
       store: decisionModelProviderStore,
       turnMetadata: decisionCallMetadata,
