@@ -1,9 +1,7 @@
 name: Generate SDK
 
-# Regenerates the OpenAPI document and the SDKs, and commits them to the branch.
-# Fork PRs cannot receive that commit; main regenerates after merge.
+# Push to main only. Pull requests are checked by ci.yml (sdk-check) and do not push.
 on:
-  # Manual regen on main if the post-merge push job missed or failed.
   workflow_dispatch:
   push:
     branches: [main]
@@ -15,67 +13,33 @@ on:
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
       - 'scripts/generate-sdk.sh'
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'packages/trueforge/src/**'
-      - 'packages/trueforge/scripts/**'
-      - 'packages/trueforge-core/src/**'
-      - '.github/fern/**'
-      - '.github/workflows/generate-sdk.yaml'
-      - 'scripts/generate-sdk.sh'
 
 concurrency:
-  group: generate-sdk-${{ github.head_ref || github.ref_name }}
+  group: generate-sdk-${{ github.ref_name }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   generate:
     name: Generate OpenAPI and SDKs
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     timeout-minutes: 30
-    # A pull_request path filter matches the whole PR, not just the new commit,
-    # so this job's own commits would otherwise retrigger it indefinitely.
-    # github-actions[bot]: legacy GITHUB_TOKEN pushes (if any still land).
+    # Bot pushes from this workflow would otherwise re-enter forever.
+    # github-actions[bot]: legacy GITHUB_TOKEN pushes
     # trueforge-dev-bot[bot]: App-token pushes from this workflow (slug of the Generate SDK App).
     if: >
       github.actor != 'github-actions[bot]' &&
       github.actor != 'trueforge-dev-bot[bot]'
-
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Create GitHub App token
-        id: app-token
-        if: >
-          github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-
-      # Writable checkout: App token minted only for same-repo / push / dispatch.
       - name: Check out branch
-        if: steps.app-token.outcome == 'success'
         uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.head_ref || github.ref_name }}
-          # Full history, so the gate below can diff against the base commit.
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token || github.token }}
-
-      # Forks skip the writable checkout above; without this the job has no code.
-      # Use base-repo pull refs (head.sha) — cloning the fork with GITHUB_TOKEN 403s.
-      - name: Check out pull request head
-        if: github.event_name == 'pull_request' && steps.app-token.outcome != 'success'
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          ref: ${{ github.ref_name }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -90,90 +54,61 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The spec script imports @truefoundry/trueforge-core from its build output.
-      - name: Build trueforge-core
-        run: pnpm --filter @truefoundry/trueforge-core build
-
-      - name: Write OpenAPI document
-        run: pnpm --filter @truefoundry/trueforge openapi:write
-
-      # Generation and its Docker pull are the slow part, so skip everything below
-      # when neither the document nor the generator config moved.
-      - name: Decide whether the SDK needs regenerating
-        id: decide
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-
-          reason=""
-          if [ -n "$(git status --porcelain -- .github/fern/openapi/openapi.json docs/openapi.json)" ]; then
-            reason="the OpenAPI document changed"
-          elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
-            # A branch's first push reports an all-zero base commit.
-            reason="there is no base commit to compare against"
-          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
-            reason="the generator config changed"
-          fi
-
-          if [ -n "$reason" ]; then
-            echo "Regenerating: $reason."
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Skipping: the OpenAPI document and generator config are unchanged."
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Same entrypoint as local `pnpm sdk:generate` (re-runs openapi:write; idempotent).
-      # App-token success = we can push; forks skip Fern so a flake cannot block the PR.
       - name: Generate OpenAPI document and SDKs
-        if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
-        env:
-          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
         run: pnpm sdk:generate
 
-      # App-token success = writable head; forks cannot receive this commit.
-      - name: Commit generated output
-        if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
-        # Passed as env, never interpolated into the script, so it cannot inject shell.
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+      - name: Decide whether generated output changed
+        id: dirty
         run: |
           set -euo pipefail
-
-          # --porcelain, not `git diff`, so new files count too.
-          # docs/openapi.json is a second copy of the same document (Mintlify); keep it
-          # in the same commit as .github/fern/openapi or the docs site drifts.
-          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml)" ]; then
+          if [ -n "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "OpenAPI document and SDKs are already up to date."
-            exit 0
           fi
 
+      - name: Join the tailnet for GitHub egress
+        if: steps.dirty.outputs.changed == 'true'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_GENERATE_SDK_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_GENERATE_SDK_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-sdk-${{ github.run_id }}
+
+      - id: app-token
+        if: steps.dirty.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit generated output
+        if: steps.dirty.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          BRANCH: ${{ github.ref_name }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
 
           # Bot-authored sdk diffs need a changeset; the PR author never touches this commit.
           # Skip packages/trueforge-sdk/.fern — Fern metadata only, not a consumer-facing change.
-          # changeset:sdk-regen is a no-op if the sdk is already named in a pending file.
-          # Python version mirrors TS on Version Packages; do not add a Python changeset here.
           if [ -n "$(git status --porcelain -- packages/trueforge-sdk ':!packages/trueforge-sdk/.fern')" ]; then
             pnpm changeset:sdk-regen
           fi
 
           git add .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml .changeset
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::SDK commit left files outside the generated paths"
+            git status --porcelain
+            exit 1
+          fi
           git commit -m "Regenerate OpenAPI document and SDKs"
-          git push origin "HEAD:refs/heads/$BRANCH"
-
-      - name: Report skipped commit on fork
-        if: steps.decide.outputs.needed == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          set -euo pipefail
-          {
-            echo "### Fork pull request"
-            echo
-            echo "OpenAPI/SDK commits are skipped on forks (GitHub Apps cannot push to the head repo)."
-            echo "Do not hand-edit \`packages/trueforge-sdk\`, \`python/trueforge_sdk\`, or the OpenAPI documents."
-            echo "After merge, **Generate SDK** on \`main\` regenerates both (or run it manually from Actions)."
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice::Fork PR: OpenAPI/SDK will be regenerated on main after merge. Do not hand-edit generated files."
+          git push origin "HEAD:refs/heads/${BRANCH}"

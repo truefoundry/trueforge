@@ -9,19 +9,31 @@ concurrency:
   group: deploy-devtest
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   sync:
     name: Pin SHA and push
     runs-on: ubuntu-latest
+    environment: trueforge-internal
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_DEPLOY_DEVTEST_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_DEPLOY_DEVTEST_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-devtest-${{ github.run_id }}
+
       - id: app-token
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
           owner: truefoundry
           repositories: trueforge-devtest-deployment
 
@@ -40,6 +52,7 @@ jobs:
           SHA: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          HUSKY: '0'
         run: |
           set -euo pipefail
           for f in trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml; do
@@ -52,6 +65,11 @@ jobs:
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
           git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::devtest pin left files outside the three deployment manifests"
+            git status --porcelain
+            exit 1
+          fi
           if git diff --cached --quiet; then
             echo "Already pinned at $SHA"
             exit 0
