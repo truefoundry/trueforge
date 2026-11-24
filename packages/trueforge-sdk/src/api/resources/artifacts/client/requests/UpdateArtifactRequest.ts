@@ -7,6 +7,6 @@
  *     }
  */
 export interface UpdateArtifactRequest {
-    /** New artifact name. */
+    /** New artifact name, 1-50 characters. Control, bidi, and / \ : * ? " < > | characters are rejected; a trailing dot is not allowed. */
     name: string;
 }

@@ -130,7 +130,7 @@ class ArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name.
+            New artifact name, 1-50 characters. Control, bidi, and / \\ : * ? " < > | characters are rejected; a trailing dot is not allowed.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -292,7 +292,7 @@ class AsyncArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name.
+            New artifact name, 1-50 characters. Control, bidi, and / \\ : * ? " < > | characters are rejected; a trailing dot is not allowed.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

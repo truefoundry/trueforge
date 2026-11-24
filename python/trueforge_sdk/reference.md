@@ -729,7 +729,7 @@ client.artifacts.update(
 <dl>
 <dd>
 
-**name:** `str` — New artifact name.
+**name:** `str` — New artifact name, 1-50 characters. Control, bidi, and / \ : * ? " < > | characters are rejected; a trailing dot is not allowed.
     
 </dd>
 </dl>
