@@ -85,7 +85,7 @@ export function ComposerAttachMenu({ disabled, label = 'Attach', onAttach, artif
               artifactAttach.onPickerOpen?.();
             }}
           >
-            <Icon name="layers" className="text-text-secondary size-4 shrink-0" />
+            <Icon name="gallery-horizontal-end" className="text-text-secondary size-4 shrink-0" />
             <span>Add from artifacts</span>
           </DropdownMenuItem>
         </>
@@ -118,7 +118,7 @@ export function useArtifactPickerSheet(artifactAttach: ComposerArtifactAttach | 
     action: {
       id: 'attach-artifacts',
       label: 'Add from artifacts',
-      icon: 'layers',
+      icon: 'gallery-horizontal-end',
       onSelect: () => {
         setOpen(true);
         artifactAttach.onPickerOpen?.();
