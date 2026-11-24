@@ -1374,6 +1374,43 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
 }
 
 // ---------------------------------------------------------------------------
+// Artifacts — versioned, shareable outputs that outlive the session sandbox
+// ---------------------------------------------------------------------------
+
+export interface Artifact {
+  /** Stable identifier used in URLs. Must not contain `-`. */
+  id: string;
+  slug: string;
+  title: string;
+  latestVersion: number;
+  /** Latest version's default file to render, relative to the version. Null before the first version. */
+  entryPoint: string | null;
+  createdBySubject: Subject;
+  createdBySessionId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListArtifactsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
+  /** Only artifacts created in this session. */
+  createdBySessionId?: string;
+  /** Case-insensitive substring match on title. */
+  title?: string;
+  /** Resolved by the server against the caller. Defaults to `all`. */
+  scope?: 'all' | 'created_by_me' | 'shared_with_me';
+}
+
+export interface ArtifactServer<TArtifact extends Artifact = Artifact> {
+  /** Caller's artifacts, most recently updated first. */
+  listArtifacts(req?: ListArtifactsParams): Promise<ListResult<TArtifact>>;
+  getArtifact(req: { id: string }): Promise<TArtifact>;
+  updateArtifact(req: { id: string; title: string }): Promise<TArtifact>;
+  deleteArtifact(req: { id: string }): Promise<void>;
+  /** Defaults to the latest version and its `entryPoint`. */
+  readArtifactFile(req: { slug: string; version?: number; path?: string }): Promise<Blob>;
+}
+
+// ---------------------------------------------------------------------------
 // Permissions — optional resource mutation grants
 // ---------------------------------------------------------------------------
 
@@ -1521,6 +1558,9 @@ export interface AgentMetricsServer<
  * `sandboxEnvironments` is optional — if the host passes it, Environments UI
  * can call `useSandboxEnvironmentServer()`; if omitted, that surface stays hidden.
  *
+ * `artifacts` is optional — if the host passes it, the Artifacts page can call
+ * `useArtifactServer()`; if omitted, that surface stays hidden.
+ *
  * `metrics` is optional — if the host passes it, agent-detail UI can render
  * aggregate meter cards and time-series charts.
  *
@@ -1537,6 +1577,7 @@ export type AgentUIServerPort<
   TPermissions extends PermissionsServer = PermissionsServer,
   TSessionAccess extends SessionAccessServer = SessionAccessServer,
   TConfiguration extends ConfigurationServer = ConfigurationServer,
+  TArtifacts extends ArtifactServer = ArtifactServer,
 > = TChat &
   TBuilder & {
     catalog?: TCatalog;
@@ -1545,6 +1586,7 @@ export type AgentUIServerPort<
     sessions?: TSessions;
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;
+    artifacts?: TArtifacts;
     metrics?: TMetrics;
     permissions?: TPermissions;
     /** Optional session sharing port; omit to hide the invite and collaborator UI. */

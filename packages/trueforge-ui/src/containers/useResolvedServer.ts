@@ -103,6 +103,7 @@ export function useResolvedServer(
   const trueforgeFetch = builtIn?.fetch;
   const catalog = builtIn?.catalog;
   const permissions = builtIn?.permissions;
+  const artifacts = builtIn?.artifacts;
 
   const [state, setState] = useState<ResolvedServerState>(() => {
     if (directServer) {
@@ -128,6 +129,7 @@ export function useResolvedServer(
         ...(trueforgeFetch !== undefined ? { fetch: trueforgeFetch } : {}),
         ...(catalog != null ? { catalog } : {}),
         ...(permissions != null ? { permissions } : {}),
+        ...(artifacts != null ? { artifacts } : {}),
       });
     };
 
@@ -154,7 +156,7 @@ export function useResolvedServer(
     return () => {
       cancelled = true;
     };
-  }, [directServer, trueforgeBaseUrl, trueforgeToken, trueforgeFetch, catalog, permissions, onError]);
+  }, [directServer, trueforgeBaseUrl, trueforgeToken, trueforgeFetch, catalog, permissions, artifacts, onError]);
 
   return state;
 }

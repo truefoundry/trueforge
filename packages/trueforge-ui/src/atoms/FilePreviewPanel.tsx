@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 
 import { clampPreviewWidth } from '../filePreview/previewPaneWidth.js';
 import { FILE_PREVIEW_HIGHLIGHT_CHAR_LIMIT, type ReadFilePreviewResult } from '../filePreview/readFilePreview.js';
@@ -121,10 +121,28 @@ export function FilePreviewPanel({
 }: FilePreviewPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const showResizeHandle = placement === 'side' && onWidthChange != null;
+  // Fixed for the element's lifetime so a placement change never restarts the mount animation.
+  const [mountPlacement] = useState(placement);
+  // Side-pane rectangle captured just before expanding, so the reveal starts from it.
+  const expandFromRef = useRef<DOMRect | null>(null);
 
   useEffect(() => {
     panelRef.current?.focus();
   }, [name, placement]);
+
+  useLayoutEffect(() => {
+    const from = expandFromRef.current;
+    expandFromRef.current = null;
+    const el = panelRef.current;
+    if (from == null || el == null || placement !== 'full' || typeof el.animate !== 'function') return;
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const to = el.getBoundingClientRect();
+    // Content is already laid out at full size; clip-path reveals it from the old rectangle outward.
+    const start = `inset(${from.top - to.top}px ${to.right - from.right}px ${to.bottom - from.bottom}px ${from.left - to.left}px)`;
+    el.animate({ clipPath: [start, 'inset(0px)'] }, { duration: 280, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
+  }, [placement]);
 
   const onResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (onWidthChange == null) return;
@@ -158,6 +176,7 @@ export function FilePreviewPanel({
       tabIndex={-1}
       data-slot="aui_file-preview"
       data-placement={placement}
+      data-mount-placement={mountPlacement}
       aria-label={`Preview of ${name}`}
       onKeyDown={event => {
         if (event.key !== 'Escape') return;
@@ -236,7 +255,10 @@ export function FilePreviewPanel({
         {placement !== 'full' && onEnterFullPage != null ? (
           <button
             type="button"
-            onClick={onEnterFullPage}
+            onClick={() => {
+              expandFromRef.current = panelRef.current?.getBoundingClientRect() ?? null;
+              onEnterFullPage();
+            }}
             aria-label="Full page"
             title="Full page"
             className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-7 w-7' })}

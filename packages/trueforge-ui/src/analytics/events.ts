@@ -84,6 +84,14 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
   },
+  Artifact: {
+    PAGE_OPENED: 'trueforge.artifact.page_opened',
+    PREVIEW_OPENED: 'trueforge.artifact.preview_opened',
+    DOWNLOADED: 'trueforge.artifact.downloaded',
+    SHARE_OPENED: 'trueforge.artifact.share_opened',
+    EDITED: 'trueforge.artifact.edited',
+    DELETED: 'trueforge.artifact.deleted',
+  },
   Sdk: {
     HTTP_TIMEOUT: 'trueforge.sdk.http_timeout',
   },

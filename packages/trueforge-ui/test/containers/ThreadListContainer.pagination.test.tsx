@@ -88,6 +88,7 @@ vi.mock('@/server/ServerContext.js', () => ({
   useOptionalPermissionsServer: () => null,
   useOptionalScheduleServer: () => null,
   useOptionalSandboxEnvironmentServer: () => null,
+  useOptionalArtifactServer: () => null,
   useServerCapabilities: () => ({
     sandbox: { enabled: true, environments: { enabled: true } },
     skill: { enabled: true },

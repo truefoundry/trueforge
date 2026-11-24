@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -25,6 +25,9 @@ import { getUserInitials } from './UserAvatar.js';
 export type ShareSessionDialogProps = {
   sessionId: string;
   trigger: ReactNode;
+  /** Controlled open. A parent menu unmounts its items on click, so it cannot host this popup. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const SHARE_PERMISSIONS: Record<SessionSharePermission, { title: string; description: string }> = {
@@ -219,7 +222,7 @@ function InviteCollaborators({
   );
 }
 
-export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogProps) {
+export function ShareSessionDialog({ sessionId, trigger, open, onOpenChange }: ShareSessionDialogProps) {
   const {
     permission,
     canChangePermission,
@@ -239,14 +242,28 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
   const track = useTrackAnalytics();
   const currentUser = useOptionalCurrentUser();
   const ownerIsCurrentUser = owner != null && currentUser?.subjectId === owner.id;
+  // A parent that mounts this already open never fires the menu's own open event.
+  const loadedOpen = useRef(false);
+  useEffect(() => {
+    if (open !== true) {
+      loadedOpen.current = false;
+      return;
+    }
+    if (loadedOpen.current) return;
+    loadedOpen.current = true;
+    track(AnalyticsEvents.Session.SHARE_OPENED, { session_id: sessionId });
+    void load();
+  }, [load, open, sessionId, track]);
 
   return (
     <DropdownMenu
       trigger={trigger}
       align="end"
       closeOnClick={false}
-      onOpenChange={open => {
-        if (open) {
+      open={open}
+      onOpenChange={next => {
+        onOpenChange?.(next);
+        if (next && open === undefined) {
           track(AnalyticsEvents.Session.SHARE_OPENED, { session_id: sessionId });
           load();
         }

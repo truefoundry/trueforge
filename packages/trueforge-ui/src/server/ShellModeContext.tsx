@@ -19,6 +19,7 @@ import { useServerQueryClient } from './queryClient.js';
 import { queryKeys } from './queryKeys.js';
 import {
   hasAnySettingsSectionEnabled,
+  isArtifactsChromeEnabled,
   isEnvironmentsChromeEnabled,
   isSchedulesChromeEnabled,
   isSessionsChromeEnabled,
@@ -26,6 +27,7 @@ import {
 } from './serverChrome.js';
 import {
   useOptionalAgentSessionsServer,
+  useOptionalArtifactServer,
   useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
   useOptionalSandboxEnvironmentServer,
@@ -125,6 +127,11 @@ type ShellModeContextValue = {
   setSchedulesOpen: (open: boolean) => void;
   environmentsOpen: boolean;
   setEnvironmentsOpen: (open: boolean) => void;
+  artifactsOpen: boolean;
+  setArtifactsOpen: (open: boolean) => void;
+  /** Artifact whose preview is open (`name-id` URL segment); null on the list. */
+  artifactRef: string | null;
+  setArtifactRef: (ref: string | null) => void;
   /**
    * Bind from Agents (Try = immutable, Edit = mutable + agentSpec).
    * Prefer this over `selectAgent` / `openDraft` when both fields are available.
@@ -266,6 +273,7 @@ export function ShellModeProvider({
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
   const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
+  const artifactServer = useOptionalArtifactServer();
   const chatSeedRef = useRef(
     readDraftSpecPreferences('chat') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'chat'),
   );
@@ -292,6 +300,8 @@ export function ShellModeProvider({
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
   const [environmentsOpenState, setEnvironmentsOpenState] = useState(false);
+  const [artifactsOpenState, setArtifactsOpenState] = useState(false);
+  const [artifactRefState, setArtifactRef] = useState<string | null>(null);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
@@ -306,6 +316,9 @@ export function ShellModeProvider({
     capabilities,
   });
   const environmentsOpen = environmentsEnabled && environmentsOpenState;
+  const artifactsEnabled = isArtifactsChromeEnabled({ artifacts: artifactServer });
+  const artifactsOpen = artifactsEnabled && artifactsOpenState;
+  const artifactRef = artifactsOpen ? artifactRefState : null;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;
   const setSessionsOpen = useCallback(
@@ -317,6 +330,7 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSchedulesOpenState(false);
         setEnvironmentsOpenState(false);
+        setArtifactsOpenState(false);
       } else {
         replaceSessionShareSearch({
           view: null,
@@ -337,6 +351,7 @@ export function ShellModeProvider({
       setLibraryAgentId(null);
       setSchedulesOpenState(false);
       setEnvironmentsOpenState(false);
+      setArtifactsOpenState(false);
       setSharedSessionId(sessionId);
       setSessionsOpenState(true);
     },
@@ -355,6 +370,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpenState(false);
         setEnvironmentsOpenState(false);
+        setArtifactsOpenState(false);
       }
       setLibraryAgentId(null);
       setLibraryOpenState(open);
@@ -369,6 +385,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpenState(false);
       setEnvironmentsOpenState(false);
+      setArtifactsOpenState(false);
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
@@ -389,6 +406,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpenState(false);
         setEnvironmentsOpenState(false);
+        setArtifactsOpenState(false);
       }
       setSettingsOpenState(settingsEnabled && open);
     },
@@ -403,6 +421,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpenState(false);
         setEnvironmentsOpenState(false);
+        setArtifactsOpenState(false);
       }
       setAgentConfigOpenState(open);
     },
@@ -417,6 +436,7 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setEnvironmentsOpenState(false);
+        setArtifactsOpenState(false);
       }
       setSchedulesOpenState(schedulesEnabled && open);
     },
@@ -431,10 +451,28 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
+        setArtifactsOpenState(false);
       }
       setEnvironmentsOpenState(environmentsEnabled && open);
     },
     [environmentsEnabled, setSessionsOpen],
+  );
+  const setArtifactsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
+        setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
+      }
+      // Opening or closing the page always leaves any open preview.
+      setArtifactRef(null);
+      setArtifactsOpenState(artifactsEnabled && open);
+    },
+    [artifactsEnabled, setSessionsOpen],
   );
 
   const settingsCapability = capabilities?.settings;
@@ -462,6 +500,12 @@ export function ShellModeProvider({
       setEnvironmentsOpenState(false);
     }
   }, [environmentsEnabled]);
+
+  useEffect(() => {
+    if (!artifactsEnabled) {
+      setArtifactsOpenState(false);
+    }
+  }, [artifactsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
@@ -516,6 +560,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpen(false);
         setEnvironmentsOpen(false);
+        setArtifactsOpen(false);
         setSessionAccessError(null);
         setPendingSessionId(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
@@ -543,6 +588,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setArtifactsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(undefined);
       setAgentConfigOpenState(false);
@@ -573,6 +619,7 @@ export function ShellModeProvider({
       setSessionsOpen,
       setSchedulesOpen,
       setEnvironmentsOpen,
+      setArtifactsOpen,
     ],
   );
 
@@ -650,6 +697,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setArtifactsOpen(false);
       setSessionAccessError(null);
       setAgentConfigOpenState(true);
       return;
@@ -668,6 +716,7 @@ export function ShellModeProvider({
     isComposerEnabled,
     refreshCapabilities,
     selectLibraryAgent,
+    setArtifactsOpen,
     setEnvironmentsOpen,
     setSchedulesOpen,
     setSessionsOpen,
@@ -780,6 +829,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setArtifactsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(sessionId);
       setPendingSessionEpoch(n => n + 1);
@@ -813,6 +863,7 @@ export function ShellModeProvider({
       setSessionsOpen,
       setSchedulesOpen,
       setEnvironmentsOpen,
+      setArtifactsOpen,
     ],
   );
 
@@ -824,6 +875,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setArtifactsOpen(false);
       setAgentConfigOpenState(false);
       setSessionAccessError(message);
       setPendingSessionId(sessionId);
@@ -846,7 +898,7 @@ export function ShellModeProvider({
         locked: false,
       });
     },
-    [isComposerEnabled, setSettingsOpen, setSessionsOpen, setSchedulesOpen, setEnvironmentsOpen],
+    [isComposerEnabled, setSettingsOpen, setSessionsOpen, setSchedulesOpen, setEnvironmentsOpen, setArtifactsOpen],
   );
 
   const clearChat = useCallback(
@@ -897,9 +949,18 @@ export function ShellModeProvider({
     setLibraryAgentId(null);
     setSchedulesOpen(false);
     setEnvironmentsOpen(false);
+    setArtifactsOpen(false);
     setMode({ status: 'idle' });
     bumpEpoch(false);
-  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, setEnvironmentsOpen, bumpEpoch]);
+  }, [
+    isLibraryEnabled,
+    isComposerEnabled,
+    setSettingsOpen,
+    setSchedulesOpen,
+    setEnvironmentsOpen,
+    setArtifactsOpen,
+    bumpEpoch,
+  ]);
 
   // Only explicit resets remount the runtime; history and identity changes happen in place.
   const runtimeKey = useMemo(() => {
@@ -934,6 +995,10 @@ export function ShellModeProvider({
       setSchedulesOpen,
       environmentsOpen,
       setEnvironmentsOpen,
+      artifactsOpen,
+      setArtifactsOpen,
+      artifactRef,
+      setArtifactRef,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,
@@ -982,6 +1047,10 @@ export function ShellModeProvider({
       setSchedulesOpen,
       environmentsOpen,
       setEnvironmentsOpen,
+      artifactsOpen,
+      setArtifactsOpen,
+      artifactRef,
+      setArtifactRef,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,

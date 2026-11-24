@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import {
+  isArtifactsChromeEnabled,
   isEnvironmentsChromeEnabled,
   isMetricsChromeEnabled,
   isSchedulesChromeEnabled,
@@ -13,6 +14,7 @@ import type { SettingsCapability } from '@/server/types.js';
 import {
   createMockAgentMetricsServer,
   createMockAgentSessionsServer,
+  createMockArtifactServer,
   createMockCatalog,
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
@@ -24,6 +26,7 @@ describe('serverChrome', () => {
   const sessions = createMockAgentSessionsServer();
   const schedules = createMockScheduleServer();
   const sandboxEnvironments = createMockSandboxEnvironmentServer();
+  const artifacts = createMockArtifactServer();
   const metrics = createMockAgentMetricsServer();
   const routes = resolveRoutesConfig();
 
@@ -86,6 +89,8 @@ describe('serverChrome', () => {
         capabilities: { sandbox: { environments: { enabled: false } } },
       }),
     ).toBe(false);
+    expect(isArtifactsChromeEnabled({ artifacts: null })).toBe(false);
+    expect(isArtifactsChromeEnabled({ artifacts })).toBe(true);
     expect(isMetricsChromeEnabled({ metrics: null })).toBe(false);
     expect(isMetricsChromeEnabled({ metrics })).toBe(true);
   });
@@ -98,6 +103,7 @@ describe('serverChrome', () => {
       sessions: null,
       schedules: null,
       sandboxEnvironments: null,
+      artifacts: null,
     });
     expect(disabled.settings).toBeNull();
     expect(disabled.sessionsBrowser).toBeNull();
@@ -105,6 +111,8 @@ describe('serverChrome', () => {
     expect(disabled.libraryAgent).toBeNull();
     expect(disabled.schedules).toBeNull();
     expect(disabled.environments).toBeNull();
+    expect(disabled.artifacts).toBeNull();
+    expect(disabled.artifact).toBeNull();
     expect(disabled.root).toBe('/');
     expect(disabled.library).toBe('/library');
 
@@ -118,6 +126,7 @@ describe('serverChrome', () => {
       sessions,
       schedules,
       sandboxEnvironments,
+      artifacts,
     });
     expect(enabled.settings).toBe('/settings');
     expect(enabled.sessionsBrowser).toBe('/sessions');
@@ -125,5 +134,7 @@ describe('serverChrome', () => {
     expect(enabled.libraryAgent).toBe('/library/:agentId');
     expect(enabled.schedules).toBe('/schedules');
     expect(enabled.environments).toBe('/environments');
+    expect(enabled.artifacts).toBe('/artifacts');
+    expect(enabled.artifact).toBe('/artifacts/:artifactRef');
   });
 });

@@ -7,6 +7,7 @@ import type {
   AgentSessionsServer,
   AgentSkill,
   AgentSpec,
+  ArtifactServer,
   CatalogServer,
   ConfigurationServer,
   ConnectorState,
@@ -35,6 +36,7 @@ export type CreateTrueForgeServerOptions<
   TSchedules extends ScheduleServer = ScheduleServer,
   TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
+  TArtifacts extends ArtifactServer = ArtifactServer,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
   chatServer: AgentChatServer<TSpec>;
@@ -57,6 +59,8 @@ export type CreateTrueForgeServerOptions<
   schedules?: TSchedules;
   /** Sandbox environments listing + CRUD. Optional. */
   sandboxEnvironments?: TSandboxEnvironments;
+  /** Artifacts listing + preview. Optional. */
+  artifacts?: TArtifacts;
   /** Per-resource grants. Omit to leave actions enabled. */
   permissions?: TPermissions;
   /** Tenant-wide switches (web search, …). Optional. */
@@ -81,6 +85,7 @@ export type TrueForgeServer<
   TSchedules extends ScheduleServer = ScheduleServer,
   TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
+  TArtifacts extends ArtifactServer = ArtifactServer,
 > = AgentChatServer<TSpec> &
   AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
@@ -88,6 +93,7 @@ export type TrueForgeServer<
     metrics?: TMetrics;
     schedules?: TSchedules;
     sandboxEnvironments?: TSandboxEnvironments;
+    artifacts?: TArtifacts;
     permissions?: TPermissions;
     configuration?: ConfigurationServer;
     sessionAccess?: SessionAccessServer;
@@ -113,6 +119,7 @@ export function createTrueForgeServer<
   TSchedules extends ScheduleServer = ScheduleServer,
   TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
+  TArtifacts extends ArtifactServer = ArtifactServer,
 >(
   opts: CreateTrueForgeServerOptions<
     TSpec,
@@ -127,7 +134,8 @@ export function createTrueForgeServer<
     TMetrics,
     TSchedules,
     TSandboxEnvironments,
-    TPermissions
+    TPermissions,
+    TArtifacts
   >,
 ): TrueForgeServer<
   TSpec,
@@ -142,7 +150,8 @@ export function createTrueForgeServer<
   TMetrics,
   TSchedules,
   TSandboxEnvironments,
-  TPermissions
+  TPermissions,
+  TArtifacts
 > {
   const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
     getCapabilities: opts.getCapabilities,
@@ -175,7 +184,8 @@ export function createTrueForgeServer<
     TMetrics,
     TSchedules,
     TSandboxEnvironments,
-    TPermissions
+    TPermissions,
+    TArtifacts
   > = {
     ...opts.chatServer,
     ...builder,
@@ -184,6 +194,7 @@ export function createTrueForgeServer<
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
     ...(opts.sandboxEnvironments != null ? { sandboxEnvironments: opts.sandboxEnvironments } : {}),
+    ...(opts.artifacts != null ? { artifacts: opts.artifacts } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
     ...(opts.configuration != null ? { configuration: opts.configuration } : {}),
     ...(opts.sessionAccess != null ? { sessionAccess: opts.sessionAccess } : {}),

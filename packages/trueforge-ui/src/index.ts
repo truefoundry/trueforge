@@ -30,6 +30,10 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { ArtifactsPage } from './atoms/artifacts/ArtifactsPage.js';
+export type { ArtifactsPageProps } from './atoms/artifacts/ArtifactsPage.js';
+export { ArtifactsButton } from './atoms/ArtifactsButton.js';
+export type { ArtifactsButtonProps } from './atoms/ArtifactsButton.js';
 export { EnvironmentsPage } from './atoms/environments/EnvironmentsPage.js';
 export type { EnvironmentsPageProps } from './atoms/environments/EnvironmentsPage.js';
 export { EnvironmentsButton } from './atoms/EnvironmentsButton.js';
@@ -366,6 +370,8 @@ export type {
   AgentSpec,
   AgentUIServer,
   ApprovalDecision,
+  Artifact,
+  ArtifactServer,
   AuthenticateConnectorRequest,
   CatalogServer,
   CodeSnippet,
@@ -396,6 +402,7 @@ export type {
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
+  ListArtifactsParams,
   ListPermissionsRequest,
   ListPermissionsResponse,
   ListResult,

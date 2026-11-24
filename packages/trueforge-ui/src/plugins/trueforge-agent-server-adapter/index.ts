@@ -2,7 +2,7 @@
  * Built-in Harness → AgentUIServer factory for `<TrueForgeUI server={{ type: "trueforge", … }} />`.
  */
 import { createTrueForgeServer } from '../../server/createTrueForgeServer.js';
-import type { CatalogServer, PermissionsServer } from '../../server/types.js';
+import type { ArtifactServer, CatalogServer, PermissionsServer } from '../../server/types.js';
 import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
@@ -98,13 +98,15 @@ export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions &
   catalog?: CatalogServer;
   /** Optional host-provided resource permissions port. */
   permissions?: PermissionsServer;
+  /** Optional host-provided artifacts port. */
+  artifacts?: ArtifactServer;
 };
 
 /**
  * Compose chat + builder + agent sessions + default settings catalogs into an `AgentUIServer`.
  */
 export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServerOptions = {}) {
-  const { catalog: catalogOverride, permissions, ...clientOptions } = options;
+  const { catalog: catalogOverride, permissions, artifacts, ...clientOptions } = options;
   const client = createTrueForgeClient(clientOptions);
   const catalog =
     catalogOverride ??
@@ -126,6 +128,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
     sandboxEnvironments: createSandboxEnvironmentServer({ client }),
+    ...(artifacts == null ? {} : { artifacts }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
     sessionAccess: createHarnessSessionAccessServer({ client }),
     getMe: async () => {

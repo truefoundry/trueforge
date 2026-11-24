@@ -35,6 +35,8 @@ import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
+import type { ArtifactsPageProps } from '../atoms/artifacts/ArtifactsPage.js';
+import { ArtifactsButton } from '../atoms/ArtifactsButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -135,6 +137,10 @@ const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
 const EnvironmentsPage: ComponentType<EnvironmentsPageProps> = lazy(async () => {
   const mod = await import('../atoms/environments/EnvironmentsPage.js');
   return { default: mod.EnvironmentsPage };
+});
+const ArtifactsPage: ComponentType<ArtifactsPageProps> = lazy(async () => {
+  const mod = await import('../atoms/artifacts/ArtifactsPage.js');
+  return { default: mod.ArtifactsPage };
 });
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
@@ -267,6 +273,8 @@ export const defaultSlots = {
   SchedulesButton,
   EnvironmentsPage,
   EnvironmentsButton,
+  ArtifactsPage,
+  ArtifactsButton,
   SaveAgentButton,
   SaveAgentForm,
   SelectAgentEmptyState,

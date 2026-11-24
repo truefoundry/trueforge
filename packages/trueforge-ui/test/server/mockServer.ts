@@ -3,6 +3,7 @@ import type {
   AgentMetricsServer,
   AgentSessionsServer,
   AgentUIServer,
+  ArtifactServer,
   CatalogServer,
   SandboxEnvironmentServer,
   ScheduleServer,
@@ -75,6 +76,17 @@ export function createMockSandboxEnvironmentServer(
     setEnvironmentEnabled: unavailable,
     setDefaultEnvironment: unavailable,
     deleteEnvironment: unavailable,
+    ...overrides,
+  };
+}
+
+export function createMockArtifactServer(overrides: Partial<ArtifactServer> = {}): ArtifactServer {
+  return {
+    listArtifacts: async () => ({ data: [] }),
+    getArtifact: unavailable,
+    updateArtifact: unavailable,
+    deleteArtifact: unavailable,
+    readArtifactFile: unavailable,
     ...overrides,
   };
 }

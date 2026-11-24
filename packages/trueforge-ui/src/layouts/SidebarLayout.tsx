@@ -114,13 +114,15 @@ function SidebarNav(): ReactNode {
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
   const EnvironmentsButton = useSlot('EnvironmentsButton');
+  const ArtifactsButton = useSlot('ArtifactsButton');
   const showNewActions = shell?.isNewChatEnabled !== false;
   const overlayOpen =
     shell?.settingsOpen === true ||
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true ||
-    shell?.environmentsOpen === true;
+    shell?.environmentsOpen === true ||
+    shell?.artifactsOpen === true;
   const mode = shell?.mode;
   const newChatSelected =
     !overlayOpen &&
@@ -139,6 +141,7 @@ function SidebarNav(): ReactNode {
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
     shell?.setEnvironmentsOpen(false);
+    shell?.setArtifactsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -188,6 +191,7 @@ function SidebarNav(): ReactNode {
       <SessionsBrowserButton compact />
       <SchedulesButton compact />
       <EnvironmentsButton compact />
+      <ArtifactsButton compact />
     </nav>
   );
 }
@@ -288,6 +292,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ArtifactsPage = useSlot('ArtifactsPage');
   const ShareChatButton = useSlot('ShareChatButton');
   const ResetAgentBuilderButton = useSlot('ResetAgentBuilderButton');
   const ClearChatButton = useSlot('ClearChatButton');
@@ -306,11 +311,17 @@ export function SidebarLayout({ className }: { className?: string }) {
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const environmentsOpen = shell?.environmentsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
+  const artifactsOpen = shell?.artifactsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen || artifactsOpen;
   const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
-  // Build Agent, Sessions, Schedules, and Environments are desktop-only; keep the URL and show a notice.
+  // Build Agent, Sessions, Schedules, Environments, and Artifacts are desktop-only; keep the URL and show a notice.
   const showDesktopOnlyNotice =
-    isMobile && (sessionsOpen || schedulesOpen || environmentsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
+    isMobile &&
+    (sessionsOpen ||
+      schedulesOpen ||
+      environmentsOpen ||
+      artifactsOpen ||
+      (isCreateAgent && !settingsOpen && !libraryOpen));
   const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
   const showRecentHistory = isRecentHistoryVisible({ overlayOpen, mode: shell?.mode });
   const hasChatHeaderContent = useChatHeaderContentVisible();
@@ -474,6 +485,22 @@ export function SidebarLayout({ className }: { className?: string }) {
                       }
                     >
                       <EnvironmentsPage />
+                    </Suspense>
+                  ) : artifactsOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
+                    >
+                      <ArtifactsPage />
                     </Suspense>
                   ) : isIdle ? (
                     <SelectAgentEmptyState />
