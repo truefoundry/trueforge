@@ -27,7 +27,11 @@ export function initDecisionModelProviderStore(input: {
     client: input.client,
     requestContext: createTrueFoundryRequestContext({
       tenant_id: routing.decision_model.tenant_id,
-      subject: { id: 'model-routing', type: 'virtualaccount', display_name: 'model-routing' },
+      subject: {
+        id: 'trueforge-auto-model-router',
+        type: 'virtualaccount',
+        display_name: 'trueforge-auto-model-router',
+      },
       roles: [],
       user_credential: apiKey,
     }),
