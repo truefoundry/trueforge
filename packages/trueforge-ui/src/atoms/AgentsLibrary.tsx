@@ -473,11 +473,11 @@ export function AgentLibraryRow({
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
-      {/* Fixed width so truncate works; 24rem = 1.5× the prior min-w-64 name column. */}
-      <TableCell className="w-72 max-w-72">{nameContent}</TableCell>
+      {/* Fixed width so truncate works; 11.7rem = 65% of prior w-72. */}
+      <TableCell className="w-[11.7rem] max-w-[11.7rem]">{nameContent}</TableCell>
       <TableCell>{configurationSummary}</TableCell>
       {scheduleSummary !== undefined ? (
-        <TableCell>
+        <TableCell className="w-[9.1rem] max-w-[9.1rem]">
           <AgentSchedulesContent
             scheduleSummary={scheduleSummary}
             agentName={agent.name}
@@ -865,9 +865,11 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
               <Table className="bg-card-bg">
                 <TableHeader className="bg-card-bg">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-72 min-w-72">Agent</TableHead>
+                    <TableHead className="w-[11.7rem] min-w-[11.7rem]">Agent</TableHead>
                     <TableHead>Configuration</TableHead>
-                    {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
+                    {showSchedulesColumn ? (
+                      <TableHead className="w-[9.1rem] max-w-[9.1rem]">Schedules</TableHead>
+                    ) : null}
                     {showMetricsColumns ? (
                       <>
                         <TableHead>{agentLibraryUsageLabels.sessions}</TableHead>

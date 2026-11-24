@@ -423,10 +423,10 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
           />
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
-            <Table className="min-w-240">
-              <TableHeader>
+            <Table className="min-w-240 bg-card-bg">
+              <TableHeader className="bg-card-bg">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-96 max-w-96">Name</TableHead>
+                  <TableHead className="w-[15.6rem] max-w-[15.6rem]">Name</TableHead>
                   <TableHead>Availability</TableHead>
                   <TableHead>Build Status</TableHead>
                   <TableHead>Resources</TableHead>
@@ -449,7 +449,7 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
                       className="cursor-pointer"
                       onClick={() => setDrawer({ kind: 'edit', environment: env })}
                     >
-                      <TableCell className="w-96 max-w-96">
+                      <TableCell className="w-[15.6rem] max-w-[15.6rem]">
                         <div className="flex flex-col gap-0.5">
                           <span className="flex min-w-0 items-center gap-2">
                             <span className="truncate font-medium text-text-primary">{env.name}</span>

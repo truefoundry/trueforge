@@ -369,13 +369,13 @@ function SidebarRail({
       )}
       {...dialogProps}
     >
-      {/* Same horizontal inset as nav buttons (px-2 rail + px-2.5 control). */}
-      <div className="flex shrink-0 flex-col px-2 pt-2">
+      {/* Expanded: pr-3 matches footer/history so collapse lines up with filter, ages, settings. */}
+      <div className={cn('flex shrink-0 flex-col pt-1.5', collapsed ? 'px-1.5' : 'pl-1.5 pr-3')}>
         <div
           className={cn(
             'flex h-14 w-full shrink-0 items-center text-text-primary',
             // Collapsed: center the logomark; expanded: start-aligned with title + collapse.
-            collapsed ? 'justify-center' : 'gap-2 px-2.5',
+            collapsed ? 'justify-center' : 'gap-2 pl-2.5',
           )}
         >
           {collapsed ? (
@@ -396,7 +396,7 @@ function SidebarRail({
                 className={auiButtonClass({
                   variant: 'ghost',
                   size: 'icon',
-                  className: cn('size-8 shrink-0 text-sidebar-text', shellHoverClassName),
+                  className: cn('size-7 shrink-0 text-sidebar-text', shellHoverClassName),
                 })}
                 onClick={() => onCollapsedChange(true)}
               >
@@ -406,17 +406,19 @@ function SidebarRail({
           )}
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col px-2 pt-1">
+      {/* Collapsed keeps px-2 for the 3.125rem icon column; expanded px-3 matches footer. */}
+      <div className={cn('flex min-h-0 flex-1 flex-col pt-1', collapsed ? 'px-2' : 'px-3')}>
         <SidebarNav compact={collapsed} />
         {collapsed ? null : <SidebarRecentHistory />}
       </div>
       {collapsed ? (
-        <footer className="flex shrink-0 flex-col items-center gap-1 px-2 py-2">
+        <footer className="flex shrink-0 flex-col items-center gap-1 px-2 pt-2 pb-2">
           <ShellActions iconOnly showDocs={false} />
           <UserAvatar iconOnly />
         </footer>
       ) : (
-        <footer className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
+        // No top rule; pb matches `.aui-shell-card-inset` (0.5rem) so the row aligns with the main pane.
+        <footer className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-2">
           <UserAvatar className="max-w-none flex-1 flex-row items-center justify-start gap-2 [&_span]:text-left [&_span]:text-xs" />
           <ShellActions showDocs={false} />
         </footer>
@@ -440,7 +442,7 @@ function MobileNavDrawer({ drawerRef, onClose }: { drawerRef: Ref<HTMLElement>; 
       tabIndex={-1}
       className={cn(
         mobileDrawerWidthClassName,
-        'absolute inset-y-0 left-0 z-10 flex min-h-0 flex-col border-r border-border bg-sidebar-bg shadow-lg outline-none md:hidden',
+        'aui-mobile-nav-drawer absolute inset-y-0 left-0 z-10 flex min-h-0 flex-col border-r border-border bg-sidebar-bg shadow-lg outline-none md:hidden',
       )}
     >
       <div className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-border px-3 text-text-primary">
@@ -556,7 +558,7 @@ function SidebarLayoutBody({ className }: { className?: string }) {
         onCollapsedChange={handleSidebarCollapsedChange}
       />
 
-      {/* Desktop: 0.75rem inset on top/right/bottom; flush to the sidebar on the left. */}
+      {/* Desktop: 0.5rem inset on top/right/bottom; flush to the sidebar on the left. */}
       <div className={cn('aui-shell-card-inset flex min-h-0 min-w-0 flex-1 flex-col', shellChromeBgClassName)}>
         <div
           className={cn(
@@ -662,7 +664,7 @@ function SidebarLayoutBody({ className }: { className?: string }) {
           <button
             type="button"
             aria-label="Close navigation backdrop"
-            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
+            className="aui-mobile-nav-backdrop absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
             onClick={closeMobileNav}
           />
           <MobileNavDrawer drawerRef={dialogRef} onClose={closeMobileNav} />

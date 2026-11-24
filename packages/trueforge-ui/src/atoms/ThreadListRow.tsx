@@ -195,7 +195,7 @@ export function ThreadListRow({
         </span>
       </button>
       {hasTrailing ? (
-        <div className="relative mr-1 size-7 shrink-0">
+        <div className="relative size-7 shrink-0">
           {statusDotClass != null ? (
             <span
               data-slot="session-status-dot"

@@ -181,7 +181,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
               aria-current={section === item.id ? 'page' : undefined}
               {...(compact ? { title: item.label } : {})}
               className={cn(
-                'flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',

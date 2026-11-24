@@ -98,9 +98,9 @@
     /* Light: primary base + lighter flash (secondary→primary reads as a darkening pulse). */
     --text-shimmer-base: var(--text-primary);
     --text-shimmer-highlight: var(--color-gray-300);
-    /* Active rail / chat-history row: indigo-50 fill; selected outline indigo-100. */
-    --shell-selected-bg: var(--color-indigo-50);
-    --shell-selected-border: var(--color-indigo-100);
+    /* Active rail / chat-history row: one step darker than hover (indigo-50). */
+    --shell-selected-bg: var(--color-indigo-100);
+    --shell-selected-border: var(--color-indigo-200);
     --shell-hover-bg: var(--color-indigo-50);
     /* Composer hairline (light): faded primary → solid primary, top → bottom. */
     --composer-stroke-start: color-mix(in oklab, var(--primary-button-bg) 25%, transparent);
@@ -233,15 +233,19 @@
 /* Desktop chat-card gutter: keep in source CSS so rebuild order cannot drop utilities. */
 @media (min-width: 768px) {
   .aui-shell-card-inset {
-    padding-top: 0.75rem;
-    padding-right: 0.75rem;
-    padding-bottom: 0.75rem;
+    padding-top: 0.5rem;
+    padding-right: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 }
 
-/* Rail Chat History section label. */
+/* Rail Chat History section label — light keeps the muted blue; dark uses secondary text. */
 .aui-chat-history-heading {
   color: #5e7baa;
+}
+
+.aui-theme-root.dark .aui-chat-history-heading {
+  color: var(--text-secondary);
 }
 
 /*
@@ -250,6 +254,37 @@
  */
 .aui-sidebar-rail-collapsed {
   width: 3.125rem;
+}
+
+/* Desktop rail: ease width between expanded (w-64 / 16rem) and collapsed. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot='aui_app-rail'] {
+    transition: width 200ms ease-out;
+  }
+}
+
+/* Mobile nav drawer/backdrop: enter only (drawer unmounts on close). */
+@media (prefers-reduced-motion: no-preference) {
+  .aui-mobile-nav-drawer {
+    animation: aui-mobile-nav-drawer-enter 200ms ease-out;
+  }
+
+  .aui-mobile-nav-backdrop {
+    animation: aui-mobile-nav-backdrop-enter 200ms ease-out;
+  }
+}
+
+@keyframes aui-mobile-nav-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-0.75rem);
+  }
+}
+
+@keyframes aui-mobile-nav-backdrop-enter {
+  from {
+    opacity: 0;
+  }
 }
 
 /* Collapsed-rail Chat History flyout (right of the icon). */
