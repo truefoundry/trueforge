@@ -4,8 +4,8 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import { newId } from '../../../utils/id';
 import {
-  newArtifactIdentity,
   normalizeArtifactName,
   type ArtifactRecord,
   type ArtifactVersionRecord,
@@ -63,7 +63,8 @@ export class SqliteArtifactStore implements IArtifactStore {
     const row = await this.#db
       .insertInto('artifact')
       .values({
-        ...newArtifactIdentity(input.name),
+        id: newId(),
+        name: normalizeArtifactName(input.name),
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: jsonbBind(input.created_by_subject),
