@@ -8,9 +8,11 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
 import {
   auiButtonClass,
+  shellHoverClassName,
   shellRailSelectedClassName,
+  shellSelectedClassName,
   sidebarButtonRadiusClassName,
-  sidebarRailButtonClassName,
+  sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { RailTooltip } from './primitives/Tooltip.js';
@@ -38,11 +40,15 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          'font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          'font-normal shadow-none',
           compact
-            ? cn(sidebarRailButtonClassName, 'text-inherit')
-            : cn(sidebarButtonRadiusClassName, 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text'),
-          open && shellRailSelectedClassName,
+            ? sidebarCompactNavButtonClassName
+            : cn(
+                sidebarButtonRadiusClassName,
+                'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
+                shellHoverClassName,
+              ),
+          open && (compact ? shellRailSelectedClassName : shellSelectedClassName),
         ),
       })}
       onClick={() => {
@@ -50,13 +56,8 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
         shell.setSchedulesOpen(!open);
       }}
     >
-      <Icon name="clock-7" size={compact ? 16 : undefined} />
-      {compact ? null : (
-        <>
-          <span className="truncate">Schedules</span>
-          <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
-        </>
-      )}
+      <Icon name="clock-7" />
+      {compact ? null : <span className="truncate">Schedules</span>}
     </button>
   );
 

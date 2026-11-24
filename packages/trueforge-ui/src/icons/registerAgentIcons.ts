@@ -1,3 +1,8 @@
+/**
+ * Kept as a side-effect entry for package `sideEffects` / hosts that import it
+ * explicitly. Icons are also registered in `IconRegistry` defaults so lazy
+ * layout chunks that duplicate the registry still resolve agent glyphs.
+ */
 import { registerIcons } from './IconRegistry.js';
 
 import Agent2Icon from './agent-2.svg';
@@ -14,7 +19,6 @@ import TrueForgeLogomarkLightIcon from './trueforge-logomark-light.svg';
 registerIcons({
   'mcp-server': McpServerIcon,
   'agent-2': Agent2Icon,
-  // Prefer the custom agent glyph over Lucide Bot for bot/robot aliases.
   bot: Agent2Icon,
   robot: Agent2Icon,
   'message-ai-3-line': MessageAi3LineIcon,

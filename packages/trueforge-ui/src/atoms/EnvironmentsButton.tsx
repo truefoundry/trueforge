@@ -8,7 +8,9 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isEnvironmentsChromeEnabled } from '../server/serverChrome.js';
 import {
   auiButtonClass,
+  shellHoverClassName,
   shellRailSelectedClassName,
+  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarRailButtonClassName,
 } from './lib/buttonClasses.js';
@@ -40,11 +42,15 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          'font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          'font-normal shadow-none',
           compact
             ? cn(sidebarRailButtonClassName, 'text-inherit')
-            : cn(sidebarButtonRadiusClassName, 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text'),
-          open && shellRailSelectedClassName,
+            : cn(
+                sidebarButtonRadiusClassName,
+                'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
+                shellHoverClassName,
+              ),
+          open && (compact ? shellRailSelectedClassName : shellSelectedClassName),
         ),
       })}
       onClick={() => {
@@ -53,12 +59,7 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
       }}
     >
       <Icon name="monitor" size={compact ? 16 : undefined} />
-      {compact ? null : (
-        <>
-          <span className="truncate">Environments</span>
-          <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
-        </>
-      )}
+      {compact ? null : <span className="truncate">Environments</span>}
     </button>
   );
 

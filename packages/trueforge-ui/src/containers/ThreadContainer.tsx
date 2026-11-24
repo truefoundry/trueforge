@@ -59,6 +59,9 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
   const isEmpty = useAuiState(isNewChatView);
   const isLoading = useAuiState(s => s.thread.isLoading);
+  const messageCount = useAuiState(s => s.thread.messages.length);
+  // Skeleton only while a thread that has no messages yet is loading.
+  const showMessageSkeleton = isLoading && messageCount === 0;
   const welcomeHeading =
     shell?.mode.status === 'active'
       ? shell.mode.agentName != null && shell.mode.agentName.length > 0
@@ -79,8 +82,8 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
                   <ThreadPrimitive.Viewport asChild autoScroll>
                     <ThreadViewportShell isEmpty={isEmpty}>
                       {isEmpty && <WelcomeScreen heading={welcomeHeading} />}
-                      {isEmpty && !isLoading && composer}
-                      {isLoading ? (
+                      {isEmpty && !showMessageSkeleton && composer}
+                      {showMessageSkeleton ? (
                         <MessageListSkeleton />
                       ) : (
                         !isEmpty && (
@@ -102,7 +105,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
                     </ThreadViewportShell>
                   </ThreadPrimitive.Viewport>
 
-                  {!isLoading && !isEmpty && (
+                  {!showMessageSkeleton && !isEmpty && (
                     <ThreadComposerAreaShell isEmpty={isEmpty}>
                       <ThreadPrimitive.ScrollToBottom asChild>
                         <ScrollToBottomButton />

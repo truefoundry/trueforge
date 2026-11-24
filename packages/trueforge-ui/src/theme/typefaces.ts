@@ -23,11 +23,18 @@ export type TypefaceOption = {
   label: string;
   /** Full `font-family` stack written to `--font-agent-ui`. */
   fontFamily: string;
+  /**
+   * Optional monospace pair for code (`--font-agent-ui-mono` / `font-mono`).
+   * When omitted, system monospace is used.
+   */
+  monoFontFamily?: string;
   /** Stylesheet to inject once; `null` when the face is already available. */
   stylesheetHref: string | null;
 };
 
 const SYSTEM_SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const SYSTEM_MONO =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
 function googleFontsCss(families: string): string {
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
@@ -68,7 +75,10 @@ const TYPEFACE_CATALOG: readonly TypefaceOption[] = [
     id: 'ibm-plex-sans',
     label: 'IBM Plex Sans',
     fontFamily: `"IBM Plex Sans", ${SYSTEM_SANS}`,
-    stylesheetHref: googleFontsCss('family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700'),
+    monoFontFamily: `"IBM Plex Mono", ${SYSTEM_MONO}`,
+    stylesheetHref: googleFontsCss(
+      'family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700',
+    ),
   },
   {
     id: 'inclusive-sans',
@@ -129,8 +139,13 @@ export function getTypefaceOption(id: TypefaceId): TypefaceOption {
   return option;
 }
 
+/** Monospace stack for code when the UI typeface declares a pair; else system mono. */
+export function getTypefaceMonoFontFamily(option: TypefaceOption): string {
+  return option.monoFontFamily ?? SYSTEM_MONO;
+}
+
 /** Brand default — matches the `trueforge` preset until the user picks another. */
-export const DEFAULT_TYPEFACE_ID: TypefaceId = 'geist';
+export const DEFAULT_TYPEFACE_ID: TypefaceId = 'ibm-plex-sans';
 
 export function typefaceMenuLabel(option: TypefaceOption): string {
   return option.id === DEFAULT_TYPEFACE_ID ? `${option.label} (Default)` : option.label;

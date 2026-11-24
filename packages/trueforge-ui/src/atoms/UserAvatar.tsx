@@ -32,8 +32,12 @@ export function UserAvatar({ labeled = false, iconOnly = false, className }: Use
       aria-label={displayName}
       title={iconOnly ? undefined : displayName}
       className={cn(
-        'flex min-w-0 shrink-0 flex-col items-center justify-center gap-0.5 text-text-secondary',
-        iconOnly ? 'size-9' : labeled ? 'w-14.5' : 'max-w-20',
+        'flex min-w-0 shrink-0 text-text-secondary',
+        iconOnly
+          ? 'size-8 items-center justify-center'
+          : labeled
+            ? 'w-14.5 flex-col items-center justify-center gap-0.5'
+            : 'max-w-20 flex-col items-center justify-center gap-0.5',
         className,
       )}
     >

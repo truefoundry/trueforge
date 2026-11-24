@@ -32,6 +32,8 @@ export function sessionToThreadMetadata(session: Session, title: string | undefi
       isMutable: session.isMutable,
       ...(session.agentName != null ? { agentName: session.agentName } : {}),
       ...(session.lastTurnDetails != null ? { lastTurnStatus: session.lastTurnDetails.state.status } : {}),
+      // Pass-through so hosts can read builder intent (`is_create_agent`) without a getSession round-trip.
+      ...(session.metadata != null && Object.keys(session.metadata).length > 0 ? { metadata: session.metadata } : {}),
     },
   };
 }

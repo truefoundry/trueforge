@@ -58,7 +58,7 @@ function SidebarPreviewHarness({ children }: { children: ReactNode }) {
 }
 
 describe('SidebarLayout file preview', () => {
-  it('collapses recent chats while the preview fills the chat pane', async () => {
+  it('keeps recent chats visible while the preview fills the chat pane', async () => {
     if (typeof Element.prototype.scrollTo !== 'function') {
       Element.prototype.scrollTo = () => undefined;
     }
@@ -77,14 +77,63 @@ describe('SidebarLayout file preview', () => {
 
     fireEvent.click(within(panel).getByRole('button', { name: 'Full page' }));
     await waitFor(() => {
-      expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+      expect(screen.getByRole('complementary', { name: 'Preview of Metrics redesign' })).toHaveAttribute(
+        'data-placement',
+        'full',
+      );
     });
-    expect(screen.getByRole('complementary', { name: 'Preview of Metrics redesign' })).toHaveAttribute(
-      'data-placement',
-      'full',
-    );
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Exit full page' }));
     expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+  });
+});
+
+describe('SidebarLayout collapse', () => {
+  it('collapses to an icon rail and expands from the logo control', () => {
+    window.localStorage.removeItem('aui-sidebar-collapsed');
+
+    render(
+      <SidebarPreviewHarness>
+        <SidebarLayout />
+      </SidebarPreviewHarness>,
+    );
+
+    const rail = document.querySelector('[data-slot="aui_app-rail"]');
+    expect(rail).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(rail).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('aui-sidebar-collapsed')).toBe('1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(rail).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+    expect(window.localStorage.getItem('aui-sidebar-collapsed')).toBe('0');
+  });
+
+  it('opens a chat-history flyout from the collapsed rail without expanding', () => {
+    window.localStorage.removeItem('aui-sidebar-collapsed');
+
+    render(
+      <SidebarPreviewHarness>
+        <SidebarLayout />
+      </SidebarPreviewHarness>,
+    );
+
+    const rail = document.querySelector('[data-slot="aui_app-rail"]');
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(rail).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat history' }));
+    expect(rail).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.getByRole('dialog', { name: 'Chat History' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Chat History' })).not.toBeInTheDocument();
   });
 });
