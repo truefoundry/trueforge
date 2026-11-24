@@ -130,7 +130,7 @@ class ArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot.
+            New artifact name. Whitespace is collapsed and trimmed; must not be blank.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -292,7 +292,7 @@ class AsyncArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot.
+            New artifact name. Whitespace is collapsed and trimmed; must not be blank.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

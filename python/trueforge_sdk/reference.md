@@ -729,7 +729,7 @@ client.artifacts.update(
 <dl>
 <dd>
 
-**name:** `str` — New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot.
+**name:** `str` — New artifact name. Whitespace is collapsed and trimmed; must not be blank.
     
 </dd>
 </dl>

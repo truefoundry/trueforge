@@ -7,6 +7,6 @@
  *     }
  */
 export interface UpdateArtifactRequest {
-    /** New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot. */
+    /** New artifact name. Whitespace is collapsed and trimmed; must not be blank. */
     name: string;
 }
