@@ -8066,7 +8066,7 @@
     },
     "/api/v1/artifacts/{artifact_id}": {
       "get": {
-        "description": "Get an artifact by id. Only the artifact creator may read it.",
+        "description": "Get an artifact created by the caller.",
         "parameters": [
           {
             "description": "Artifact identifier.",
@@ -8101,16 +8101,6 @@
             },
             "description": "Unauthenticated."
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the artifact creator."
-          },
           "404": {
             "content": {
               "application/json": {
@@ -8119,7 +8109,7 @@
                 }
               }
             },
-            "description": "Artifact not found."
+            "description": "Artifact not found or not created by the caller."
           }
         },
         "summary": "Get an artifact",
@@ -8132,7 +8122,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Rename an artifact. Only the artifact creator may update it.",
+        "description": "Rename an artifact created by the caller.",
         "parameters": [
           {
             "description": "Artifact identifier.",
@@ -8187,16 +8177,6 @@
             },
             "description": "Unauthenticated."
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the artifact creator."
-          },
           "404": {
             "content": {
               "application/json": {
@@ -8205,7 +8185,7 @@
                 }
               }
             },
-            "description": "Artifact not found."
+            "description": "Artifact not found or not created by the caller."
           }
         },
         "summary": "Update an artifact",

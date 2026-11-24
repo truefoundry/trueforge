@@ -504,7 +504,7 @@ const response = page.response;
 <dl>
 <dd>
 
-Get an artifact by id. Only the artifact creator may read it.
+Get an artifact created by the caller.
 </dd>
 </dl>
 </dd>
@@ -567,7 +567,7 @@ await client.artifacts.get("artifact_id");
 <dl>
 <dd>
 
-Rename an artifact. Only the artifact creator may update it.
+Rename an artifact created by the caller.
 </dd>
 </dl>
 </dd>

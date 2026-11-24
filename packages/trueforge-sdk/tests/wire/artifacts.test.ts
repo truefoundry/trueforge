@@ -175,25 +175,6 @@ describe("ArtifactsClient", () => {
             .mockEndpoint()
             .get("/api/v1/artifacts/artifact_id")
             .respondWith()
-            .statusCode(403)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.artifacts.get("artifact_id");
-        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
-    });
-
-    test("get (4)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/artifacts/artifact_id")
-            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -301,28 +282,6 @@ describe("ArtifactsClient", () => {
     });
 
     test("update (4)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "x" };
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .patch("/api/v1/artifacts/artifact_id")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(403)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.artifacts.update("artifact_id", {
-                name: "x",
-            });
-        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
-    });
-
-    test("update (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { name: "x" };

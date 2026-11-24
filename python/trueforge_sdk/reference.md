@@ -608,7 +608,7 @@ client.artifacts.list()
 <dl>
 <dd>
 
-Get an artifact by id. Only the artifact creator may read it.
+Get an artifact created by the caller.
 </dd>
 </dl>
 </dd>
@@ -680,7 +680,7 @@ client.artifacts.get(
 <dl>
 <dd>
 
-Rename an artifact. Only the artifact creator may update it.
+Rename an artifact created by the caller.
 </dd>
 </dl>
 </dd>

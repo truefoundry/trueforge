@@ -88,7 +88,7 @@ class ArtifactsClient:
 
     def get(self, *, artifact_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetArtifactResponse:
         """
-        Get an artifact by id. Only the artifact creator may read it.
+        Get an artifact created by the caller.
 
         Parameters
         ----------
@@ -122,7 +122,7 @@ class ArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetArtifactResponse:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Rename an artifact created by the caller.
 
         Parameters
         ----------
@@ -242,7 +242,7 @@ class AsyncArtifactsClient:
         self, *, artifact_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetArtifactResponse:
         """
-        Get an artifact by id. Only the artifact creator may read it.
+        Get an artifact created by the caller.
 
         Parameters
         ----------
@@ -284,7 +284,7 @@ class AsyncArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetArtifactResponse:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Rename an artifact created by the caller.
 
         Parameters
         ----------
