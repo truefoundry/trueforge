@@ -8101,16 +8101,6 @@
             },
             "description": "Unauthenticated."
           },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the artifact creator."
-          },
           "404": {
             "content": {
               "application/json": {
@@ -8186,16 +8176,6 @@
               }
             },
             "description": "Unauthenticated."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the artifact creator."
           },
           "404": {
             "content": {
