@@ -240,7 +240,7 @@ describe("ArtifactsClient", () => {
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "name" };
+        const rawRequestBody = { name: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -254,7 +254,7 @@ describe("ArtifactsClient", () => {
 
         await expect(async () => {
             return await client.artifacts.update("artifact_id", {
-                name: "name",
+                name: "x",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -262,7 +262,7 @@ describe("ArtifactsClient", () => {
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "name" };
+        const rawRequestBody = { name: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -276,7 +276,7 @@ describe("ArtifactsClient", () => {
 
         await expect(async () => {
             return await client.artifacts.update("artifact_id", {
-                name: "name",
+                name: "x",
             });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
@@ -284,7 +284,7 @@ describe("ArtifactsClient", () => {
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "name" };
+        const rawRequestBody = { name: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -298,7 +298,7 @@ describe("ArtifactsClient", () => {
 
         await expect(async () => {
             return await client.artifacts.update("artifact_id", {
-                name: "name",
+                name: "x",
             });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });

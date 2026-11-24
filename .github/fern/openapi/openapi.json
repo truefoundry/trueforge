@@ -6457,7 +6457,10 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "New artifact name. Whitespace is collapsed and trimmed; must be 1-50 characters without control, bidi, or / \\ : * ? \" < > | characters, and must not end with a dot.",
+            "description": "New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot.",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u202A-\\u202E\\u2066-\\u2069/\\\\:*?\"<>|]*$",
             "type": "string"
           }
         },
