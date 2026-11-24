@@ -1,7 +1,7 @@
-import { InvalidArtifactNameError, normalizeArtifactName } from '../../../src/db/artifactStore';
+import { InvalidArtifactNameError, validateAndNormalizeArtifactName } from '../../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../../src/schemas/common';
 
-describe('normalizeArtifactName', () => {
+describe('validateAndNormalizeArtifactName', () => {
   it.each([
     ['newline', 'a\nb'],
     ['tab', 'a\tb'],
@@ -12,37 +12,39 @@ describe('normalizeArtifactName', () => {
     ['bidi isolate', 'a\u2067b'],
     ...['/', '\\', ':', '*', '?', '"', '<', '>', '|'].map(char => [`"${char}"`, `a${char}b`]),
   ])('rejects %s', (_label, name) => {
-    expect(() => normalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
   });
 
   it('rejects forbidden characters even when trimming would remove them', () => {
-    expect(() => normalizeArtifactName('report\n')).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName('report\n')).toThrow(InvalidArtifactNameError);
   });
 
   it('replaces line/paragraph separators with a space, collapses whitespace, and trims', () => {
-    expect(normalizeArtifactName('a\u2028b\u2029c')).toBe('a b c');
-    expect(normalizeArtifactName('a    b')).toBe('a b');
-    expect(normalizeArtifactName('  a \u2028 b  ')).toBe('a b');
+    expect(validateAndNormalizeArtifactName('a\u2028b\u2029c')).toBe('a b c');
+    expect(validateAndNormalizeArtifactName('a    b')).toBe('a b');
+    expect(validateAndNormalizeArtifactName('  a \u2028 b  ')).toBe('a b');
   });
 
   it('rejects empty and whitespace-only names', () => {
-    expect(() => normalizeArtifactName('')).toThrow(InvalidArtifactNameError);
-    expect(() => normalizeArtifactName('   ')).toThrow(InvalidArtifactNameError);
-    expect(() => normalizeArtifactName('\u2028\u2029')).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName('')).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName('   ')).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName('\u2028\u2029')).toThrow(InvalidArtifactNameError);
   });
 
   it('checks the length before normalization', () => {
-    expect(normalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH))).toHaveLength(MAX_TITLE_LENGTH);
-    expect(normalizeArtifactName(`a  ${'b'.repeat(MAX_TITLE_LENGTH - 3)}`)).toBe(
+    expect(validateAndNormalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH))).toHaveLength(MAX_TITLE_LENGTH);
+    expect(validateAndNormalizeArtifactName(`a  ${'b'.repeat(MAX_TITLE_LENGTH - 3)}`)).toBe(
       `a ${'b'.repeat(MAX_TITLE_LENGTH - 3)}`,
     );
-    expect(() => normalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH + 1))).toThrow(InvalidArtifactNameError);
-    expect(() => normalizeArtifactName(`  ${'a'.repeat(MAX_TITLE_LENGTH - 1)}`)).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH + 1))).toThrow(InvalidArtifactNameError);
+    expect(() => validateAndNormalizeArtifactName(`  ${'a'.repeat(MAX_TITLE_LENGTH - 1)}`)).toThrow(
+      InvalidArtifactNameError,
+    );
   });
 
   it('rejects a trailing dot', () => {
     for (const name of ['report.', 'report. ', '.', '..']) {
-      expect(() => normalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
+      expect(() => validateAndNormalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
     }
   });
 
@@ -55,6 +57,6 @@ describe('normalizeArtifactName', () => {
     '.hidden',
     "It's #1 & 100% done!",
   ])('accepts %j', name => {
-    expect(normalizeArtifactName(name)).toBe(name);
+    expect(validateAndNormalizeArtifactName(name)).toBe(name);
   });
 });

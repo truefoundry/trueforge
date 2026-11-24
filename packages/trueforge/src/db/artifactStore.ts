@@ -85,7 +85,7 @@ export class InvalidArtifactNameError extends Error {
  * Validates the raw name's characters and length, then collapses whitespace (incl. line/paragraph separators)
  * to one space and trims. Throws `InvalidArtifactNameError` when invalid.
  */
-export function normalizeArtifactName(rawName: string): string {
+export function validateAndNormalizeArtifactName(rawName: string): string {
   if (!ARTIFACT_NAME_PATTERN.test(rawName)) {
     throw new InvalidArtifactNameError('must not contain control, bidi, or / \\ : * ? " < > | characters.');
   }
@@ -103,7 +103,7 @@ export function normalizeArtifactName(rawName: string): string {
 }
 
 export interface IArtifactStore {
-  /** Generates the id and validates the name (see `normalizeArtifactName`). */
+  /** Generates the id and validates the name (see `validateAndNormalizeArtifactName`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
   /** Undefined when the artifact is missing, in another tenant, or not created by `created_by_subject_id`. */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
