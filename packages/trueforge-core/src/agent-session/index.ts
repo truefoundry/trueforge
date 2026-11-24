@@ -41,7 +41,6 @@ export {
   SessionSchema,
   SessionSourceScheduleSchema,
   SessionSourceSchema,
-  SessionSourceServiceSchema,
   SessionSourceTypeSchema,
 } from './schemas/session';
 export type {

@@ -40,9 +40,9 @@ const EnvironmentsPage = lazy(() =>
 type SettingsSectionItem = {
   id: SettingsSection;
   label: string;
-  icon: 'type' | 'cpu' | 'plug' | 'scroll-text' | 'cube' | 'monitor' | 'search' | 'brain';
+  icon: 'type' | 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'monitor' | 'search' | 'brain';
   /** Client-only / non-settings-capability sections omit a capability and stay visible when mounted. */
-  capability?: keyof SettingsCapability;
+  capability?: keyof SettingsCapability | undefined;
 };
 
 function SettingsSectionFallback() {
@@ -61,6 +61,8 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
   const capabilities = useServerCapabilities();
   const settings = capabilities?.settings;
+  // The Models tab also hosts the tenant Auto switch, which the catalog capability does not gate.
+  const hasAutoModelRouting = capabilities != null && capabilities.auto.status !== 'not_configured';
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const track = useTrackAnalytics();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
@@ -110,11 +112,16 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
 
   const sections = useMemo<SettingsSectionItem[]>(() => {
     const mounted: SettingsSectionItem[] = [
-      { id: 'models', label: 'Models', icon: 'cpu', capability: 'modelProviders' },
+      {
+        id: 'models',
+        label: 'Models',
+        icon: 'cpu',
+        capability: hasAutoModelRouting ? undefined : 'modelProviders',
+      },
       { id: 'connectors', label: 'Connectors', icon: 'plug', capability: 'mcpServers' },
     ];
     if (hasSkills) {
-      mounted.push({ id: 'skills', label: 'Skills', icon: 'scroll-text', capability: 'skills' });
+      mounted.push({ id: 'skills', label: 'Skills', icon: 'lightbulb', capability: 'skills' });
     }
     if (hasSandbox) {
       mounted.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube', capability: 'sandboxProviders' });
@@ -133,7 +140,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     return mounted.filter(
       item => item.capability == null || isSettingsSectionEnabled({ settings, section: item.capability }),
     );
-  }, [hasSkills, hasSandbox, hasEnvironments, hasWebSearch, hasMemory, settings]);
+  }, [hasAutoModelRouting, hasSkills, hasSandbox, hasEnvironments, hasWebSearch, hasMemory, settings]);
 
   // A section the caller may not open (or the host never mounted) hands over to the first it may.
   const activeSection = sections.find(item => item.id === section);

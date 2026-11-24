@@ -23,6 +23,7 @@ import {
   buildSnapshotThroughTurn,
   computeGroupRootBaseline,
   extractTurnUserMessageContent,
+  loadedRetriedTurnParent,
   prependOlderSessionHistory,
   projectSessionMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
@@ -1574,9 +1575,14 @@ export function useTrueForgeAgentMessages({
           previousTurnId = localRewind.previousTurnId;
           rewound = localRewind.snapshot;
         } else {
-          // Parent is not in memory. The server walk follows parent links, so
-          // list order cannot be used in its place.
-          previousTurnId = await resolveGatewayBranchPreviousTurnIdForTurn(server, conversationSessionId, turnId);
+          // Parent is not in memory. A loaded retried turn already carries its
+          // parent id, so getTurn only runs when that record is missing. The server
+          // walk follows parent links, so list order cannot be used in its place.
+          const loadedParent = loadedRetriedTurnParent(committed, turnId);
+          previousTurnId =
+            loadedParent === undefined
+              ? await resolveGatewayBranchPreviousTurnIdForTurn(server, conversationSessionId, turnId)
+              : (loadedParent ?? 'none');
           rewound = await buildSnapshotThroughTurn(
             server,
             conversationSessionId,

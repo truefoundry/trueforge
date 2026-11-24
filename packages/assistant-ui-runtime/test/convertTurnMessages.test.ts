@@ -5410,6 +5410,19 @@ describe('buildSnapshotThroughTurn', () => {
     expect(descSnapshot.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
   });
 
+  it('loads only the newest window and leaves older turns on pagination', async () => {
+    const turns = linearTurns();
+    const listEvents = vi.fn(sessionEventsPage(sessionEventItemsFromTurns(turns, 't3'), { pageSize: 4 }));
+    const server = { listEvents } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotThroughTurn(server, SESSION_ID, 't3');
+
+    expect(listEvents).toHaveBeenCalledTimes(1);
+    expect(listEvents).toHaveBeenCalledWith(expect.objectContaining({ lastTurnId: 't3' }));
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t3']);
+    expect(snapshot.historyPagination?.hasOlder).toBe(true);
+  });
+
   it('drops sibling turns left behind by an earlier rerun', async () => {
     // m2/m3 were rerun once already: t2/t3 are orphans, t2p/t3p are live.
     const [t1, t2, t3] = linearTurns();
@@ -5598,6 +5611,22 @@ describe('rewindLoadedSnapshotThroughTurn', () => {
       turns: snapshot.turns.map(turn => (turn.id === 't3' ? { ...turn, previousTurnId: 't-missing' } : turn)),
     });
     expect(rewindLoadedSnapshotThroughTurn(unloadedParent, 't3')).toBeNull();
+  });
+
+  it('rewinds locally when the parent is loaded and the window starts above the root', async () => {
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithTurns(linearTurns()), SESSION_ID);
+    const windowed = replaceSessionSnapshot(snapshot, {
+      turns: snapshot.turns.filter(turn => turn.id !== 't1'),
+      historyPagination: { hasOlder: true, olderPageToken: 'older' },
+    });
+
+    const rewound = rewindLoadedSnapshotThroughTurn(windowed, 't3');
+    expect(rewound?.previousTurnId).toBe('t2');
+    expect(rewound?.snapshot.turns.map(turn => turn.id)).toEqual(['t2']);
+    expect(rewound?.snapshot.historyPagination).toEqual({ hasOlder: true, olderPageToken: 'older' });
+
+    const exhausted = replaceSessionSnapshot(windowed, { historyPagination: { hasOlder: false } });
+    expect(rewindLoadedSnapshotThroughTurn(exhausted, 't3')).toBeNull();
   });
 
   it('returns an empty turn list when retrying a root', async () => {
