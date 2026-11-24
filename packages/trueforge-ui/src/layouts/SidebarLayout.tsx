@@ -156,7 +156,7 @@ function SidebarNav(): ReactNode {
   return (
     <nav className="flex min-h-0 flex-1 flex-col items-center gap-4" aria-label="Sidebar">
       {showNewActions ? (
-        <RailTooltip content="New chat">
+        <RailTooltip content="New Chat">
           <button
             type="button"
             aria-label="Start new chat"
@@ -183,7 +183,7 @@ function SidebarNav(): ReactNode {
             })}
             onClick={handleNewAgent}
           >
-            <Icon name="agent-2" size={16} />
+            <Icon name="message-ai-3-line" size={16} />
           </button>
         </RailTooltip>
       ) : null}

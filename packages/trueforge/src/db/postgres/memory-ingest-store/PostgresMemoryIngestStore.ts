@@ -14,7 +14,7 @@ import type { Database } from '../types';
 
 const agentMemoryEnabled = sql<string | null>`a.manifest #>> ${sql.lit(`{${AGENT_MEMORY_ENABLED_PATH.join(',')}}`)}`;
 const tfgSource = sql<string | null>`s.metadata->>'tfg.source'`;
-const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'is_create_agent' = 'true', false)`;
+const createAgentSession = sql<boolean>`COALESCE(s.metadata->>'tfg.is_create_agent' = 'true', false)`;
 /**
  * `turn.input` with only text parts kept in array content: file parts carry inline base64, and
  * ingestion sends text only, so attachments never leave the database.
