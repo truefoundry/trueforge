@@ -139,12 +139,13 @@ export class ArtifactsClient {
     }
 
     /**
-     * Get an artifact created by the caller.
+     * Get an artifact by id. Only the artifact creator may read it.
      *
      * @param {string} artifact_id - Artifact identifier.
      * @param {ArtifactsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -210,6 +211,17 @@ export class ArtifactsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -239,7 +251,7 @@ export class ArtifactsClient {
     }
 
     /**
-     * Rename an artifact created by the caller.
+     * Rename an artifact. Only the artifact creator may update it.
      *
      * @param {string} artifact_id - Artifact identifier.
      * @param {TrueForge.UpdateArtifactRequest} request
@@ -247,6 +259,7 @@ export class ArtifactsClient {
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -329,6 +342,17 @@ export class ArtifactsClient {
                     );
                 case 401:
                     throw new TrueForge.UnauthorizedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
