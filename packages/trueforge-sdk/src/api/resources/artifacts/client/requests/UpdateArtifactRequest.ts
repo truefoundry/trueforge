@@ -7,6 +7,6 @@
  *     }
  */
 export interface UpdateArtifactRequest {
-    /** New artifact name, 1-50 characters. Control, bidi, and / \ : * ? " < > | characters are rejected; a trailing dot is not allowed. */
+    /** New artifact name. Whitespace is collapsed and trimmed; must be 1-50 characters without control, bidi, or / \ : * ? " < > | characters, and must not end with a dot. */
     name: string;
 }

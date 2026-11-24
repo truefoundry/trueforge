@@ -204,7 +204,7 @@ class RawArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name, 1-50 characters. Control, bidi, and / \\ : * ? " < > | characters are rejected; a trailing dot is not allowed.
+            New artifact name. Whitespace is collapsed and trimmed; must be 1-50 characters without control, bidi, or / \\ : * ? " < > | characters, and must not end with a dot.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -462,7 +462,7 @@ class AsyncRawArtifactsClient:
             Artifact identifier.
 
         name : str
-            New artifact name, 1-50 characters. Control, bidi, and / \\ : * ? " < > | characters are rejected; a trailing dot is not allowed.
+            New artifact name. Whitespace is collapsed and trimmed; must be 1-50 characters without control, bidi, or / \\ : * ? " < > | characters, and must not end with a dot.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
