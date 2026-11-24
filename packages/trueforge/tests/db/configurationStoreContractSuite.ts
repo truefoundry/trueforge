@@ -18,11 +18,11 @@ export interface ConfigurationStoreContractEnv {
 }
 
 function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }): ConfigurationManifest {
-  return { web_search: { enabled: webSearch }, memory: { enabled: memory }, auto: { enabled: true } };
+  return { web_search: { enabled: webSearch }, memory: { enabled: memory }, auto_model_routing: { enabled: true } };
 }
 
 const LEGACY_MANIFEST_JSON = '{"web_search":{"enabled":false}}';
-const SEEDED = { web_search: { enabled: false }, memory: { enabled: true }, auto: { enabled: true } };
+const SEEDED = { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } };
 
 export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationStoreContractEnv): void {
   it('lists only tenants whose stored row has the given feature on', async () => {

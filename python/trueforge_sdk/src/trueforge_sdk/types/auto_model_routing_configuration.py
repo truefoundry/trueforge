@@ -7,10 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class AutoConfiguration(UncheckedBaseModel):
+class AutoModelRoutingConfiguration(UncheckedBaseModel):
     enabled: bool = pydantic.Field()
     """
-    Whether this tenant may use Auto mode, which picks a model for each turn and each subagent.
+    Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.
     """
 
     if IS_PYDANTIC_V2:

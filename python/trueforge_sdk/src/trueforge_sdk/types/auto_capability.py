@@ -5,21 +5,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .auto_capability_status import AutoCapabilityStatus
 
 
 class AutoCapability(UncheckedBaseModel):
-    """
-    Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.
-    """
-
-    enabled: bool = pydantic.Field()
-    """
-    Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.
-    """
-
     reason: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Present when Auto mode is unavailable. Explains why.
+    Present when status is disabled. Explains why.
+    """
+
+    status: AutoCapabilityStatus = pydantic.Field()
+    """
+    Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable.
     """
 
     if IS_PYDANTIC_V2:

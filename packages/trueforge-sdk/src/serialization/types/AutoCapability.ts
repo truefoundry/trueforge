@@ -3,16 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AutoCapabilityStatus } from "./AutoCapabilityStatus.js";
 
 export const AutoCapability: core.serialization.ObjectSchema<serializers.AutoCapability.Raw, TrueForge.AutoCapability> =
     core.serialization.object({
-        enabled: core.serialization.boolean(),
         reason: core.serialization.string().optional(),
+        status: AutoCapabilityStatus,
     });
 
 export declare namespace AutoCapability {
     export interface Raw {
-        enabled: boolean;
         reason?: string | null;
+        status: AutoCapabilityStatus.Raw;
     }
 }

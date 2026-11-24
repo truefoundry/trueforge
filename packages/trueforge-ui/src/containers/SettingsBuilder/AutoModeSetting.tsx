@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
+import { Skeleton } from '../../atoms/primitives/Skeleton.js';
 import { Switch } from '../../atoms/primitives/Switch.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalConfigurationServer, useOptionalRefreshServerCapabilities } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
@@ -13,56 +16,60 @@ import { useToasterOptional } from '../ToasterContainer.js';
 const AutoModeSetting = () => {
   const configuration = useOptionalConfigurationServer();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
+  const queryClient = useServerQueryClient();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const configurationQuery = useQuery(
+    {
+      queryKey: queryKeys.settings.configuration(),
+      queryFn: () =>
+        configuration == null
+          ? Promise.reject(new Error('Configuration server is not configured.'))
+          : configuration.getConfiguration(),
+      enabled: configuration != null,
+    },
+    queryClient,
+  );
 
-  useEffect(() => {
-    if (!configuration) return;
-    let cancelled = false;
-    void configuration
-      .getConfiguration()
-      .then(loaded => {
-        if (!cancelled) setEnabled(loaded.auto.enabled);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(getErrorMessage(err, 'Failed to load the Auto mode setting'));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [configuration]);
+  const saveMutation = useMutation(
+    {
+      mutationFn: (next: boolean) =>
+        configuration == null
+          ? Promise.reject(new Error('Configuration server is not configured.'))
+          : configuration.updateConfiguration({ autoModelRouting: { enabled: next } }),
+      onSuccess: saved => {
+        queryClient.setQueryData(queryKeys.settings.configuration(), saved);
+        // The model picker offers or withholds Auto with this switch.
+        refreshCapabilities?.();
+        const { enabled } = saved.autoModelRouting;
+        toaster?.showSuccess({ title: enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
+        track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
+      },
+    },
+    queryClient,
+  );
 
   if (!configuration) return null;
 
-  const handleToggle = async (next: boolean) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const saved = await configuration.updateConfiguration({ auto: { enabled: next } });
-      setEnabled(saved.auto.enabled);
-      // The model picker offers or withholds Auto with this switch.
-      refreshCapabilities?.();
-      toaster?.showSuccess({ title: saved.auto.enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
-      track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled: saved.auto.enabled });
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save the Auto mode setting'));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const errorMessage = saveMutation.isError
+    ? getErrorMessage(saveMutation.error, 'Failed to save the Auto mode setting')
+    : configurationQuery.isError
+      ? getErrorMessage(configurationQuery.error, 'Failed to load the Auto mode setting')
+      : null;
+  const enabled = configurationQuery.data?.autoModelRouting.enabled;
 
   return (
     <>
-      {error ? (
+      {errorMessage ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
-          {error}
+          {errorMessage}
         </p>
       ) : null}
-      {enabled !== null ? (
+      {configurationQuery.isPending ? (
+        <Skeleton data-testid="auto-mode-setting-skeleton" className="mt-4 h-16 w-full rounded-xl" />
+      ) : null}
+      {enabled !== undefined ? (
         <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border bg-card-bg p-3">
           <div className="min-w-0">
             <h4 className="text-sm font-medium text-text-primary">Allow Auto mode</h4>
@@ -74,10 +81,10 @@ const AutoModeSetting = () => {
           </div>
           <Switch
             checked={enabled}
-            disabled={busy}
+            disabled={saveMutation.isPending}
             aria-label="Allow Auto mode"
             onCheckedChange={next => {
-              void handleToggle(next);
+              saveMutation.mutate(next);
             }}
           />
         </div>

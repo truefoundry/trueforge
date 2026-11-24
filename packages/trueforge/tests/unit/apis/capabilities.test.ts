@@ -145,7 +145,7 @@ describe('capabilities routers', () => {
       manifest: {
         web_search: { enabled: tenantWebSearchEnabled },
         memory: { enabled: tenantMemoryEnabled },
-        auto: { enabled: tenantAutoEnabled },
+        auto_model_routing: { enabled: tenantAutoEnabled },
       },
       updated_at: '2026-01-01T00:00:00.000Z',
     };
@@ -195,6 +195,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -295,11 +296,11 @@ describe('capabilities routers', () => {
       previousRouting = undefined;
     });
 
-    it('omits auto when model routing is not set up for the tenant', async () => {
+    it('reports auto not configured, without a reason, when model routing is not set up for the tenant', async () => {
       disableOidcAuth();
       const response = await makeRouter().request('/');
       expect(response.status).toBe(200);
-      expect(await response.json()).not.toHaveProperty('data.auto');
+      expect(await response.json()).toHaveProperty('data.auto', { status: 'not_configured' });
     });
 
     it('reports auto disabled with a reason when the tenant turned it off', async () => {
@@ -308,11 +309,11 @@ describe('capabilities routers', () => {
       const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
-        data: { auto: { enabled: false, reason: AUTO_TENANT_OFF_REASON } },
+        data: { auto: { status: 'disabled', reason: AUTO_TENANT_OFF_REASON } },
       });
     });
 
-    it('reports auto unavailable when the tenant allows it but has no models to route to', async () => {
+    it('reports auto disabled when the tenant allows it but has no models to route to', async () => {
       disableOidcAuth();
       enableModelRouting();
       const db = createSqliteDb(':memory:');
@@ -320,7 +321,20 @@ describe('capabilities routers', () => {
       const response = await makeRouter({ modelProviderStore: new SqliteModelProviderStore(db) }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
-        data: { auto: { enabled: false, reason: 'Auto mode is not available for now' } },
+        data: { auto: { status: 'disabled', reason: 'Auto mode is not available for now' } },
+      });
+    });
+
+    it('keeps the model providers section closed while the platform owns the catalog, even with auto set up', async () => {
+      disableOidcAuth();
+      enableModelRouting();
+      const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          auto: { status: 'disabled' },
+          settings: { model_providers: { enabled: false, manage_providers: false } },
+        },
       });
     });
   });
@@ -361,6 +375,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -380,6 +395,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -623,6 +639,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
+          auto: { status: 'not_configured' },
           session_sharing: { granularity: 'tenant' },
         },
       });
@@ -644,6 +661,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
+          auto: { status: 'not_configured' },
           session_sharing: { granularity: 'tenant' },
         },
       });

@@ -474,7 +474,7 @@ describe('agents router', () => {
     });
     await configurationStore.upsertConfiguration({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto: { enabled: true } },
+      manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
     const webSearchManifest = {
       ...manifest,
@@ -489,7 +489,7 @@ describe('agents router', () => {
 
     await configurationStore.upsertConfiguration({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: false }, memory: { enabled: false }, auto: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
 
     const res = await router.request(
@@ -507,7 +507,7 @@ describe('agents router', () => {
     });
     await configurationStore.upsertConfiguration({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: false }, memory: { enabled: true }, auto: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } },
     });
     const memoryManifest = {
       ...manifest,
@@ -522,7 +522,7 @@ describe('agents router', () => {
 
     await configurationStore.upsertConfiguration({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      manifest: { web_search: { enabled: false }, memory: { enabled: false }, auto: { enabled: true } },
+      manifest: { web_search: { enabled: false }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
     });
 
     const res = await router.request(

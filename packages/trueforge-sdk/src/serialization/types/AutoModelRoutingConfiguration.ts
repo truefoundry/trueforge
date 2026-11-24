@@ -4,14 +4,14 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const AutoConfiguration: core.serialization.ObjectSchema<
-    serializers.AutoConfiguration.Raw,
-    TrueForge.AutoConfiguration
+export const AutoModelRoutingConfiguration: core.serialization.ObjectSchema<
+    serializers.AutoModelRoutingConfiguration.Raw,
+    TrueForge.AutoModelRoutingConfiguration
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
 });
 
-export declare namespace AutoConfiguration {
+export declare namespace AutoModelRoutingConfiguration {
     export interface Raw {
         enabled: boolean;
     }

@@ -400,27 +400,31 @@
         "type": "object"
       },
       "AutoCapability": {
-        "description": "Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.",
         "properties": {
-          "enabled": {
-            "description": "Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.",
-            "type": "boolean"
-          },
           "reason": {
-            "description": "Present when Auto mode is unavailable. Explains why.",
+            "description": "Present when status is disabled. Explains why.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable.",
+            "enum": [
+              "not_configured",
+              "disabled",
+              "enabled"
+            ],
             "type": "string"
           }
         },
         "required": [
-          "enabled"
+          "status"
         ],
         "type": "object"
       },
-      "AutoConfiguration": {
+      "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
           "enabled": {
-            "description": "Whether this tenant may use Auto mode, which picks a model for each turn and each subagent.",
+            "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
@@ -591,6 +595,7 @@
           "skill",
           "settings",
           "web_search",
+          "auto",
           "session_sharing"
         ],
         "type": "object"
@@ -1078,8 +1083,8 @@
       "ConfigurationManifest": {
         "additionalProperties": false,
         "properties": {
-          "auto": {
-            "$ref": "#/components/schemas/AutoConfiguration"
+          "auto_model_routing": {
+            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
@@ -1091,15 +1096,15 @@
         "required": [
           "web_search",
           "memory",
-          "auto"
+          "auto_model_routing"
         ],
         "type": "object"
       },
       "ConfigurationManifestPatch": {
         "additionalProperties": false,
         "properties": {
-          "auto": {
-            "$ref": "#/components/schemas/AutoConfiguration"
+          "auto_model_routing": {
+            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"

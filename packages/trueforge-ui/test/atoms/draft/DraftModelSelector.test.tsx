@@ -153,7 +153,7 @@ describe('DraftModelSelector', () => {
         getModels: async () => models,
         getCapabilities: async () => {
           const { data } = await base.getCapabilities();
-          return { data: { ...data, auto: { enabled: false, reason } } };
+          return { data: { ...data, auto: { status: 'disabled', reason } } };
         },
       },
     );
@@ -311,7 +311,7 @@ describe('DraftModelSelector', () => {
           skill: { enabled: true },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(true),
-          auto: { enabled: true },
+          auto: { status: 'enabled' },
         },
       }),
     };
@@ -438,7 +438,7 @@ describe('DraftModelSelector', () => {
           data: {
             sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
-            auto: { enabled: false },
+            auto: { status: 'disabled' },
             sessionSharing: tenantSessionSharing,
             settings: allSettingsSections(false),
           },
@@ -461,7 +461,7 @@ describe('DraftModelSelector', () => {
           data: {
             sandbox: { enabled: true, environments: { enabled: true } },
             skill: { enabled: true },
-            auto: { enabled: false },
+            auto: { status: 'disabled' },
             sessionSharing: tenantSessionSharing,
             settings: { ...allSettingsSections(true), modelProviders: { enabled: true, manageProviders: false } },
           },
@@ -480,5 +480,26 @@ describe('DraftModelSelector', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
     await expectOnlyDisabledAutoOption();
     expect(screen.queryByRole('button', { name: 'Configure model' })).not.toBeInTheDocument();
+  });
+
+  it('omits Auto when the server does not set up auto model routing', async () => {
+    const base = createMockAgentUIServer();
+    renderSelector(
+      {},
+      {
+        getModels: async () => models,
+        getCapabilities: async () => {
+          const { data } = await base.getCapabilities();
+          return { data: { ...data, auto: { status: 'not_configured' } } };
+        },
+      },
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    fireEvent.click(trigger);
+
+    await screen.findAllByRole('option');
+    expect(screen.queryByRole('option', { name: /Auto/ })).toBeNull();
   });
 });

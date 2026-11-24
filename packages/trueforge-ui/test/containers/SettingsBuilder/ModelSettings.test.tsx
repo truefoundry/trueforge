@@ -5,7 +5,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { CustomProviderDraft } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
 import ModelSettings from '@/containers/SettingsBuilder/ModelSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ConfigurationServer, ModelProviderBase, UpdateModelProviderRequest } from '@/server/types.js';
+import type {
+  AgentBuilderCapabilitiesResponse,
+  ConfigurationServer,
+  ModelProviderBase,
+  UpdateModelProviderRequest,
+} from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
@@ -158,14 +163,14 @@ describe('ModelSettings removal', () => {
 });
 
 describe('ModelSettings Auto mode switch', () => {
-  const autoOn = { webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } };
+  const autoOn = { webSearch: { enabled: true }, memory: { enabled: true }, autoModelRouting: { enabled: true } };
 
   function renderAutoSettings({
     auto,
     manageProviders = true,
     configuration,
   }: {
-    auto: { enabled: boolean } | undefined;
+    auto: AgentBuilderCapabilitiesResponse['data']['auto'];
     manageProviders?: boolean;
     configuration: ConfigurationServer;
   }) {
@@ -176,7 +181,7 @@ describe('ModelSettings Auto mode switch', () => {
         skill: { enabled: true },
         sessionSharing: tenantSessionSharing,
         settings: { ...allSettingsSections(true), modelProviders: { enabled: true, manageProviders } },
-        ...(auto ? { auto } : {}),
+        auto,
       },
     }));
     const server = createMockAgentUIServer({
@@ -200,9 +205,9 @@ describe('ModelSettings Auto mode switch', () => {
   }
 
   it('saves only the Auto mode switch and refreshes capabilities so the picker updates', async () => {
-    const updateConfiguration = vi.fn(async () => ({ ...autoOn, auto: { enabled: false } }));
+    const updateConfiguration = vi.fn(async () => ({ ...autoOn, autoModelRouting: { enabled: false } }));
     const { getCapabilities } = renderAutoSettings({
-      auto: { enabled: true },
+      auto: { status: 'enabled' },
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
@@ -212,16 +217,37 @@ describe('ModelSettings Auto mode switch', () => {
     const callsBeforeSave = getCapabilities.mock.calls.length;
     toggle.click();
 
-    await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ auto: { enabled: false } }));
+    await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { enabled: false } }));
     await waitFor(() =>
       expect(screen.getByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false'),
     );
     expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
   });
 
+  it('shows a skeleton in place of the switch while the setting loads', async () => {
+    let resolveConfiguration: (value: typeof autoOn) => void = () => undefined;
+    renderAutoSettings({
+      auto: { status: 'enabled' },
+      configuration: {
+        getConfiguration: () =>
+          new Promise<typeof autoOn>(resolve => {
+            resolveConfiguration = resolve;
+          }),
+        updateConfiguration: vi.fn(),
+      },
+    });
+
+    expect(await screen.findByTestId('auto-mode-setting-skeleton')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+
+    resolveConfiguration(autoOn);
+    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toBeInTheDocument();
+    expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
+  });
+
   it('shows only the switch when the platform owns the providers', async () => {
     const { listModelProviders } = renderAutoSettings({
-      auto: { enabled: true },
+      auto: { status: 'enabled' },
       manageProviders: false,
       configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
     });
@@ -231,13 +257,26 @@ describe('ModelSettings Auto mode switch', () => {
     expect(listModelProviders).not.toHaveBeenCalled();
   });
 
+  it('keeps the switch available while the tenant has Auto turned off', async () => {
+    renderAutoSettings({
+      auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
+      configuration: {
+        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false } }),
+        updateConfiguration: vi.fn(),
+      },
+    });
+
+    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('shows no switch when the server does not set up Auto mode', async () => {
     renderAutoSettings({
-      auto: undefined,
+      auto: { status: 'not_configured' },
       configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
     });
 
     await screen.findByText('gpt-4-1');
     expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+    expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 });

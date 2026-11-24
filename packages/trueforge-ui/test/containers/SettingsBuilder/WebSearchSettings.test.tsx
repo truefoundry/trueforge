@@ -5,7 +5,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSearchSettings from '@/containers/SettingsBuilder/WebSearchSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, WebSearchCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import {
+  autoNotConfigured,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
@@ -42,7 +47,7 @@ function renderSettings(
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        auto: { enabled: false },
+        auto: autoNotConfigured,
         sessionSharing: tenantSessionSharing,
         settings: { ...sections, webSearch: { enabled: true, manageProviders } },
       },
@@ -61,7 +66,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration: unavailable,
     });
@@ -76,7 +81,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration: unavailable,
     });
@@ -93,7 +98,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration: unavailable,
     });
@@ -110,7 +115,7 @@ describe('WebSearchSettings tenant switch', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: false },
           memory: { enabled: true },
-          auto: { enabled: true },
+          autoModelRouting: { enabled: true },
         }),
         updateConfiguration: unavailable,
       },
@@ -125,13 +130,13 @@ describe('WebSearchSettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: false },
       memory: { enabled: true },
-      auto: { enabled: true },
+      autoModelRouting: { enabled: true },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration,
     });
@@ -161,7 +166,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration,
     });
@@ -179,13 +184,13 @@ describe('WebSearchSettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: true },
       memory: { enabled: true },
-      auto: { enabled: true },
+      autoModelRouting: { enabled: true },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration,
     });
@@ -216,7 +221,7 @@ describe('WebSearchSettings tenant switch', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: true },
           memory: { enabled: true },
-          auto: { enabled: true },
+          autoModelRouting: { enabled: true },
         }),
         updateConfiguration: unavailable,
       },
@@ -234,7 +239,7 @@ describe('WebSearchSettings tenant switch', () => {
     let resolveConfiguration: (value: {
       webSearch: { enabled: boolean };
       memory: { enabled: boolean };
-      auto: { enabled: boolean };
+      autoModelRouting: { enabled: boolean };
     }) => void = () => undefined;
     renderSettings({
       getConfiguration: () =>
@@ -248,7 +253,11 @@ describe('WebSearchSettings tenant switch', () => {
       expect(screen.queryByText('Parallel')).not.toBeInTheDocument();
     });
 
-    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } });
+    resolveConfiguration({
+      webSearch: { enabled: true },
+      memory: { enabled: true },
+      autoModelRouting: { enabled: true },
+    });
     expect(await screen.findByText('Parallel')).toBeInTheDocument();
   });
 });

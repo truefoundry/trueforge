@@ -22,7 +22,8 @@ if typing.TYPE_CHECKING:
     from .artifact import Artifact
     from .ask_user_questions_config import AskUserQuestionsConfig
     from .auto_capability import AutoCapability
-    from .auto_configuration import AutoConfiguration
+    from .auto_capability_status import AutoCapabilityStatus
+    from .auto_model_routing_configuration import AutoModelRoutingConfiguration
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -326,7 +327,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Artifact": ".artifact",
     "AskUserQuestionsConfig": ".ask_user_questions_config",
     "AutoCapability": ".auto_capability",
-    "AutoConfiguration": ".auto_configuration",
+    "AutoCapabilityStatus": ".auto_capability_status",
+    "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -654,7 +656,8 @@ __all__ = [
     "Artifact",
     "AskUserQuestionsConfig",
     "AutoCapability",
-    "AutoConfiguration",
+    "AutoCapabilityStatus",
+    "AutoModelRoutingConfiguration",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",

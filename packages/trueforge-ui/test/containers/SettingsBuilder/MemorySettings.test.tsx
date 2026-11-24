@@ -5,7 +5,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import MemorySettings from '@/containers/SettingsBuilder/MemorySettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConfigurationServer, MemoryCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../../server/mockServer.js';
+import {
+  autoNotConfigured,
+  createMockAgentUIServer,
+  createMockCatalog,
+  tenantSessionSharing,
+} from '../../server/mockServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
 async function unavailable(): Promise<never> {
@@ -30,7 +35,11 @@ const memoryCatalog: MemoryCatalogServer = {
 };
 
 const memoryOn: ConfigurationServer = {
-  getConfiguration: async () => ({ webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } }),
+  getConfiguration: async () => ({
+    webSearch: { enabled: true },
+    memory: { enabled: true },
+    autoModelRouting: { enabled: true },
+  }),
   updateConfiguration: unavailable,
 };
 
@@ -43,7 +52,7 @@ function renderSettings(
     data: {
       sandbox: { enabled: true },
       skill: { enabled: true },
-      auto: { enabled: false },
+      auto: autoNotConfigured,
       sessionSharing: tenantSessionSharing,
       settings: { ...allSettingsSections(true), memoryProviders: { enabled: true, manageProviders } },
     },
@@ -67,7 +76,7 @@ describe('MemorySettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: false },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration: unavailable,
     });
@@ -81,13 +90,13 @@ describe('MemorySettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: true },
       memory: { enabled: false },
-      auto: { enabled: true },
+      autoModelRouting: { enabled: true },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration,
     });
@@ -108,12 +117,12 @@ describe('MemorySettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: false },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
       updateConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        auto: { enabled: true },
+        autoModelRouting: { enabled: true },
       }),
     });
 
@@ -186,7 +195,7 @@ describe('MemorySettings providers', () => {
     let resolveConfiguration: (value: {
       webSearch: { enabled: boolean };
       memory: { enabled: boolean };
-      auto: { enabled: boolean };
+      autoModelRouting: { enabled: boolean };
     }) => void = () => undefined;
     const getMemoryProviderCatalog = vi.fn(memoryCatalog.getMemoryProviderCatalog);
     renderSettings(
@@ -207,7 +216,11 @@ describe('MemorySettings providers', () => {
     await act(() => new Promise(resolve => setTimeout(resolve, 20)));
     expect(screen.queryByText('Zep')).not.toBeInTheDocument();
 
-    resolveConfiguration({ webSearch: { enabled: true }, memory: { enabled: true }, auto: { enabled: true } });
+    resolveConfiguration({
+      webSearch: { enabled: true },
+      memory: { enabled: true },
+      autoModelRouting: { enabled: true },
+    });
     expect(await screen.findByText('Zep')).toBeInTheDocument();
   });
 });

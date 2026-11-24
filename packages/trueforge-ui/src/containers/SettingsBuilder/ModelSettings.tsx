@@ -57,7 +57,7 @@ const ModelSettings = () => {
   // Providers belong to the platform when `manageProviders` is false, so only the Auto mode
   // switch is the caller's to change. Unsettled capabilities withhold the provider calls.
   const canManageProviders = capabilitiesSettled && capabilities?.settings?.modelProviders?.manageProviders !== false;
-  const showAutoMode = capabilities?.auto !== undefined;
+  const showAutoMode = capabilities != null && capabilities.auto.status !== 'not_configured';
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);

@@ -161,10 +161,10 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
       }}
       listboxId={menuId}
       autoOption={
-        capabilities?.auto === undefined
+        capabilities == null || capabilities.auto.status === 'not_configured'
           ? undefined
           : {
-              enabled: capabilities.auto.enabled,
+              enabled: capabilities.auto.status === 'enabled',
               unavailableHint: capabilities.auto.reason ?? AUTO_MODEL_UNAVAILABLE_HINT,
               onSelect: () => commit(AUTO_MODEL_PATCH),
             }

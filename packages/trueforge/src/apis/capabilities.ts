@@ -17,7 +17,7 @@ import type { WithTransaction } from '../db/transaction';
 import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
-import { getCapabilitiesRoute, type SessionSharingCapability } from '../routes/capabilityRoutes';
+import { getCapabilitiesRoute, type AutoCapability, type SessionSharingCapability } from '../routes/capabilityRoutes';
 import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
@@ -39,31 +39,26 @@ function skillDisabledReason(status: SandboxEnvironmentVersionStatus | undefined
  * Settings sections the caller may open.
  *
  * Catalog sections need a deployment that owns its own catalogs; the tenant switches
- * (web search, memory, Auto mode) only need the admin role, so a TrueFoundry tenant admin reaches
+ * (web search, memory) only need the admin role, so a TrueFoundry tenant admin reaches
  * them while provider editing stays with the platform. In TrueFoundry mode the memory
- * section also needs the platform's provider, which the env offers per tenant, and the models
- * section opens for its Auto mode switch when model routing is set up for the tenant.
+ * section also needs the platform's provider, which the env offers per tenant. The Auto
+ * switch has no section here: clients show it from the `auto` capability.
  */
 function settingsCapability({
   isAdmin,
   ownsCatalogs,
   hasMemoryProvider,
-  hasModelRouting,
 }: {
   isAdmin: boolean;
   /** False in TrueFoundry mode, where the platform owns the provider catalogs. */
   ownsCatalogs: boolean;
   /** In TrueFoundry mode, true when the platform's env offers memory to the tenant. */
   hasMemoryProvider: boolean;
-  hasModelRouting: boolean;
 }) {
   const canManageProviders = ownsCatalogs && isAdmin;
   const catalogSection = { enabled: canManageProviders, manage_providers: canManageProviders };
   return {
-    model_providers: {
-      enabled: canManageProviders || (isAdmin && hasModelRouting),
-      manage_providers: canManageProviders,
-    },
+    model_providers: catalogSection,
     mcp_servers: catalogSection,
     skills: catalogSection,
     sandbox_providers: catalogSection,
@@ -77,8 +72,8 @@ const AUTO_UNAVAILABLE_REASON = 'Auto mode is not available for now';
 
 /**
  * Auto needs model routing set up for the tenant, the tenant switch on, and a model the user has in every routing
- * cluster. Undefined when routing isn't set up, so clients hide Auto entirely. A failed listing fails the request,
- * so clients keep their last known capabilities instead of dropping a selected Auto.
+ * cluster. `not_configured` when routing isn't set up, so clients hide Auto entirely. A failed listing fails the
+ * request, so clients keep their last known capabilities instead of dropping a selected Auto.
  */
 async function autoCapability({
   tenant_id,
@@ -88,16 +83,16 @@ async function autoCapability({
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   configurationStore: IConfigurationStore;
-}): Promise<{ enabled: boolean; reason?: string } | undefined> {
+}): Promise<AutoCapability> {
   if (enabledTenantModelRouting(trueFoundryModelRouting(), tenant_id) === undefined) {
-    return undefined;
+    return { status: 'not_configured' };
   }
   if (!(await isAutoEnabledForTenant({ tenant_id, store: configurationStore }))) {
-    return { enabled: false, reason: AUTO_TURNED_OFF_REASON };
+    return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
   return canRouteEveryCategory(await modelProviderStore.listModels({ tenant_id }))
-    ? { enabled: true }
-    : { enabled: false, reason: AUTO_UNAVAILABLE_REASON };
+    ? { status: 'enabled' }
+    : { status: 'disabled', reason: AUTO_UNAVAILABLE_REASON };
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
@@ -188,11 +183,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
             isAdmin: hasAdminRole(requestContext),
             ownsCatalogs: areCatalogSettingsAvailable(),
             hasMemoryProvider,
-            hasModelRouting: auto !== undefined,
           }),
           web_search: webSearchResponse,
           ...(memoryResponse && { memory: memoryResponse }),
-          ...(auto && { auto }),
+          auto,
           session_sharing: sessionSharing,
         },
       },

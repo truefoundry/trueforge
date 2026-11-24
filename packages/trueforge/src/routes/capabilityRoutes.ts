@@ -65,12 +65,13 @@ const MemoryCapabilitySchema = z
 
 const AutoCapabilitySchema = z
   .object({
-    enabled: z
-      .boolean()
-      .describe('Whether Auto mode can be selected: the tenant allows it and the user has the models it picks from.'),
-    reason: z.string().optional().describe('Present when Auto mode is unavailable. Explains why.'),
+    status: z
+      .enum(['not_configured', 'disabled', 'enabled'])
+      .describe(
+        'Whether auto model routing is enabled. not_configured: not set up for the tenant, so clients hide it. disabled: set up but not selectable.',
+      ),
+    reason: z.string().optional().describe('Present when status is disabled. Explains why.'),
   })
-  .describe('Present only when model routing is set up for the tenant; absent means Auto mode settings are hidden.')
   .openapi('AutoCapability');
 
 const SessionSharingCapabilitySchema = z
@@ -83,6 +84,7 @@ const SessionSharingCapabilitySchema = z
   })
   .openapi('SessionSharingCapability');
 
+export type AutoCapability = z.infer<typeof AutoCapabilitySchema>;
 export type SessionSharingCapability = z.infer<typeof SessionSharingCapabilitySchema>;
 
 const CapabilitiesDataSchema = z
@@ -92,7 +94,7 @@ const CapabilitiesDataSchema = z
     settings: SettingsCapabilitySchema,
     web_search: WebSearchCapabilitySchema,
     memory: MemoryCapabilitySchema.optional(),
-    auto: AutoCapabilitySchema.optional(),
+    auto: AutoCapabilitySchema,
     session_sharing: SessionSharingCapabilitySchema,
   })
   .openapi('CapabilitiesData');

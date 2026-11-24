@@ -61,7 +61,7 @@ export async function isAutoEnabledForTenant({
 }): Promise<boolean> {
   const record = await store.getConfiguration(tenant_id);
   const manifest = record?.manifest ?? DEFAULT_CONFIGURATION_MANIFEST;
-  return manifest.auto.enabled;
+  return manifest.auto_model_routing.enabled;
 }
 
 /** Whether agents in this tenant may use memory. Creates the row if missing: ingestion only sees tenants with one. */
