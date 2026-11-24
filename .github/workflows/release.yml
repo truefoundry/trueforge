@@ -595,11 +595,10 @@ jobs:
         env:
           RELEASE_SHA: ${{ needs.version-release.outputs.sha }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
-          READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch --no-tags origin main
-          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch --no-tags origin "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          git fetch --no-tags origin "$RELEASE_SHA"
 
           # Consumed = present at the branch cut, absent on the release branch
           # now. After `changeset pre exit` that covers both the files deleted

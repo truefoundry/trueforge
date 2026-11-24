@@ -116,7 +116,6 @@ jobs:
           INPUT_CHART_VERSION: ${{ inputs.chart_version }}
           INPUT_APP_VERSION: ${{ inputs.app_version }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
-          READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           BRANCH="$INPUT_BRANCH"
@@ -125,7 +124,7 @@ jobs:
             echo "branch '$BRANCH' is not a valid git branch name" >&2
             exit 1
           fi
-          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch origin "$BRANCH"
+          git fetch origin "$BRANCH"
           git checkout -B "chart-release-${GITHUB_RUN_ID}-$(openssl rand -hex 4)" "origin/${BRANCH}"
 
           SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
@@ -175,13 +174,21 @@ jobs:
       - name: Lint chart
         run: helm lint "$CHART_DIR" --values "$CHART_DIR/ci/lint-values.yaml"
 
-      - name: Helm registry login
+      - name: Set up JFrog CLI (OIDC)
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@v5
         env:
-          HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
-          HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
+          JF_URL: https://tfy.jfrog.io
+        with:
+          oidc-provider-name: github-jfrog-trueforge
+          oidc-audience: jfrog-github
+
+      - name: JFrog helm registry login
+        env:
+          REGISTRY_USER: ${{ steps.jfrog.outputs.oidc-user }}
+          REGISTRY_PASS: ${{ steps.jfrog.outputs.oidc-token }}
         run: |
-          printf '%s' "$HELM_REGISTRY_PASSWORD" \
-            | helm registry login -u "$HELM_REGISTRY_USERNAME" --password-stdin "$HELM_REGISTRY_URL"
+          printf '%s' "$REGISTRY_PASS" | helm registry login "$HELM_REGISTRY_URL" -u "$REGISTRY_USER" --password-stdin
 
       # Answered before anything is written, so the push and the metadata commit
       # can be skipped independently. Ambiguous failures fall through to
