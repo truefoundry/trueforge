@@ -63,32 +63,25 @@ jobs:
   version-release:
     name: Version packages for the release
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     timeout-minutes: 30
     outputs:
       # Every downstream job checks this out; actions/checkout's default ref is
       # the pre-version SHA from the dispatch.
-      sha: ${{ steps.commit.outputs.sha }}
-      final_minor: ${{ steps.commit.outputs.final_minor }}
+      sha: ${{ steps.commit.outputs.sha || steps.version-dirty.outputs.sha }}
+      final_minor: ${{ steps.version-dirty.outputs.final_minor }}
       mode: ${{ steps.select-mode.outputs.mode }}
       publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
     permissions:
-      contents: write
+      contents: read
+      id-token: write
     steps:
-      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
-      # - id: app-token
-      #   uses: actions/create-github-app-token@v3
-      #   with:
-      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-
       - name: Check out repo
         uses: actions/checkout@v7
         with:
           # Full history so `changeset version` can write CHANGELOG from commits.
           fetch-depth: 0
           persist-credentials: false
-          # TEMPORARY: was steps.app-token.outputs.token
-          token: ${{ github.token }}
 
       - uses: pnpm/action-setup@v6
 
@@ -109,14 +102,11 @@ jobs:
           node scripts/prepare-release.mjs
           pnpm run version
 
-      - name: Commit versions to the release branch
-        id: commit
+      - name: Decide whether a version commit is needed
+        id: version-dirty
         env:
-          # TEMPORARY: was steps.app-token.outputs.token
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ github.ref_name }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
-          HUSKY: '0'
+          RELEASE_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -131,15 +121,50 @@ jobs:
 
           if [ -z "$(git status --porcelain)" ]; then
             SHA="$(git rev-parse HEAD)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "sha=$SHA" >> "$GITHUB_OUTPUT"
             echo "Nothing to version; releasing ${RELEASE_BRANCH} at $SHA"
-            exit 0
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Join the tailnet for GitHub egress
+        if: steps.version-dirty.outputs.changed == 'true'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-release-${{ github.run_id }}
+
+      - id: app-token
+        if: steps.version-dirty.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Commit versions to the release branch
+        id: commit
+        if: steps.version-dirty.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
           gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git add packages .changeset python/trueforge_sdk .github/fern/openapi docs/openapi.json pnpm-lock.yaml
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::version commit left files outside the versioned paths"
+            git status --porcelain
+            exit 1
+          fi
           git commit -m "Version Packages for ${TFY_CHART_VERSION}"
           git push origin "HEAD:${RELEASE_BRANCH}"
           SHA="$(git rev-parse HEAD)"
@@ -344,6 +369,7 @@ jobs:
     name: Resolve image identity
     needs: [version-release]
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     timeout-minutes: 10
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
@@ -353,7 +379,16 @@ jobs:
       image: ${{ steps.resolve.outputs.image }}
     permissions:
       contents: read
+      id-token: write
     steps:
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-resolve-${{ github.run_id }}
+
       - name: Check out repo
         uses: actions/checkout@v7
         with:
@@ -493,7 +528,8 @@ jobs:
       && (needs.build-image-private.result == 'success' || needs.build-image-private.result == 'skipped') }}
     uses: ./.github/workflows/release-chart.yml
     permissions:
-      contents: write
+      contents: read
+      id-token: write
     with:
       branch: ${{ github.ref_name }}
       chart_version: ${{ inputs.tfy_chart_version }}
@@ -532,26 +568,26 @@ jobs:
       && needs.release-chart.result == 'success'
       && inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     timeout-minutes: 60
     continue-on-error: true
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      id-token: write
     steps:
-      # TEMPORARY: App token mint disabled; using GITHUB_TOKEN.
-      # - id: app-token
-      #   uses: actions/create-github-app-token@v3
-      #   with:
-      #     client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-      #     private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-backmerge-${{ github.run_id }}
 
       - name: Check out repo
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-          # TEMPORARY: was steps.app-token.outputs.token
-          token: ${{ github.token }}
 
       - name: Build the back-merge commit
         id: build
@@ -591,21 +627,35 @@ jobs:
             exit 0
           fi
           echo "changed=true" >> "$GITHUB_OUTPUT"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::back-merge left unstaged files outside the consumed changesets and changelogs"
+            git status --porcelain
+            exit 1
+          fi
 
-      # TEMPORARY: open the drain PR only (auto-merge commented out below).
-      - name: Open the back-merge PR
+      - id: app-token
+        if: steps.build.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open and merge the back-merge PR
         if: steps.build.outputs.changed == 'true'
         env:
-          # TEMPORARY: was steps.app-token.outputs.token
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           BACK_MERGE_BRANCH: back-merge/v${{ inputs.tfy_chart_version }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
         run: |
           set -euo pipefail
           gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
           git push --force origin "HEAD:refs/heads/${BACK_MERGE_BRANCH}"
 
           find_pr() {
@@ -627,20 +677,21 @@ jobs:
             exit 1
           fi
 
-          echo "Opened back-merge PR #${PR}; merge it manually onto main."
-
-          # TEMPORARY: auto-merge disabled.
-          # "Nothing to back-merge" was already handled above, so anything that
-          # stops this PR landing is reported loudly: silently skipping the
-          # drain leaves main re-consuming the backlog on the next line.
-          # gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --admin \
-          #   || echo "merge command failed; verifying PR state (it may already be merged)"
-          # STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
-          # if [ "$STATE" != "MERGED" ]; then
-          #   echo "::error::back-merge PR #${PR} did not merge (state=${STATE})"
-          #   exit 1
-          # fi
-          # echo "Back-merged into main via #${PR}"
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --auto
+          # Ready PRs enter the merge queue directly; autoMergeRequest stays null.
+          # Pending-check PRs get autoMergeRequest. Detect both via GraphQL.
+          OWNER="${GITHUB_REPOSITORY%/*}"
+          NAME="${GITHUB_REPOSITORY#*/}"
+          read -r STATE IN_QUEUE AUTO < <(gh api graphql \
+            -f query='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){state isInMergeQueue autoMergeRequest{enabledAt}}}}' \
+            -F o="$OWNER" -F n="$NAME" -F p="$PR" \
+            --jq '[.data.repository.pullRequest.state, (.data.repository.pullRequest.isInMergeQueue | tostring), (.data.repository.pullRequest.autoMergeRequest != null | tostring)] | @tsv')
+          if [ "$STATE" = "MERGED" ] || [ "$IN_QUEUE" = "true" ] || [ "$AUTO" = "true" ]; then
+            echo "Back-merge PR #${PR} state=${STATE} queue=${IN_QUEUE} auto=${AUTO}"
+          else
+            echo "::error::back-merge PR #${PR} did not merge or queue (state=${STATE})"
+            exit 1
+          fi
 
       # The steps above annotate their own known failures, but a step dying
       # under `set -euo pipefail` does not. The release is already published at
