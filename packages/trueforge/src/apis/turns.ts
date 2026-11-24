@@ -378,6 +378,12 @@ function turnModelRouting(input: {
   if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
     return undefined;
   }
+  // The shared decision account serves every tenant, so tenant-supplied metadata (caller headers, agent name)
+  // would be stored in its traces even with logging off. Only server-generated IDs are sent.
+  const decisionCallMetadata: TurnMetadata = {
+    sessionId: turnMetadata.sessionId,
+    turnId: turnMetadata.turnId,
+  };
   // Resolved on first use, so turns that route no thread skip the lookup.
   let decisionModel: Promise<DecisionModel> | undefined;
   const resolveDecisionModel = () => {
@@ -385,7 +391,7 @@ function turnModelRouting(input: {
       tenant_id: routing.decision_model.tenant_id,
       name: routing.decision_model.name,
       store: getDecisionModelProviderStore(),
-      turnMetadata,
+      turnMetadata: decisionCallMetadata,
     }).then(resolved => ({
       client: new OpenAIDecisionModel(resolved.providerConfig),
       properties: { contextLength: resolved.modelProperties?.contextLength },
