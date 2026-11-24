@@ -10,8 +10,24 @@ describe('ComposerLeftSection', () => {
 
     const button = screen.getByRole('button', { name: 'Attach' });
     expect(button).toHaveAttribute('type', 'button');
-    expect(button).toHaveAttribute('title', 'Attach');
     fireEvent.click(button);
+    expect(onAttach).toHaveBeenCalledOnce();
+  });
+
+  it('opens an upload / artifacts menu when artifact attach is available', () => {
+    const onAttach = vi.fn();
+    render(
+      <ComposerLeftSection
+        disabled={false}
+        isRunning={false}
+        onAttach={onAttach}
+        artifactAttach={{ selected: [], onChange: () => {} }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(screen.getByRole('menuitem', { name: 'Add from artifacts' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Upload from computer' }));
     expect(onAttach).toHaveBeenCalledOnce();
   });
 

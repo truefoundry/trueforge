@@ -7,12 +7,15 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
+import type { ComposerArtifactAttach } from '../atoms/ComposerAttachMenu.js';
 import { DraftCatalogProvider, useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { useResolveDraftSandboxEnvironment } from '../atoms/environments/useResolveDraftSandboxEnvironment.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
+import { useOptionalArtifactServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import type { Artifact } from '../server/types.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
 import { partitionDroppedFiles } from '../utils/partitionDroppedFiles.js';
 import { ApprovalNavContainer } from './ApprovalNavContainer.js';
@@ -72,6 +75,9 @@ function ComposerBody({
   const cancel = useTrueForgeCancel();
   const toaster = useToasterOptional();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const artifactServer = useOptionalArtifactServer();
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const AttachmentCard = useSlot('AttachmentCard');
   const [isCancelling, setIsCancelling] = useState(false);
   const cancellingRef = useRef(false);
   // Running/pause no longer lock the input — only session permissions do.
@@ -103,7 +109,26 @@ function ComposerBody({
       ),
     );
     send(() => aui.composer().send());
+    // TODO: send artifact references once the turn API accepts them.
+    setArtifacts([]);
   };
+  const artifactAttach: ComposerArtifactAttach | undefined =
+    artifactServer != null && canManageSession
+      ? {
+          selected: artifacts,
+          onChange: setArtifacts,
+          onPickerOpen: () =>
+            track(
+              AnalyticsEvents.Attachment.ARTIFACT_PICKER_OPENED,
+              withSessionProps(undefined, { sessionId, ...shellAgent }),
+            ),
+          onPickerClose: () =>
+            track(
+              AnalyticsEvents.Attachment.ARTIFACTS_SELECTED,
+              withSessionProps({ artifact_count: artifacts.length }, { sessionId, ...shellAgent }),
+            ),
+        }
+      : undefined;
 
   // assistant-ui blocks Enter while the thread is running without queue support.
   // Intercept before the primitive handler so Send can supersede a running turn.
@@ -177,7 +202,23 @@ function ComposerBody({
                   'rounded-t-none border-t-0 focus-within:ring-0'
                 : undefined
             }
-            attachments={<ComposerAttachmentsContainer />}
+            attachments={
+              <>
+                <ComposerAttachmentsContainer />
+                {artifacts.length > 0 ? (
+                  <div className="aui-scrollbar-hidden flex w-full min-w-0 flex-row flex-nowrap items-center gap-2 overflow-x-auto">
+                    {artifacts.map(artifact => (
+                      <AttachmentCard
+                        key={artifact.id}
+                        name={artifact.name}
+                        size="chip"
+                        onRemove={() => setArtifacts(prev => prev.filter(item => item.id !== artifact.id))}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            }
             input={
               <ComposerPrimitive.Input
                 data-slot="aui_composer-input"
@@ -214,6 +255,7 @@ function ComposerBody({
                 : undefined
             }
             onAttach={canManageSession ? () => fileInputRef.current?.click() : undefined}
+            artifactAttach={artifactAttach}
           />
         </ComposerPrimitive.Root>
       </ComposerPrimitive.AttachmentDropzone>

@@ -12,6 +12,7 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../../server/Se
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useArtifactPickerSheet, type ComposerArtifactAttach } from '../ComposerAttachMenu.js';
 import { environmentUnavailableReason } from '../environments/environmentDisplay.js';
 import { useSandboxEnvironments } from '../environments/useSandboxEnvironments.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -293,6 +294,7 @@ function SearchField({
 export type DraftCompositeSelectorProps = {
   disabled?: boolean;
   onAttach?: () => void;
+  artifactAttach?: ComposerArtifactAttach;
 };
 
 const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
@@ -321,8 +323,10 @@ function RowNote({ children, icon = 'lock' }: { children: string; icon?: 'lock' 
   );
 }
 
-export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSelectorProps) {
+export function DraftCompositeSelector({ disabled, onAttach, artifactAttach }: DraftCompositeSelectorProps) {
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
+  const ComposerAttachMenu = useSlot('ComposerAttachMenu');
+  const artifactSheet = useArtifactPickerSheet(artifactAttach);
   const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
@@ -903,6 +907,7 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
             onSelect: onAttach,
           },
         ]),
+    ...(artifactSheet.action == null ? [] : [artifactSheet.action]),
   ];
 
   return (
@@ -936,19 +941,15 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
         </Tooltip>
       ) : null}
 
-      {!compactLayout && onAttach ? (
-        <Tooltip content="Attach a file">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={onAttach}
-          >
-            <Icon name="paperclip" />
-          </button>
-        </Tooltip>
+      {!compactLayout ? (
+        <ComposerAttachMenu
+          disabled={disabled}
+          label="Attach a file"
+          onAttach={onAttach}
+          artifactAttach={artifactAttach}
+        />
       ) : null}
+      {artifactSheet.sheet}
 
       {open && hasValidModel ? (
         isMobile || compactLayout ? (
