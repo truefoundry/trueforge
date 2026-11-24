@@ -214,10 +214,14 @@ describe('parseTrueFoundryModelRouting', () => {
     expect(parseTrueFoundryModelRouting('  ')).toBeUndefined();
   });
 
-  it('reads the per-tenant enabled flag', () => {
+  it('reads the shared decision model and the per-tenant enabled flag', () => {
     const parsed = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { internal: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { tenant_id: 'internal', name: 'typesafe/jev-1.13.0' },
+        tenants: { internal: { enabled: 'on' } },
+      }),
     );
-    expect(parsed?.tenants['internal']).toEqual({ enabled: 'on', decision_model: 'typesafe/jev-1.13.0' });
+    expect(parsed?.decision_model).toEqual({ tenant_id: 'internal', name: 'typesafe/jev-1.13.0' });
+    expect(parsed?.tenants['internal']).toEqual({ enabled: 'on' });
   });
 });

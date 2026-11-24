@@ -153,6 +153,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { initDecisionModelProviderStore } from './truefoundry/decisionModelProviderStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
@@ -460,6 +461,9 @@ async function createDistributedPersistence(options: {
     );
   }
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
+  if (serviceFoundryClient !== undefined) {
+    initDecisionModelProviderStore({ client: serviceFoundryClient, logger });
+  }
   const tokenStore = new PostgresOAuthTokenStore(db);
   const agentStore = new PostgresAgentStore(db);
   const modelProviderStore = new PostgresModelProviderStore(db);

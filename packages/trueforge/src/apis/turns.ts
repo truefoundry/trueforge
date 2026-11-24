@@ -122,6 +122,7 @@ import {
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
+import { getDecisionModelProviderStore } from '../truefoundry/decisionModelProviderStore';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -374,17 +375,16 @@ function turnModelRouting(input: {
   if (routing === undefined) {
     return undefined;
   }
-  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
-  if (tenantRouting === undefined) {
+  if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
     return undefined;
   }
   // Resolved on first use, so turns that route no thread skip the lookup.
   let decisionModel: Promise<DecisionModel> | undefined;
   const resolveDecisionModel = () => {
     decisionModel ??= getModelDetails({
-      tenant_id,
-      name: tenantRouting.decision_model,
-      store: modelProviderStore,
+      tenant_id: routing.decision_model.tenant_id,
+      name: routing.decision_model.name,
+      store: getDecisionModelProviderStore(),
       turnMetadata,
     }).then(resolved => ({
       client: new OpenAIDecisionModel(resolved.providerConfig),
