@@ -157,6 +157,7 @@ describe('sessions HTTP agent binding', () => {
     app.route(
       '/',
       createTurnsRouter({
+        decisionModelProviderStore: undefined,
         activeTurns: deps.activeTurns,
         authorizer: deps.authorizer,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),

@@ -76,6 +76,8 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   activeTurns: ActiveTurnRegistry<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
+  /** Shared by every tenant for model routing classification. Undefined when routing is not configured. */
+  decisionModelProviderStore: IModelProviderStore | undefined;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
   /** Needed to resolve MCP servers from the agent spec. */
@@ -127,6 +129,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     userRef: prepared.userRef,
     deps: {
       activeTurns: deps.activeTurns,
+      decisionModelProviderStore: deps.decisionModelProviderStore,
       eventSubscriptions: deps.eventSubscriptions,
       agentStore: deps.agentStore,
       modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: prepared.agent }),

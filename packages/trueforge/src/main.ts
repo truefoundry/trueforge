@@ -153,7 +153,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
-import { initDecisionModelProviderStore } from './truefoundry/decisionModelProviderStore';
+import { createDecisionModelProviderStore } from './truefoundry/decisionModelProviderStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMemoryProviderStore } from './truefoundry/TrueFoundryMemoryProviderStore';
 import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
@@ -461,9 +461,6 @@ async function createDistributedPersistence(options: {
     );
   }
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
-  if (serviceFoundryClient !== undefined) {
-    initDecisionModelProviderStore({ client: serviceFoundryClient, logger });
-  }
   const tokenStore = new PostgresOAuthTokenStore(db);
   const agentStore = new PostgresAgentStore(db);
   const modelProviderStore = new PostgresModelProviderStore(db);
@@ -578,6 +575,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   } = persistence;
 
   const memoryProviders = new MemoryProviderCache({ logger });
+  const decisionModelProviderStore = createDecisionModelProviderStore({ client: serviceFoundryClient, logger });
 
   const activeTurns = new ActiveTurnRegistry<TTransaction>({
     pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
@@ -665,6 +663,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     artifactStore,
     authenticator,
     authorizer,
+    decisionModelProviderStore,
     eventSubscriptions,
     logger,
     mcpCatalog: McpCatalog.load(),

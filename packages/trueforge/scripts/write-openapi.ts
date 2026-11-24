@@ -89,6 +89,7 @@ const app = createServerApp({
   sandboxCatalog: SandboxCatalog.load(),
   webSearchCatalog: WebSearchCatalog.load(),
   memoryCatalog: MemoryCatalog.load(),
+  decisionModelProviderStore: undefined,
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   resolveMcpServerStore: () =>
     new McpServerWithAuthStore({

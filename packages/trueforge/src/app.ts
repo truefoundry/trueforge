@@ -299,6 +299,8 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Shared by every tenant for model routing classification. Undefined when routing is not configured. */
+  decisionModelProviderStore: IModelProviderStore | undefined;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -516,6 +518,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const scheduleTurnExecutionRouterDeps = {
     activeTurns: deps.activeTurns,
     agentStore: deps.agentStore,
+    decisionModelProviderStore: deps.decisionModelProviderStore,
     eventSubscriptions: deps.eventSubscriptions,
     logger: deps.logger,
     resolveMcpServerStore: deps.resolveMcpServerStore,
@@ -657,6 +660,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       accessControlStore: deps.accessControlStore,
       activeTurns: deps.activeTurns,
       authorizer: deps.authorizer,
+      decisionModelProviderStore: deps.decisionModelProviderStore,
       eventSubscriptions: deps.eventSubscriptions,
       logger: deps.logger,
       redis: deps.redis,

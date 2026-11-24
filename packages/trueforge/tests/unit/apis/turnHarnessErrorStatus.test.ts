@@ -72,6 +72,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   app.route(
     '/',
     createTurnsRouter({
+      decisionModelProviderStore: undefined,
       activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),

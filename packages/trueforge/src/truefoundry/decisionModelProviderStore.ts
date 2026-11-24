@@ -5,25 +5,23 @@ import { createTrueFoundryRequestContext } from './accessToken';
 import { TrueFoundryModelProviderStore } from './TrueFoundryModelProviderStore';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
-let decisionModelProviderStore: IModelProviderStore | undefined;
-
 /**
  * Model routing's decision model is shared by every tenant: one virtual account per environment calls it, so
- * classification never depends on the caller's own model access.
+ * classification never depends on the caller's own model access. Undefined when routing is not configured.
  */
-export function initDecisionModelProviderStore(input: {
-  client: TrueFoundryServiceFoundryServerClient;
+export function createDecisionModelProviderStore(input: {
+  client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}) {
-  if (!isTrueFoundryModeEnabled(configuration)) {
-    return;
+}): IModelProviderStore | undefined {
+  if (!isTrueFoundryModeEnabled(configuration) || input.client === undefined) {
+    return undefined;
   }
   const routing = trueFoundryModelRouting();
   const apiKey = configuration.TRUEFOUNDRY_MODEL_ROUTING_API_KEY;
   if (routing === undefined || apiKey === undefined) {
-    return;
+    return undefined;
   }
-  decisionModelProviderStore = new TrueFoundryModelProviderStore({
+  return new TrueFoundryModelProviderStore({
     client: input.client,
     requestContext: createTrueFoundryRequestContext({
       tenant_id: routing.decision_model.tenant_id,
@@ -38,11 +36,4 @@ export function initDecisionModelProviderStore(input: {
     agent: undefined,
     logger: input.logger,
   });
-}
-
-export function getDecisionModelProviderStore(): IModelProviderStore {
-  if (decisionModelProviderStore === undefined) {
-    throw new Error('Model routing is configured, but its decision model store was not initialised');
-  }
-  return decisionModelProviderStore;
 }
