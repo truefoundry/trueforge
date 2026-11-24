@@ -53,7 +53,7 @@ function runtimeServer({
       return session;
     },
     async listSessions(request) {
-      // Keep builder (`is_create_agent`) sessions so history can reopen them in Agent Builder.
+      // Keep builder (`tfg.is_create_agent`) sessions so history can reopen them in Agent Builder.
       return server.listSessions({
         ...request,
         metadata: { ...request?.metadata, ...UI_SESSION_SOURCE_METADATA },

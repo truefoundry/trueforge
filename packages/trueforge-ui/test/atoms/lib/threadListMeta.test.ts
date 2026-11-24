@@ -206,8 +206,9 @@ describe('threadListIndicesByRecency', () => {
 
 describe('readThreadIsCreateAgent', () => {
   it('reads builder intent from custom.metadata', () => {
+    expect(readThreadIsCreateAgent({ metadata: { 'tfg.is_create_agent': 'true' } })).toBe(true);
+    expect(readThreadIsCreateAgent({ metadata: { 'tfg.is_create_agent': 'false' } })).toBe(false);
     expect(readThreadIsCreateAgent({ metadata: { is_create_agent: 'true' } })).toBe(true);
-    expect(readThreadIsCreateAgent({ metadata: { is_create_agent: 'false' } })).toBe(false);
     expect(readThreadIsCreateAgent({ isMutable: true })).toBe(false);
     expect(readThreadIsCreateAgent(null)).toBe(false);
   });

@@ -267,7 +267,9 @@ export function ShellRouteSync({
     (target: RoutePlace) => {
       switch (target.type) {
         case 'settings':
-          shell.setSettingsOpen(true);
+          // Environments owns `/environments`. Restoring `/settings` must leave that
+          // section or derivePlace remaps immediately back to `/environments`.
+          shell.setSettingsOpen(true, shell.settingsSection === 'environments' ? 'models' : undefined);
           return;
         case 'library':
           shell.setLibraryOpen(true);

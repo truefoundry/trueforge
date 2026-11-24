@@ -379,7 +379,7 @@ describe('ThreadListContainer', () => {
                     id: 'builder-1',
                     remoteId: 'session-builder-1',
                     title: 'Builder chat',
-                    custom: { isMutable: true, metadata: { is_create_agent: 'true' } },
+                    custom: { isMutable: true, metadata: { 'tfg.is_create_agent': 'true' } },
                   },
                   {
                     status: 'regular',

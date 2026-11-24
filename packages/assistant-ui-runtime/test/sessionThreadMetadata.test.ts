@@ -18,14 +18,14 @@ describe('sessionToThreadMetadata', () => {
       session({
         id: 'builder-session',
         title: 'Builder',
-        metadata: { is_create_agent: 'true', 'tfg.source': 'ui' },
+        metadata: { 'tfg.is_create_agent': 'true', 'tfg.source': 'ui' },
       }),
       'Builder',
     );
 
     expect(result.custom).toEqual({
       isMutable: true,
-      metadata: { is_create_agent: 'true', 'tfg.source': 'ui' },
+      metadata: { 'tfg.is_create_agent': 'true', 'tfg.source': 'ui' },
     });
   });
 
