@@ -2,11 +2,20 @@
  * Artifact route definitions (mounted at /api/v1/artifacts).
  * Handlers are registered in apis/artifacts.ts.
  */
-import { createRoute } from '@hono/zod-openapi';
-import { ListArtifactsRequestQuerySchema, ListArtifactsResponseSchema } from '../schemas/artifact';
+import { createRoute, z } from '@hono/zod-openapi';
+import {
+  GetArtifactResponseSchema,
+  ListArtifactsRequestQuerySchema,
+  ListArtifactsResponseSchema,
+  UpdateArtifactRequestSchema,
+} from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
+
+const ArtifactIdParamsSchema = z.object({
+  artifact_id: z.string().min(1).describe('Artifact identifier.'),
+});
 
 export const listArtifactsRoute = createRoute({
   method: 'get',
@@ -33,6 +42,76 @@ export const listArtifactsRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
+    },
+  },
+});
+
+export const getArtifactRoute = createRoute({
+  method: 'get',
+  path: '/{artifact_id}',
+  tags: [OpenApiTag.ARTIFACTS],
+  summary: 'Get an artifact',
+  description: 'Get an artifact by id. Only the artifact creator may read it.',
+  'x-fern-sdk-group-name': ['artifacts'],
+  'x-fern-sdk-method-name': 'get',
+  request: {
+    params: ArtifactIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetArtifactResponseSchema } },
+      description: 'The artifact.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the artifact creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Artifact not found.',
+    },
+  },
+});
+
+export const updateArtifactRoute = createRoute({
+  method: 'patch',
+  path: '/{artifact_id}',
+  tags: [OpenApiTag.ARTIFACTS],
+  summary: 'Update an artifact',
+  description: 'Rename an artifact. Only the artifact creator may update it.',
+  'x-fern-sdk-group-name': ['artifacts'],
+  'x-fern-sdk-method-name': 'update',
+  request: {
+    params: ArtifactIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: UpdateArtifactRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetArtifactResponseSchema } },
+      description: 'Artifact updated.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the artifact creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Artifact not found.',
     },
   },
 });

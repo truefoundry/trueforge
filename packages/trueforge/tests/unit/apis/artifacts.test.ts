@@ -3,12 +3,14 @@ import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
-import { ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
+import { GetArtifactResponseSchema, ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
   let app: ReturnType<typeof mountWithErrorHandler>;
+  let artifactStore: SqliteArtifactStore;
   let reportId: string;
+  let notMineId: string;
 
   async function listTitles(query: string): Promise<string[]> {
     const response = await app.request(`/?${query}`);
@@ -21,7 +23,7 @@ describe('artifacts router', () => {
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    const artifactStore = new SqliteArtifactStore(db);
+    artifactStore = new SqliteArtifactStore(db);
     const mine = {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
@@ -45,13 +47,14 @@ describe('artifacts router', () => {
       created_by_session_id: 'session-2',
       created_by_agent_id: null,
     });
-    await artifactStore.createArtifact({
+    const notMine = await artifactStore.createArtifact({
       ...mine,
       name: 'not mine',
       created_by_subject: { ...mine.created_by_subject, subject_id: 'someone-else' },
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
     });
+    notMineId = notMine.id;
     app = mountWithErrorHandler(
       createArtifactsRouter({ artifactStore, resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT }),
     );
@@ -80,5 +83,38 @@ describe('artifacts router', () => {
 
   it('rejects an invalid page token', async () => {
     expect((await app.request('/?page_token=not-a-token')).status).toBe(400);
+  });
+
+  it("gets the caller's artifact by id", async () => {
+    const response = await app.request(`/${reportId}`);
+    expect(response.status).toBe(200);
+    expect(GetArtifactResponseSchema.parse(await response.json()).data).toEqual(
+      expect.objectContaining({ id: reportId, name: 'Q3 Report', entry_point: 'report/index.html' }),
+    );
+    expect((await app.request(`/${notMineId}`)).status).toBe(403);
+    expect((await app.request('/missing')).status).toBe(404);
+  });
+
+  it("renames the caller's artifact", async () => {
+    const artifact = await artifactStore.createArtifact({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'Draft',
+      created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+      created_by_session_id: 'session-3',
+      created_by_agent_id: null,
+    });
+    const patch = (id: string, body: unknown) =>
+      app.request(`/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+    const response = await patch(artifact.id, { name: '  Final  ' });
+    expect(response.status).toBe(200);
+    expect(GetArtifactResponseSchema.parse(await response.json()).data.name).toBe('Final');
+    expect((await patch(artifact.id, { name: '   ' })).status).toBe(400);
+    expect((await patch(notMineId, { name: 'Taken' })).status).toBe(403);
+    expect((await patch('missing', { name: 'Gone' })).status).toBe(404);
   });
 });

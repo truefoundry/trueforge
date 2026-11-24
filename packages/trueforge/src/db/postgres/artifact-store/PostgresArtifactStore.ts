@@ -6,13 +6,16 @@ import {
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import {
   newArtifactIdentity,
+  normalizeArtifactName,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
+  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
@@ -65,6 +68,27 @@ export class PostgresArtifactStore implements IArtifactStore {
       .returningAll()
       .executeTakeFirstOrThrow();
     return toArtifactRecord(row);
+  }
+
+  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('artifact')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
+  }
+
+  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .updateTable('artifact')
+      .set({ name: normalizeArtifactName(input.name), updated_at: now() })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {

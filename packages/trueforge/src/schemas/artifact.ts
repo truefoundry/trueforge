@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi';
 import { SubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
-import { PAGE_LIMIT } from './common';
+import { MAX_TITLE_LENGTH, PAGE_LIMIT } from './common';
 
 export const ArtifactSchema = z
   .object({
@@ -53,3 +53,12 @@ export const ListArtifactsResponseSchema = z
     pagination: TokenPaginationSchema,
   })
   .openapi('ListArtifactsResponse');
+
+export const GetArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('GetArtifactResponse');
+
+export const UpdateArtifactRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(MAX_TITLE_LENGTH).describe('New artifact name.'),
+  })
+  .strict()
+  .openapi('UpdateArtifactRequest');

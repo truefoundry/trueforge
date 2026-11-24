@@ -50,6 +50,18 @@ export interface ListArtifactsInput {
   page_token: string | undefined;
 }
 
+export interface GetArtifactInput {
+  tenant_id: string;
+  id: string;
+}
+
+export interface UpdateArtifactInput {
+  tenant_id: string;
+  id: string;
+  /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
+  name: string;
+}
+
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
@@ -63,21 +75,27 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/**
- * New artifact id and trimmed name. Throws `RangeError` when the trimmed name is empty or
- * longer than `MAX_TITLE_LENGTH`.
- */
-export function newArtifactIdentity(rawName: string): { id: string; name: string } {
+/** Trimmed name. Throws `RangeError` when it is empty or longer than `MAX_TITLE_LENGTH`. */
+export function normalizeArtifactName(rawName: string): string {
   const name = rawName.trim();
   if (name.length === 0 || name.length > MAX_TITLE_LENGTH) {
     throw new RangeError(`Artifact name must be 1-${String(MAX_TITLE_LENGTH)} characters`);
   }
-  return { id: newId(), name };
+  return name;
+}
+
+/** New artifact id and normalized name (see `normalizeArtifactName`). */
+export function newArtifactIdentity(rawName: string): { id: string; name: string } {
+  return { id: newId(), name: normalizeArtifactName(rawName) };
 }
 
 export interface IArtifactStore {
   /** Generates the id and validates the name (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
+  /** Undefined when the artifact is not in the tenant. */
+  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
+  /** Normalizes the name and refreshes `updated_at`. Undefined when the artifact is not in the tenant. */
+  updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**

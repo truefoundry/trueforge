@@ -6,13 +6,16 @@ import {
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import {
   newArtifactIdentity,
+  normalizeArtifactName,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
+  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -72,6 +75,27 @@ export class SqliteArtifactStore implements IArtifactStore {
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
     return toArtifactRecord(row);
+  }
+
+  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('artifact')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
+  }
+
+  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .updateTable('artifact')
+      .set({ name: normalizeArtifactName(input.name), updated_at: nowIso() })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .returning(recordColumns)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
