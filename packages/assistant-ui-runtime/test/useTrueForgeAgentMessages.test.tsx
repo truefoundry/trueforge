@@ -386,49 +386,23 @@ describe('useTrueForgeAgentMessages', () => {
     await act(async () => Promise.resolve());
     expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
 
-    // Leave and come back: keep painted history (no clear/skeleton reload).
     rerender({ isMain: false });
     rerender({ isMain: true });
-    await act(async () => Promise.resolve());
-    expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(loadSessionSnapshot).toHaveBeenCalledTimes(2));
   });
 
-  it('prefetches a thread mounted before it becomes main, then skips promotion reload', async () => {
-    const { rerender } = renderHook(
-      ({ isMain }: { isMain: boolean }) =>
-        useTrueForgeAgentMessages({
-          server: mockServer,
-          sessionId: 'history-session',
-          isMain,
-          isInitialSession: false,
-        }),
-      { initialProps: { isMain: false } },
+  it('does not load an inactive background thread', async () => {
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'background-session',
+        isMain: false,
+        isInitialSession: false,
+      }),
     );
 
-    await waitFor(() =>
-      expect(loadSessionSnapshot).toHaveBeenCalledWith(mockServer, 'history-session', expect.any(Function)),
-    );
-
-    rerender({ isMain: true });
-    await act(async () => Promise.resolve());
-    expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not reload a demoted main thread while it stays mounted in the background', async () => {
-    const { rerender } = renderHook(
-      ({ isMain }: { isMain: boolean }) =>
-        useTrueForgeAgentMessages({
-          server: mockServer,
-          sessionId: 'session-1',
-          isMain,
-        }),
-      { initialProps: { isMain: true } },
-    );
-
-    await waitFor(() => expect(loadSessionSnapshot).toHaveBeenCalledTimes(1));
-    rerender({ isMain: false });
-    await act(async () => Promise.resolve());
-    expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(loadSessionSnapshot).not.toHaveBeenCalled();
   });
 
   it('retries a failed URL early load before the thread is promoted to main', async () => {

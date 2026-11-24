@@ -60,7 +60,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
   const isEmpty = useAuiState(isNewChatView);
   const isLoading = useAuiState(s => s.thread.isLoading);
   const messageCount = useAuiState(s => s.thread.messages.length);
-  // Keep painted history visible while a revisit revalidates; skeleton only for empty loads.
+  // Skeleton only while a thread that has no messages yet is loading.
   const showMessageSkeleton = isLoading && messageCount === 0;
   const welcomeHeading =
     shell?.mode.status === 'active'

@@ -159,8 +159,6 @@ type ShellModeContextValue = {
     agentName?: string;
     isMutable?: boolean;
     isCreateAgent?: boolean;
-    /** Known chat-history title — shown in the pane header before the thread remounts. */
-    title?: string;
   }) => void;
   /**
    * Keep `/sessions/:id` in place and surface a full-pane load failure
@@ -188,8 +186,6 @@ type ShellModeContextValue = {
   listSessionsAgentId: string | undefined;
   /** Session selected from history. */
   pendingSessionId: string | undefined;
-  /** History-row title for the pending session (optimistic header). */
-  pendingSessionTitle: string | undefined;
   /** Distinguishes repeated selections of the same session. */
   pendingSessionEpoch: number;
   /**
@@ -298,7 +294,6 @@ export function ShellModeProvider({
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
-  const [pendingSessionTitle, setPendingSessionTitle] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
   const [sessionAccessError, setSessionAccessError] = useState<string | null>(null);
   const environmentsEnabled = isEnvironmentsChromeEnabled({
@@ -521,7 +516,6 @@ export function ShellModeProvider({
         setEnvironmentsOpen(false);
         setSessionAccessError(null);
         setPendingSessionId(undefined);
-        setPendingSessionTitle(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
         const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
         setMode({
@@ -549,7 +543,6 @@ export function ShellModeProvider({
       setEnvironmentsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(undefined);
-      setPendingSessionTitle(undefined);
       setAgentConfigOpenState(false);
       setMode({
         status: 'active',
@@ -764,13 +757,11 @@ export function ShellModeProvider({
       agentName,
       isMutable: isMutableOpt,
       isCreateAgent: isCreateAgentOpt,
-      title,
     }: {
       sessionId: string;
       agentName?: string;
       isMutable?: boolean;
       isCreateAgent?: boolean;
-      title?: string;
     }) => {
       const isMutable = isMutableOpt ?? agentName == null;
       if (isMutable) {
@@ -789,8 +780,6 @@ export function ShellModeProvider({
       setEnvironmentsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(sessionId);
-      const trimmedTitle = title?.trim() ?? '';
-      setPendingSessionTitle(trimmedTitle.length > 0 ? trimmedTitle : undefined);
       setPendingSessionEpoch(n => n + 1);
       if (isMutable) {
         const isCreateAgent = isCreateAgentOpt === true;
@@ -836,7 +825,6 @@ export function ShellModeProvider({
       setAgentConfigOpenState(false);
       setSessionAccessError(message);
       setPendingSessionId(sessionId);
-      setPendingSessionTitle(undefined);
       setPendingSessionEpoch(n => n + 1);
       // Keep chrome non-idle so layouts render the thread slot (gated by sessionAccessError).
       if (isComposerEnabled) {
@@ -864,7 +852,6 @@ export function ShellModeProvider({
       if (effectiveMode.status === 'idle') return;
       setSessionAccessError(null);
       setPendingSessionId(undefined);
-      setPendingSessionTitle(undefined);
       if (effectiveMode.isMutable) {
         // Plain New Chat uses the chat seed. Builder New Chat keeps the live draft
         // so the remount does not replace the left panel with the open/save snapshot.
@@ -903,7 +890,6 @@ export function ShellModeProvider({
     if (!isLibraryEnabled || isComposerEnabled) return;
     setSessionAccessError(null);
     setPendingSessionId(undefined);
-    setPendingSessionTitle(undefined);
     setSettingsOpen(false);
     setLibraryOpenState(false);
     setLibraryAgentId(null);
@@ -963,7 +949,6 @@ export function ShellModeProvider({
       setHistoryAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
-      pendingSessionTitle,
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
@@ -1011,7 +996,6 @@ export function ShellModeProvider({
       historyAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
-      pendingSessionTitle,
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,

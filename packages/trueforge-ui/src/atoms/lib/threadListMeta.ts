@@ -192,13 +192,11 @@ export function threadListItemIsMutable(custom: unknown): boolean {
  * safe to keep. Blank drafts (no agentName/agentId) may share one shell; an
  * Edit-bound shell must remount via `openHistorySession` when leaving its
  * pending session so Update does not keep the previous agentName over another
- * draft's runtime spec. New Agent builder chrome must always remount so history
- * opens as a normal chat (`isCreateAgent: false`) instead of keeping Agent Config.
+ * draft's runtime spec.
  */
 export function canReuseMutableShell({
   sessionMutable,
   shellMutable,
-  shellIsCreateAgent = false,
   shellAgentName,
   shellAgentId,
   remoteId,
@@ -206,13 +204,12 @@ export function canReuseMutableShell({
 }: {
   sessionMutable: boolean;
   shellMutable: boolean;
-  shellIsCreateAgent?: boolean;
   shellAgentName?: string;
   shellAgentId?: string;
   remoteId?: string | null;
   pendingSessionId?: string;
 }): boolean {
-  if (!sessionMutable || !shellMutable || shellIsCreateAgent) return false;
+  if (!sessionMutable || !shellMutable) return false;
   const editBound = (shellAgentName != null && shellAgentName !== '') || (shellAgentId != null && shellAgentId !== '');
   if (!editBound) return true;
   return remoteId != null && remoteId === pendingSessionId;

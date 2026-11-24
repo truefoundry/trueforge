@@ -17,15 +17,10 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const track = useTrackAnalytics();
   const state = useNamedAgentHeaderState();
   const threadTitle = useAuiState(s => s.threadListItem.title);
-  const remoteId = useAuiState(s => s.threadListItem.remoteId);
   if (state === null) return null;
 
   const syncedTitle = threadTitle?.trim() ?? '';
-  const pendingTitle = shell?.pendingSessionTitle?.trim() ?? '';
-  const sessionTitle = syncedTitle.length > 0 ? syncedTitle : pendingTitle;
-  // History clicks already know the row title — prefer it over agent / draft labels.
-  const viewingHistory = remoteId != null || shell?.pendingSessionId != null;
-  const displayName = sessionTitle.length > 0 && (state.allowThreadTitle || viewingHistory) ? sessionTitle : state.name;
+  const displayName = state.allowThreadTitle && syncedTitle.length > 0 ? syncedTitle : state.name;
   const showBackToAgents = shell?.isLibraryEnabled === true && shell.historyAgentFilter?.intent === 'try-agent';
 
   return (
