@@ -1,5 +1,5 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
+import { type IArtifactStore, InvalidArtifactNameError, type ListArtifactsInput } from '../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
@@ -77,12 +77,14 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('caps the name length', async () => {
     const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
     expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
-    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
-    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
+    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(
+      InvalidArtifactNameError,
+    );
+    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(InvalidArtifactNameError);
   });
 
   it('rejects forbidden characters and normalizes whitespace in the name', async () => {
-    await expect(createArtifact({ name: 'a/b' })).rejects.toBeInstanceOf(RangeError);
+    await expect(createArtifact({ name: 'a/b' })).rejects.toBeInstanceOf(InvalidArtifactNameError);
     expect((await createArtifact({ name: 'a\u2028  b' })).name).toBe('a b');
   });
 
@@ -177,7 +179,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     for (const name of ['   ', 'a:b']) {
       await expect(
         store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER, name }),
-      ).rejects.toBeInstanceOf(RangeError);
+      ).rejects.toBeInstanceOf(InvalidArtifactNameError);
     }
     expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
       artifact,

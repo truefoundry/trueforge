@@ -8,6 +8,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { GetArtifactResponseSchema, ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
+import { MAX_TITLE_LENGTH } from '../../../src/schemas/common';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
@@ -119,6 +120,7 @@ describe('artifacts router', () => {
     expect(GetArtifactResponseSchema.parse(await response.json()).data.name).toBe('Final');
     expect((await patch(artifact.id, { name: '   ' })).status).toBe(400);
     expect((await patch(artifact.id, { name: 'a|b' })).status).toBe(400);
+    expect((await patch(artifact.id, { name: ` ${'a'.repeat(MAX_TITLE_LENGTH)}` })).status).toBe(400);
     const normalized = await patch(artifact.id, { name: '  a\u2029\u2029b  ' });
     expect(normalized.status).toBe(200);
     expect(GetArtifactResponseSchema.parse(await normalized.json()).data.name).toBe('a b');

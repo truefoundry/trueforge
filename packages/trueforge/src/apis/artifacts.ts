@@ -2,7 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
-import type { ArtifactRecord, IArtifactStore } from '../db/artifactStore';
+import { type ArtifactRecord, type IArtifactStore, InvalidArtifactNameError } from '../db/artifactStore';
 import { getArtifactRoute, listArtifactsRoute, updateArtifactRoute } from '../routes/artifactRoutes';
 import type { Artifact } from '../schemas/artifact';
 
@@ -74,7 +74,7 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
         name,
       });
     } catch (error) {
-      if (error instanceof RangeError) {
+      if (error instanceof InvalidArtifactNameError) {
         throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;

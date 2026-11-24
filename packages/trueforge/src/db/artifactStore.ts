@@ -1,4 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { ARTIFACT_NAME_PATTERN } from '../schemas/artifact';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
 export interface ArtifactRecord {
   id: string;
@@ -30,7 +31,6 @@ export interface ArtifactVersionRecord {
 
 export interface CreateArtifactInput {
   tenant_id: string;
-  /** Validated and normalized by `normalizeArtifactName`. */
   name: string;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -74,23 +74,30 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
-/** Control characters, bidi embeddings/overrides/isolates, and characters disallowed in file names. */
-const FORBIDDEN_ARTIFACT_NAME_CHARACTERS = /[\p{Cc}\u202A-\u202E\u2066-\u2069/\\:*?"<>|]/u;
+export class InvalidArtifactNameError extends Error {
+  constructor(reason: string) {
+    super(`Invalid artifact name: ${reason}`);
+    this.name = 'InvalidArtifactNameError';
+  }
+}
 
 /**
- * Rejects forbidden characters, collapses whitespace (incl. line/paragraph separators) to one space, and trims.
- * Throws `RangeError` when the name has forbidden characters, is empty or longer than `MAX_TITLE_LENGTH`, or ends with a dot.
+ * Validates the raw name's characters and length, then collapses whitespace (incl. line/paragraph separators)
+ * to one space and trims. Throws `InvalidArtifactNameError` when invalid.
  */
 export function normalizeArtifactName(rawName: string): string {
-  if (FORBIDDEN_ARTIFACT_NAME_CHARACTERS.test(rawName)) {
-    throw new RangeError('Artifact name must not contain control, bidi, or / \\ : * ? " < > | characters.');
+  if (!ARTIFACT_NAME_PATTERN.test(rawName)) {
+    throw new InvalidArtifactNameError('must not contain control, bidi, or / \\ : * ? " < > | characters.');
+  }
+  if (rawName.length === 0 || rawName.length > MAX_TITLE_LENGTH) {
+    throw new InvalidArtifactNameError(`must be 1-${String(MAX_TITLE_LENGTH)} characters.`);
   }
   const name = rawName.replace(/\s+/gu, ' ').trim();
-  if (name.length === 0 || name.length > MAX_TITLE_LENGTH) {
-    throw new RangeError(`Artifact name must be 1-${String(MAX_TITLE_LENGTH)} characters.`);
+  if (name.length === 0) {
+    throw new InvalidArtifactNameError('must not be blank.');
   }
   if (name.endsWith('.')) {
-    throw new RangeError('Artifact name must not end with a dot.');
+    throw new InvalidArtifactNameError('must not end with a dot.');
   }
   return name;
 }

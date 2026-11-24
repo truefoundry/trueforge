@@ -1,4 +1,4 @@
-import { normalizeArtifactName } from '../../../src/db/artifactStore';
+import { InvalidArtifactNameError, normalizeArtifactName } from '../../../src/db/artifactStore';
 import { MAX_TITLE_LENGTH } from '../../../src/schemas/common';
 
 describe('normalizeArtifactName', () => {
@@ -12,11 +12,11 @@ describe('normalizeArtifactName', () => {
     ['bidi isolate', 'a\u2067b'],
     ...['/', '\\', ':', '*', '?', '"', '<', '>', '|'].map(char => [`"${char}"`, `a${char}b`]),
   ])('rejects %s', (_label, name) => {
-    expect(() => normalizeArtifactName(name)).toThrow(RangeError);
+    expect(() => normalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
   });
 
   it('rejects forbidden characters even when trimming would remove them', () => {
-    expect(() => normalizeArtifactName('report\n')).toThrow(RangeError);
+    expect(() => normalizeArtifactName('report\n')).toThrow(InvalidArtifactNameError);
   });
 
   it('replaces line/paragraph separators with a space, collapses whitespace, and trims', () => {
@@ -26,23 +26,23 @@ describe('normalizeArtifactName', () => {
   });
 
   it('rejects empty and whitespace-only names', () => {
-    expect(() => normalizeArtifactName('')).toThrow(RangeError);
-    expect(() => normalizeArtifactName('   ')).toThrow(RangeError);
-    expect(() => normalizeArtifactName('\u2028\u2029')).toThrow(RangeError);
+    expect(() => normalizeArtifactName('')).toThrow(InvalidArtifactNameError);
+    expect(() => normalizeArtifactName('   ')).toThrow(InvalidArtifactNameError);
+    expect(() => normalizeArtifactName('\u2028\u2029')).toThrow(InvalidArtifactNameError);
   });
 
-  it('checks the length after normalization', () => {
+  it('checks the length before normalization', () => {
     expect(normalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH))).toHaveLength(MAX_TITLE_LENGTH);
-    expect(normalizeArtifactName(`  ${'a'.repeat(MAX_TITLE_LENGTH)}  `)).toHaveLength(MAX_TITLE_LENGTH);
-    expect(normalizeArtifactName(`a${' '.repeat(10)}${'b'.repeat(MAX_TITLE_LENGTH - 2)}`)).toHaveLength(
-      MAX_TITLE_LENGTH,
+    expect(normalizeArtifactName(`a  ${'b'.repeat(MAX_TITLE_LENGTH - 3)}`)).toBe(
+      `a ${'b'.repeat(MAX_TITLE_LENGTH - 3)}`,
     );
-    expect(() => normalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH + 1))).toThrow(RangeError);
+    expect(() => normalizeArtifactName('a'.repeat(MAX_TITLE_LENGTH + 1))).toThrow(InvalidArtifactNameError);
+    expect(() => normalizeArtifactName(`  ${'a'.repeat(MAX_TITLE_LENGTH - 1)}`)).toThrow(InvalidArtifactNameError);
   });
 
   it('rejects a trailing dot', () => {
     for (const name of ['report.', 'report. ', '.', '..']) {
-      expect(() => normalizeArtifactName(name)).toThrow(RangeError);
+      expect(() => normalizeArtifactName(name)).toThrow(InvalidArtifactNameError);
     }
   });
 
