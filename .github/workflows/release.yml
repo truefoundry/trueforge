@@ -472,6 +472,7 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
+      enable_sign: true
 
   build-image-private:
     name: Build and push hardened server image
@@ -500,6 +501,7 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
+      enable_sign: true
       # Pull-only credential for the devtest account that helm-charts mirrors the
       # hardened bases into; the image itself still goes to Artifactory.
       enable_private_ecr_pull: true
