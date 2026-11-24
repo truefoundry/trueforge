@@ -588,17 +588,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Build the back-merge commit
         id: build
         env:
           RELEASE_SHA: ${{ needs.version-release.outputs.sha }}
           TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main
-          git fetch --no-tags origin "$RELEASE_SHA"
+          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch --no-tags origin main
+          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch --no-tags origin "$RELEASE_SHA"
 
           # Consumed = present at the branch cut, absent on the release branch
           # now. After `changeset pre exit` that covers both the files deleted
@@ -653,7 +654,6 @@ jobs:
           HUSKY: '0'
         run: |
           set -euo pipefail
-          git config --local --unset-all http.https://github.com/.extraheader || true
           gh auth setup-git
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"

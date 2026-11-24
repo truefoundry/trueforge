@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Install yq
         run: |
@@ -116,6 +116,7 @@ jobs:
           INPUT_CHART_VERSION: ${{ inputs.chart_version }}
           INPUT_APP_VERSION: ${{ inputs.app_version }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           BRANCH="$INPUT_BRANCH"
@@ -124,7 +125,7 @@ jobs:
             echo "branch '$BRANCH' is not a valid git branch name" >&2
             exit 1
           fi
-          git fetch origin "$BRANCH"
+          git -c http.extraheader="AUTHORIZATION: bearer ${READ_TOKEN}" fetch origin "$BRANCH"
           git checkout -B "chart-release-${GITHUB_RUN_ID}-$(openssl rand -hex 4)" "origin/${BRANCH}"
 
           SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
@@ -235,7 +236,6 @@ jobs:
           HUSKY: '0'
         run: |
           set -euo pipefail
-          git config --local --unset-all http.https://github.com/.extraheader || true
           gh auth setup-git
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
