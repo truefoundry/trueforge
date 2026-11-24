@@ -2,8 +2,9 @@
 # server images, and the Helm chart. One dispatch, one run, one conclusion:
 # success means published.
 #
-# npm and PyPI trusted publishers are bound to this filename (`release.yml`).
-# Do not rename it without updating every package on npmjs.com and PyPI.
+# npm and PyPI trusted publishers are bound to this workflow path
+# (`.github/workflows/internal-release.yml`). Update those registrations if the
+# file moves again.
 #
 # Releases run on release-vX.Y.Z, never on main. main only collects changesets.
 # The parent chart's release dispatches this workflow with tfy_chart_version
@@ -129,7 +130,16 @@ jobs:
           fi
 
       - name: Join the tailnet for GitHub egress
-        if: steps.version-dirty.outputs.changed == 'true'
+        if: steps.version-dirty.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_MAIN_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_MAIN_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-release-${{ github.run_id }}
+
+      - name: Join the tailnet for GitHub egress
+        if: steps.version-dirty.outputs.changed == 'true' && startsWith(github.ref, 'refs/heads/release-v')
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
@@ -382,6 +392,16 @@ jobs:
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
+        if: github.ref == 'refs/heads/main'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_MAIN_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_MAIN_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-resolve-${{ github.run_id }}
+
+      - name: Join the tailnet for GitHub egress
+        if: startsWith(github.ref, 'refs/heads/release-v')
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
@@ -528,7 +548,7 @@ jobs:
       && needs.resolve-image.result == 'success'
       && (needs.build-image-public.result == 'success' || needs.build-image-public.result == 'skipped')
       && (needs.build-image-private.result == 'success' || needs.build-image-private.result == 'skipped') }}
-    uses: ./.github/workflows/release-chart.yml
+    uses: ./.github/workflows/internal-release-chart.yml
     permissions:
       contents: write
     with:
@@ -578,6 +598,16 @@ jobs:
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
+        if: github.ref == 'refs/heads/main'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_MAIN_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_MAIN_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-backmerge-${{ github.run_id }}
+
+      - name: Join the tailnet for GitHub egress
+        if: startsWith(github.ref, 'refs/heads/release-v')
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}

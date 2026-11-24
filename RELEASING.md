@@ -3,14 +3,14 @@
 This repo ships npm packages, a production container image, a Helm chart, and a
 sandbox image.
 
-| What                   | Trigger                                                                                                 | Workflow                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| npm packages           | `workflow_dispatch` from the parent chart release, on `release-vX.Y.Z`. `main` collects changesets only | [`release.yml`](.github/workflows/release.yml)                       |
-| PyPI `trueforge-sdk`   | Same run as npm (parallel OIDC job)                                                                     | [`release.yml`](.github/workflows/release.yml)                       |
-| Prod image             | Same run as npm; independent of pack + smoke                                                            | [`release.yml`](.github/workflows/release.yml)                       |
-| Helm chart             | Called from `release.yml` after the images, or manual dispatch                                          | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
-| Sandbox image + pin PR | Push to `main` when `scripts/sandbox/**` changes, or dispatch                                           | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
-| PR checks              | Pull request / merge group                                                                              | [`ci.yml`](.github/workflows/ci.yml)                                 |
+| What                   | Trigger                                                                                                 | Workflow                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| npm packages           | `workflow_dispatch` from the parent chart release, on `release-vX.Y.Z`. `main` collects changesets only | [`internal-release.yml`](.github/workflows/internal-release.yml)                       |
+| PyPI `trueforge-sdk`   | Same run as npm (parallel OIDC job)                                                                     | [`internal-release.yml`](.github/workflows/internal-release.yml)                       |
+| Prod image             | Same run as npm; independent of pack + smoke                                                            | [`internal-release.yml`](.github/workflows/internal-release.yml)                       |
+| Helm chart             | Called from `internal-release.yml` after the images, or manual dispatch                                 | [`internal-release-chart.yml`](.github/workflows/internal-release-chart.yml)           |
+| Sandbox image + pin PR | Push to `main` when `scripts/sandbox/**` changes, or dispatch                                           | [`internal-push-sandbox-image.yml`](.github/workflows/internal-push-sandbox-image.yml) |
+| PR checks              | Pull request / merge group                                                                              | [`ci.yml`](.github/workflows/ci.yml)                                                   |
 
 ## Versioning
 
@@ -46,7 +46,7 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 
 ## Flow
 
-[`release.yml`](.github/workflows/release.yml) is packages plus the from-source
+[`internal-release.yml`](.github/workflows/internal-release.yml) is packages plus the from-source
 images and the chart. It runs on `release-vX.Y.Z`. `main` collects changesets and
 does not publish.
 
@@ -81,7 +81,7 @@ does not publish.
    - **Resolve image identity** reads `packages/trueforge/package.json` for
      `appVersion` and checks whether `charts/trueforge@V` already exists. If not,
      both server images build as `{appVersion}-{shortSha}` and
-     [`release-chart.yml`](.github/workflows/release-chart.yml) publishes the
+     [`internal-release-chart.yml`](.github/workflows/internal-release-chart.yml) publishes the
      chart at exactly `V`. If the tag does exist, this is a re-run: the images
      are reused and the chart job finishes whatever the previous attempt left
      undone. This path never consults npm.
@@ -107,7 +107,7 @@ Repo-wide via `.changeset/pre.json` (absent = publish to `latest`):
 Each public **npm** package must list this repo + workflow as a trusted publisher on npmjs.com:
 
 - Repository: `truefoundry/trueforge`
-- Workflow: `release.yml` (exact filename)
+- Workflow: `internal-release.yml` (exact filename)
 - No GitHub Environment name
 
 Do not rename this file without updating every package on npmjs.com (and PyPI
@@ -124,7 +124,7 @@ the source repo and commit on npmjs.com.
 **PyPI** `trueforge-sdk` uses the same workflow file via a trusted publisher:
 
 - Repository: `truefoundry/trueforge`
-- Workflow: `release.yml` (exact filename)
+- Workflow: `internal-release.yml` (exact filename)
 - No Environment name (unless you add one to the job and mirror it on PyPI)
 - Create the project once on PyPI (or publish the first version), then add the
   pending/trusted publisher before the first OIDC upload succeeds.
@@ -141,17 +141,17 @@ pnpm clean && pnpm build && pnpm standalone:start
 
 - **Nothing was versioned** - no `.changeset/*.md` on the release branch. That is not an error: the chart still publishes at `tfy_chart_version`. Add changesets on `main` before the next line is cut.
 - **Publish wants a tag** - RCs need the `rc` dist-tag (set automatically while `pre.json` exists).
-- **403** - version already on npm, or trusted-publisher config mismatch (filename must be `release.yml`).
+- **403** - version already on npm, or trusted-publisher config mismatch (filename must be `internal-release.yml`).
 - **OIDC fail** - pnpm >= 11.0.7; remove registry `_authToken`.
 - **Missing `dist/_frontend/index.html`** - root `pnpm build` must build `frontend` first.
 - **SDK not regenerated** - only when `@truefoundry/trueforge-sdk` version moved
   (`scripts/version.mjs`; needs Docker). That path also mirrors the version into `python/trueforge_sdk`.
 - **PyPI 403 / invalid-publisher** - register a trusted publisher for `trueforge-sdk` bound to
-  `release.yml` (and create the project if it does not exist yet).
+  `internal-release.yml` (and create the project if it does not exist yet).
 - **Prod image / chart missing after package publish** - re-run **Version or publish packages**
   on the release branch with the same `tfy_chart_version` (every step is idempotent), or
   publish a chart for an image already in the registry:
-  `gh workflow run release-chart.yml --ref release-vX.Y.Z -f branch=release-vX.Y.Z -f chart_version=X.Y.Z -f app_version=X.Y.Z -f image_tag=X.Y.Z-<sha>`.
+  `gh workflow run internal-release-chart.yml --ref release-vX.Y.Z -f branch=release-vX.Y.Z -f chart_version=X.Y.Z -f app_version=X.Y.Z -f image_tag=X.Y.Z-<sha>`.
 
 ---
 
@@ -162,7 +162,7 @@ parent chart release V
   → branch release-vX.Y.Z (from main for a new minor; from
     refs/tags/v<base> for a hotfix; fail only on the FIRST rc if an existing
     minor branch is missing commits from main)
-  → workflow_dispatch release.yml --ref release-vX.Y.Z -f tfy_chart_version=V
+  → workflow_dispatch internal-release.yml --ref release-vX.Y.Z -f tfy_chart_version=V
        → prepare pre mode + 0.0.0 bootstrap
        → changeset version, commit straight to release-vX.Y.Z
        → select-mode: publish | none
@@ -170,7 +170,7 @@ parent chart release V
        → resolve image identity; charts/trueforge@V missing?
             yes → build both images X.Y.Z-<shortSha>
             no  → re-run: reuse the tagged commit's image
-       → release-chart.yml (branch, chart_version=V, app_version, image_tag)
+       → internal-release-chart.yml (branch, chart_version=V, app_version, image_tag)
             → helm lint / package
             → commit Chart.yaml + values.yaml to that branch (skip if unchanged)
             → tag charts/trueforge@V (annotated) + vV (lightweight) on that
@@ -180,7 +180,7 @@ parent chart release V
             delete the consumed .changeset/*.md, take packages/*/CHANGELOG.md
 
 manual chart-only (image already in the registry)
-  → workflow_dispatch release-chart.yml --ref <release-branch>
+  → workflow_dispatch internal-release-chart.yml --ref <release-branch>
      -f branch=<release-branch> -f chart_version=X.Y.Z
      (empty app_version / image_tag keep Chart.yaml / values.yaml)
 ```
@@ -198,9 +198,9 @@ peeled commit SHA (`git rev-parse HEAD`), not an annotated-tag object.
 
 ## Publish Helm chart
 
-[`release.yml`](.github/workflows/release.yml) builds/pushes `{appVersion}-{shortSha}`
+[`internal-release.yml`](.github/workflows/internal-release.yml) builds/pushes `{appVersion}-{shortSha}`
 from the root [`Dockerfile`](Dockerfile), then calls
-[`release-chart.yml`](.github/workflows/release-chart.yml) (`workflow_call`) with
+[`internal-release-chart.yml`](.github/workflows/internal-release-chart.yml) (`workflow_call`) with
 `branch` set to the `release-vX.Y.Z` branch the workflow is running on,
 `chart_version`, `app_version`, and `image_tag`. The chart workflow does not
 build images.
@@ -225,8 +225,8 @@ push. The one hard failure is the tag existing on a _different_ commit - the sam
 chart version cannot ship two different contents.
 
 ```bash
-gh workflow run release-chart.yml --ref main -f branch=main -f chart_version=0.3.1
-gh workflow run release-chart.yml --ref main \
+gh workflow run internal-release-chart.yml --ref main -f branch=main -f chart_version=0.3.1
+gh workflow run internal-release-chart.yml --ref main \
   -f branch=main \
   -f chart_version=0.3.0-rc.0 \
   -f app_version=0.3.0-rc.0 \
@@ -241,7 +241,7 @@ separate fields with separate owners.
 
 ## Devtest
 
-[`deploy-devtest.yml`](.github/workflows/deploy-devtest.yml) pins the current
+[`internal-deploy-devtest.yml`](.github/workflows/internal-deploy-devtest.yml) pins the current
 `main` SHA into `truefoundry/trueforge-devtest-deployment`. That environment
 builds from source. Secrets via `secretKeyRef` only - never plaintext in git.
 

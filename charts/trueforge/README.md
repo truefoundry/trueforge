@@ -9,8 +9,8 @@ The chart always runs the server in **distributed** mode (`STANDALONE=false`) ag
 Postgres and Redis.
 
 Chart `version` / `appVersion` / `image.tag` are written on the branch passed to
-[`release-chart.yml`](../../.github/workflows/release-chart.yml) (`main` from
-[`release.yml`](../../.github/workflows/release.yml) after the image is pushed).
+[`internal-release-chart.yml`](../../.github/workflows/internal-release-chart.yml) (`main` from
+[`internal-release.yml`](../../.github/workflows/internal-release.yml) after the image is pushed).
 That workflow then tags `charts/trueforge@<version>` on the metadata commit. See
 [`RELEASING.md`](../../RELEASING.md).
 
