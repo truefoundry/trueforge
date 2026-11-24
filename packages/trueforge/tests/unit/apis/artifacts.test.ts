@@ -95,7 +95,7 @@ describe('artifacts router', () => {
     expect(GetArtifactResponseSchema.parse(await response.json()).data).toEqual(
       expect.objectContaining({ id: reportId, name: 'Q3 Report', entry_point: 'report/index.html' }),
     );
-    expect((await app.request(`/${notMineId}`)).status).toBe(404);
+    expect((await app.request(`/${notMineId}`)).status).toBe(403);
     expect((await app.request('/missing')).status).toBe(404);
   });
 
@@ -118,7 +118,7 @@ describe('artifacts router', () => {
     expect(response.status).toBe(200);
     expect(GetArtifactResponseSchema.parse(await response.json()).data.name).toBe('Final');
     expect((await patch(artifact.id, { name: '   ' })).status).toBe(400);
-    expect((await patch(notMineId, { name: 'Taken' })).status).toBe(404);
+    expect((await patch(notMineId, { name: 'Taken' })).status).toBe(403);
     expect((await patch('missing', { name: 'Gone' })).status).toBe(404);
   });
 
@@ -142,10 +142,10 @@ describe('artifacts router', () => {
     };
     const otherTenant: RequestContext = { ...STANDALONE_REQUEST_CONTEXT, tenant_id: 'other-tenant' };
 
-    it('returns 404 for get and update by a user who is not the creator', async () => {
+    it('rejects get and update by a user who is not the creator', async () => {
       const stranger = appAs(otherUser);
-      expect((await stranger.request(`/${reportId}`)).status).toBe(404);
-      expect((await patch(stranger, reportId, 'Hijacked')).status).toBe(404);
+      expect((await stranger.request(`/${reportId}`)).status).toBe(403);
+      expect((await patch(stranger, reportId, 'Hijacked')).status).toBe(403);
       expect(await reportName()).toBe('Q3 Report');
     });
 

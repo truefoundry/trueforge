@@ -91,14 +91,30 @@ export function newArtifactIdentity(rawName: string): { id: string; name: string
   return { id: newId(), name: normalizeArtifactName(rawName) };
 }
 
+/** The artifact exists in the tenant but was not created by the requesting subject. */
+export class ArtifactNotOwnedError extends Error {
+  readonly tenant_id: string;
+  readonly artifact_id: string;
+
+  constructor({ tenant_id, artifact_id }: { tenant_id: string; artifact_id: string }) {
+    super(`Artifact not created by the caller: ${artifact_id}`);
+    this.name = 'ArtifactNotOwnedError';
+    this.tenant_id = tenant_id;
+    this.artifact_id = artifact_id;
+  }
+}
+
 export interface IArtifactStore {
   /** Generates the id and validates the name (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
-  /** Undefined when the artifact is not in the tenant or was not created by the subject. */
+  /**
+   * Undefined when the artifact is not in the tenant. Throws `ArtifactNotOwnedError` when it was not
+   * created by the subject.
+   */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /**
-   * Normalizes the name and refreshes `updated_at`. Undefined when the artifact is not in the tenant
-   * or was not created by the subject.
+   * Normalizes the name and refreshes `updated_at`. Undefined when the artifact is not in the tenant.
+   * Throws `ArtifactNotOwnedError`, leaving the artifact unchanged, when it was not created by the subject.
    */
   updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */

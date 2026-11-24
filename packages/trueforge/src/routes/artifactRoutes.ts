@@ -51,7 +51,7 @@ export const getArtifactRoute = createRoute({
   path: '/{artifact_id}',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'Get an artifact',
-  description: 'Get an artifact created by the caller.',
+  description: 'Get an artifact by id. Only the artifact creator may read it.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -66,9 +66,13 @@ export const getArtifactRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the artifact creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Artifact not found or not created by the caller.',
+      description: 'Artifact not found.',
     },
   },
 });
@@ -78,7 +82,7 @@ export const updateArtifactRoute = createRoute({
   path: '/{artifact_id}',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'Update an artifact',
-  description: 'Rename an artifact created by the caller.',
+  description: 'Rename an artifact. Only the artifact creator may update it.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -101,9 +105,13 @@ export const updateArtifactRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the artifact creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Artifact not found or not created by the caller.',
+      description: 'Artifact not found.',
     },
   },
 });
