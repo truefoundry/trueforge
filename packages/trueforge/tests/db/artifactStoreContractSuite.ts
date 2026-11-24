@@ -1,6 +1,5 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import { type IArtifactStore, InvalidArtifactNameError, type ListArtifactsInput } from '../../src/db/artifactStore';
-import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
+import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
@@ -57,7 +56,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   }
 
   it('creates an artifact', async () => {
-    const created = await createArtifact({ name: '  Q3 report  ' });
+    const created = await createArtifact({ name: 'Q3 report' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
@@ -72,20 +71,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
     const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
-  });
-
-  it('caps the name length', async () => {
-    const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
-    expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
-    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(
-      InvalidArtifactNameError,
-    );
-    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(InvalidArtifactNameError);
-  });
-
-  it('rejects forbidden characters and normalizes whitespace in the name', async () => {
-    await expect(createArtifact({ name: 'a/b' })).rejects.toBeInstanceOf(InvalidArtifactNameError);
-    expect((await createArtifact({ name: 'a\u2028  b' })).name).toBe('a b');
   });
 
   it('allows artifacts with the same name', async () => {
@@ -164,25 +149,12 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       tenant_id: TENANT,
       id: artifact.id,
       created_by_subject_id: OWNER,
-      name: '  Re\u2028  named  ',
+      name: 'Renamed',
     });
-    expect(renamed).toEqual({ ...artifact, name: 'Re named', updated_at: renamed?.updated_at });
+    expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
     expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
       renamed,
-    );
-  });
-
-  it('rejects an invalid rename and keeps the stored name', async () => {
-    const store = getStore();
-    const artifact = await createArtifact();
-    for (const name of ['   ', 'a:b']) {
-      await expect(
-        store.updateArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER, name }),
-      ).rejects.toBeInstanceOf(InvalidArtifactNameError);
-    }
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
-      artifact,
     );
   });
 

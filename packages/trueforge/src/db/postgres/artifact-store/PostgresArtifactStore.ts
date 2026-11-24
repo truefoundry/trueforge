@@ -6,7 +6,6 @@ import {
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
-  validateAndNormalizeArtifactName,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
@@ -57,7 +56,7 @@ export class PostgresArtifactStore implements IArtifactStore {
       .insertInto('artifact')
       .values({
         id: newId(),
-        name: validateAndNormalizeArtifactName(input.name),
+        name: input.name,
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: json(input.created_by_subject),
@@ -85,7 +84,7 @@ export class PostgresArtifactStore implements IArtifactStore {
   async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
     const row = await this.#db
       .updateTable('artifact')
-      .set({ name: validateAndNormalizeArtifactName(input.name), updated_at: now() })
+      .set({ name: input.name, updated_at: now() })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)

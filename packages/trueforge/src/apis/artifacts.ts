@@ -2,7 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
-import { type ArtifactRecord, type IArtifactStore, InvalidArtifactNameError } from '../db/artifactStore';
+import type { ArtifactRecord, IArtifactStore } from '../db/artifactStore';
 import { getArtifactRoute, listArtifactsRoute, updateArtifactRoute } from '../routes/artifactRoutes';
 import type { Artifact } from '../schemas/artifact';
 
@@ -65,20 +65,12 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
     const { artifact_id } = c.req.valid('param');
     const { name } = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    let updated: ArtifactRecord | undefined;
-    try {
-      updated = await deps.artifactStore.updateArtifact({
-        tenant_id: requestContext.tenant_id,
-        id: artifact_id,
-        created_by_subject_id: requestContext.subject.id,
-        name,
-      });
-    } catch (error) {
-      if (error instanceof InvalidArtifactNameError) {
-        throw new HTTPException(400, { message: error.message, cause: error });
-      }
-      throw error;
-    }
+    const updated = await deps.artifactStore.updateArtifact({
+      tenant_id: requestContext.tenant_id,
+      id: artifact_id,
+      created_by_subject_id: requestContext.subject.id,
+      name,
+    });
     if (updated === undefined) {
       throw new HTTPException(404, { message: `Artifact not found: ${artifact_id}` });
     }
