@@ -79,6 +79,7 @@ export function ShellRouteSync({
 
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
+    settingsSection: shell.settingsSection,
     libraryOpen: shell.libraryOpen,
     sessionsOpen: shell.sessionsOpen,
     sharedSessionId: shell.sharedSessionId,

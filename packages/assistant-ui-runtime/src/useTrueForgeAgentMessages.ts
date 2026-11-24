@@ -564,6 +564,8 @@ export function useTrueForgeAgentMessages({
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
+  /** Session id whose history is already painted in this runtime instance. */
+  const loadedSessionIdRef = useRef<string | undefined>(undefined);
 
   /**
    * A turn is running that this server cannot stream. Nothing will deliver its
@@ -857,22 +859,27 @@ export function useTrueForgeAgentMessages({
     void loadRetryTrigger;
     if (sessionId == null) {
       createdAtByMessageIdRef.current = new Map();
+      loadedSessionIdRef.current = undefined;
       setSnapshot(createEmptySessionSnapshot());
       return;
     }
 
-    // Allow the URL-selected session one early load before assistant-ui marks
-    // it main. Suppress only that first promotion; later selections still reload.
-    const isEarlyInitialLoad =
-      isMain === false && isInitialSession === true && initialLoadStartedForRef.current !== sessionId;
+    // Prefetch on first mount even before assistant-ui marks the thread main
+    // (URL deep link or switchToThread awaiting startThreadRuntime). Demoted
+    // former-mains stay parked with their painted snapshot.
+    const isEarlyPrefetch =
+      isMain === false && initialLoadStartedForRef.current !== sessionId && loadedSessionIdRef.current !== sessionId;
     if (isMain === false) {
-      if (!isEarlyInitialLoad) {
+      if (!isEarlyPrefetch) {
         return;
       }
       initialLoadStartedForRef.current = sessionId;
       skipInitialPromotionLoadForRef.current = sessionId;
     } else if (isMain === true && skipInitialPromotionLoadForRef.current === sessionId) {
       skipInitialPromotionLoadForRef.current = undefined;
+      return;
+    } else if (isMain === true && loadedSessionIdRef.current === sessionId) {
+      // Revisit: keep painted history instead of clearing into a skeleton.
       return;
     }
     if (isInitialSession === true) {
@@ -910,6 +917,7 @@ export function useTrueForgeAgentMessages({
         }
         // The events window is paintable before getTurn confirms the tip.
         setSnapshot(snap);
+        loadedSessionIdRef.current = sessionId;
         setIsLoading(false);
       });
       if (generation !== loadGenerationRef.current || sendEpoch !== sendEpochRef.current) {
@@ -921,6 +929,7 @@ export function useTrueForgeAgentMessages({
       createdAtByMessageIdRef.current = new Map();
       setSnapshot(loadedSnapshot);
       runningTurnRef.current = loadedSnapshot.runningTurn;
+      loadedSessionIdRef.current = sessionId;
 
       // History (and any seeded pendingUser for the in-flight turn) is
       // ready — clear loading before resuming. Awaiting the subscribe
@@ -967,7 +976,7 @@ export function useTrueForgeAgentMessages({
       }
     } catch (error) {
       if (generation === loadGenerationRef.current) {
-        if (isEarlyInitialLoad) {
+        if (isEarlyPrefetch) {
           // Allow retryLoad while still backgrounded (before isMain promotion).
           initialLoadStartedForRef.current = undefined;
           skipInitialPromotionLoadForRef.current = undefined;

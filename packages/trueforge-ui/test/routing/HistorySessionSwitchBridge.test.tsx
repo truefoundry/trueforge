@@ -6,6 +6,8 @@ const switchToThread = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock('@/assistant-ui.js', () => ({
   useAui: () => ({ threads: () => ({ switchToThread }) }),
+  useAuiState: (selector: (state: { threadListItem: { remoteId: string | undefined } }) => unknown) =>
+    selector({ threadListItem: { remoteId: undefined } }),
 }));
 
 import { HistorySessionSwitchBridge } from '@/routing/HistorySessionSwitchBridge.js';

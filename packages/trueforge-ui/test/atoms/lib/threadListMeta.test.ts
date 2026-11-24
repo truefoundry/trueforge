@@ -215,6 +215,18 @@ describe('canReuseMutableShell', () => {
     ).toBe(true);
   });
 
+  it('blocks New Agent builder chrome from reusing the shell for history', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        shellIsCreateAgent: true,
+        remoteId: 'sess-b',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(false);
+  });
+
   it('blocks Edit-bound shells from reusing chrome on a different session', () => {
     expect(
       canReuseMutableShell({

@@ -570,6 +570,13 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
   const canOpenAgentSchedules = showSchedulesColumn && canOpenAgentDetails;
+  // Empty registry CTA — only when not filtering and composer can open New Agent.
+  const buildNowAction =
+    canMutate && query.trim() === '' ? (
+      <Button.Primary type="button" onClick={() => shell.openAgentBuilder()}>
+        Build Now
+      </Button.Primary>
+    ) : null;
 
   useEffect(() => {
     if (!open) {
@@ -815,6 +822,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                   'Build one in a chat, then save it as an agent.'
                 )
               }
+              {...(buildNowAction != null ? { action: buildNowAction } : {})}
             />
           ) : agents.length === 0 ? (
             <div className="flex min-h-full flex-col">
@@ -830,6 +838,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                   )
                 }
                 className="flex-1"
+                {...(buildNowAction != null ? { action: buildNowAction } : {})}
               />
               <div className="overflow-hidden rounded-lg border border-border">
                 <TableTokenPagination

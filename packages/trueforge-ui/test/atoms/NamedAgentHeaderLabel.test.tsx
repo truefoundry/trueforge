@@ -80,6 +80,43 @@ describe('NamedAgentHeaderLabel', () => {
     expect(screen.getByRole('heading', { name: 'support' })).toBeInTheDocument();
   });
 
+  it('shows the pending history title in the section heading immediately', () => {
+    function OpenHistory() {
+      const shell = useShellMode();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            shell.openHistorySession({
+              sessionId: 'sess-long',
+              isMutable: true,
+              title: 'Write me a very long message. It should have markd',
+            })
+          }
+        >
+          open history
+        </button>
+      );
+    }
+
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <RuntimeHarness messages={[]}>
+          <OpenHistory />
+          <NamedAgentHeaderLabel />
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'open history' }).click();
+    });
+
+    expect(
+      screen.getByRole('heading', { name: 'Write me a very long message. It should have markd' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows New Chat for unnamed draft chats', () => {
     render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>

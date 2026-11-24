@@ -60,7 +60,7 @@ type AttachTab = 'connectors' | 'skills' | 'environments';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
-  { id: 'skills', label: 'Skills', icon: 'lightbulb' },
+  { id: 'skills', label: 'Skills', icon: 'scroll-text' },
   { id: 'environments', label: 'Environment', icon: 'monitor' },
 ];
 

@@ -16,7 +16,13 @@ import { cn } from '../atoms/lib/cn.js';
 import { ensureStyles } from './ensureStyles.js';
 import { ensureTypefaceStylesheet } from './ensureTypeface.js';
 import { resolvePresetTokens } from './presets/index.js';
-import { DEFAULT_TYPEFACE_ID, getTypefaceOption, isTypefaceId, type TypefaceId } from './typefaces.js';
+import {
+  DEFAULT_TYPEFACE_ID,
+  getTypefaceMonoFontFamily,
+  getTypefaceOption,
+  isTypefaceId,
+  type TypefaceId,
+} from './typefaces.js';
 import {
   TOKEN_CSS_VARS,
   type BrandConfig,
@@ -38,11 +44,11 @@ export type ThemeContextValue = {
   setTheme: (mode: ThemeMode) => void;
   /**
    * User-chosen UI typeface from Settings → Appearance.
-   * `null` means Geist (brand default) until the user picks another face.
+   * `null` means IBM Plex Sans (brand default) until the user picks another face.
    */
   typefaceId: TypefaceId | null;
   setTypeface: (id: TypefaceId) => void;
-  /** Clears the stored typeface preference so Geist returns. */
+  /** Clears the stored typeface preference so IBM Plex Sans returns. */
   resetTypeface: () => void;
   /** Partial: `theme.brand` is optional, so consumers fall back to SDK defaults. */
   brand: Partial<BrandConfig>;
@@ -206,12 +212,17 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
 
   const rootStyle = useMemo(() => {
     const resolvedTypefaceId = typefaceId ?? DEFAULT_TYPEFACE_ID;
-    return tokensToStyle({
-      ...resolvePresetTokens(theme?.preset, mode),
-      // Geist (or the user’s pick) overlays every preset; host tokens still win.
-      fontFamily: getTypefaceOption(resolvedTypefaceId).fontFamily,
-      ...theme?.tokens,
-    });
+    const typeface = getTypefaceOption(resolvedTypefaceId);
+    return {
+      ...tokensToStyle({
+        ...resolvePresetTokens(theme?.preset, mode),
+        // IBM Plex Sans (or the user’s pick) overlays every preset; host tokens still win.
+        fontFamily: typeface.fontFamily,
+        ...theme?.tokens,
+      }),
+      // Always set so switching away from a mono-paired face clears the prior value.
+      ['--font-agent-ui-mono']: getTypefaceMonoFontFamily(typeface),
+    };
   }, [theme?.preset, theme?.tokens, mode, typefaceId]);
 
   return (

@@ -59,8 +59,17 @@ export function useBrandName(): string | undefined {
 /**
  * The product mark resolved against the active theme mode. Compact surfaces use
  * `icon`; expanded surfaces use `logo` and fall back to `icon`.
+ * Pass `linked={false}` when the mark sits inside another control (e.g. expand rail).
  */
-export function BrandLogo({ className, variant = 'icon' }: { className?: string; variant?: 'icon' | 'logo' }) {
+export function BrandLogo({
+  className,
+  variant = 'icon',
+  linked = true,
+}: {
+  className?: string;
+  variant?: 'icon' | 'logo';
+  linked?: boolean;
+}) {
   const theme = useContext(ThemeContext);
   const brand = theme?.brand;
   const name = useBrandName();
@@ -93,7 +102,7 @@ export function BrandLogo({ className, variant = 'icon' }: { className?: string;
 
   const image = <img src={src} alt={label} className={className} />;
   const href = brand?.href;
-  if (href == null) return image;
+  if (href == null || !linked) return image;
 
   return (
     <a href={href} aria-label={label} className="inline-flex items-center">

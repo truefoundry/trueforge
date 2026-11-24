@@ -145,9 +145,12 @@ function EnvironmentActionItem({
   );
 }
 
-export type EnvironmentsPageProps = Record<string, never>;
+export type EnvironmentsPageProps = {
+  /** When true, render as a Settings section (no full-page chrome). */
+  embedded?: boolean;
+};
 
-export function EnvironmentsPage(_props: EnvironmentsPageProps) {
+export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const queryClient = useServerQueryClient();
   const shell = useOptionalShellMode();
@@ -343,34 +346,51 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     }
   };
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-primary-bg">
-      <PageHeader
-        title="Environments"
-        end={
-          <>
-            <div className="w-64">
-              <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
-            </div>
-            <Tooltip
-              content={
-                canCreateSandboxEnvironment || createPermissionLoading
-                  ? undefined
-                  : 'Only admins can create sandbox environments'
-              }
-            >
-              <span className="inline-flex">
-                <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
-                  <Icon name="plus" className="size-3.5" />
-                  New Environment
-                </Button.Primary>
-              </span>
-            </Tooltip>
-          </>
+  const headerActions = (
+    <>
+      <div className={cn(embedded ? 'min-w-0 flex-1 sm:max-w-64' : 'w-64')}>
+        <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
+      </div>
+      <Tooltip
+        content={
+          canCreateSandboxEnvironment || createPermissionLoading
+            ? undefined
+            : 'Only admins can create sandbox environments'
         }
-      />
+      >
+        <span className="inline-flex shrink-0">
+          <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
+            <Icon name="plus" className="size-3.5" />
+            New Environment
+          </Button.Primary>
+        </span>
+      </Tooltip>
+    </>
+  );
 
-      <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
+  return (
+    <div className={cn('flex h-full min-h-0 flex-col', embedded ? 'bg-transparent' : 'bg-primary-bg')}>
+      {embedded ? (
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+          <div className="min-w-0">
+            <h3 className="text-xl font-semibold tracking-tight text-text-primary">Environments</h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              Customize sandbox images, resources, and networking for agent runs.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">{headerActions}</div>
+        </div>
+      ) : (
+        <PageHeader title="Environments" end={headerActions} />
+      )}
+
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-auto px-4 py-4',
+          embedded && 'sm:px-6',
+          error != null ? 'flex flex-col' : undefined,
+        )}
+      >
         {error != null ? (
           <div role="alert" className="flex flex-1 flex-col items-center justify-center">
             <EmptyScreen

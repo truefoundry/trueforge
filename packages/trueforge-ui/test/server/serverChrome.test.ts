@@ -43,6 +43,19 @@ describe('serverChrome', () => {
     ).toBe(false);
   });
 
+  it('isSettingsChromeEnabled keeps chrome when only Environments is enabled', () => {
+    expect(
+      isSettingsChromeEnabled({
+        catalog,
+        capabilities: {
+          settings: allSettingsSections(false),
+          sandbox: { environments: { enabled: true } },
+        },
+        sandboxEnvironments,
+      }),
+    ).toBe(true);
+  });
+
   it('isSettingsChromeEnabled waits while capabilities are still loading', () => {
     expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
     expect(isSettingsChromeEnabled({ catalog, capabilities: undefined })).toBe(false);

@@ -8,11 +8,13 @@ import { cn } from './lib/cn.js';
 export type EmptyScreenProps = {
   title: string;
   description?: ReactNode;
+  /** Optional CTA under the description (e.g. Build Now). */
+  action?: ReactNode;
   className?: string;
 };
 
 /** Centered empty surface: `empty` glyph + title + optional supporting copy. */
-export function EmptyScreen({ title, description, className }: EmptyScreenProps) {
+export function EmptyScreen({ title, description, action, className }: EmptyScreenProps) {
   return (
     <div
       role="status"
@@ -26,6 +28,7 @@ export function EmptyScreen({ title, description, className }: EmptyScreenProps)
         <h2 className="text-base font-semibold text-text-primary">{title}</h2>
         {description != null ? <p className="text-sm text-text-secondary">{description}</p> : null}
       </div>
+      {action != null ? <div className="flex shrink-0 items-center justify-center">{action}</div> : null}
     </div>
   );
 }

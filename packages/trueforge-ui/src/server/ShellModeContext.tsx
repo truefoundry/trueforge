@@ -84,7 +84,8 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'appearance' | 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search' | 'memory';
+export type SettingsSection =
+  'appearance' | 'models' | 'connectors' | 'skills' | 'sandbox' | 'environments' | 'web-search' | 'memory';
 
 export type HistoryAgentFilter = {
   agentId?: string;
@@ -158,6 +159,8 @@ type ShellModeContextValue = {
     agentName?: string;
     isMutable?: boolean;
     isCreateAgent?: boolean;
+    /** Known chat-history title — shown in the pane header before the thread remounts. */
+    title?: string;
   }) => void;
   /**
    * Keep `/sessions/:id` in place and surface a full-pane load failure
@@ -185,6 +188,8 @@ type ShellModeContextValue = {
   listSessionsAgentId: string | undefined;
   /** Session selected from history. */
   pendingSessionId: string | undefined;
+  /** History-row title for the pending session (optimistic header). */
+  pendingSessionTitle: string | undefined;
   /** Distinguishes repeated selections of the same session. */
   pendingSessionEpoch: number;
   /**
@@ -291,21 +296,27 @@ export function ShellModeProvider({
   const [sharedSessionId, setSharedSessionId] = useState<string | null>(null);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
-  const [environmentsOpenState, setEnvironmentsOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
+  const [pendingSessionTitle, setPendingSessionTitle] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
   const [sessionAccessError, setSessionAccessError] = useState<string | null>(null);
-  const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
-  const settingsOpen = settingsEnabled && settingsOpenState;
-  const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
-  const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
-  const schedulesOpen = schedulesEnabled && schedulesOpenState;
   const environmentsEnabled = isEnvironmentsChromeEnabled({
     sandboxEnvironments: sandboxEnvironmentServer,
     capabilities,
   });
-  const environmentsOpen = environmentsEnabled && environmentsOpenState;
+  // Environments is a Settings tab, so Settings chrome stays available when only it is enabled.
+  const settingsEnabled = isSettingsChromeEnabled({
+    catalog,
+    capabilities,
+    sandboxEnvironments: sandboxEnvironmentServer,
+  });
+  const settingsOpen = settingsEnabled && settingsOpenState;
+  const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
+  const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
+  const schedulesOpen = schedulesEnabled && schedulesOpenState;
+  // Environments lives under Settings; keep `environmentsOpen` for callers/routes.
+  const environmentsOpen = environmentsEnabled && settingsOpen && settingsSection === 'environments';
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;
   const setSessionsOpen = useCallback(
@@ -316,7 +327,6 @@ export function ShellModeProvider({
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSchedulesOpenState(false);
-        setEnvironmentsOpenState(false);
       } else {
         replaceSessionShareSearch({
           view: null,
@@ -336,7 +346,6 @@ export function ShellModeProvider({
       setLibraryOpenState(false);
       setLibraryAgentId(null);
       setSchedulesOpenState(false);
-      setEnvironmentsOpenState(false);
       setSharedSessionId(sessionId);
       setSessionsOpenState(true);
     },
@@ -354,7 +363,6 @@ export function ShellModeProvider({
         setAgentConfigOpenState(false);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
-        setEnvironmentsOpenState(false);
       }
       setLibraryAgentId(null);
       setLibraryOpenState(open);
@@ -368,7 +376,6 @@ export function ShellModeProvider({
       setAgentConfigOpenState(false);
       setSessionsOpen(false);
       setSchedulesOpenState(false);
-      setEnvironmentsOpenState(false);
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
@@ -388,7 +395,6 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
-        setEnvironmentsOpenState(false);
       }
       setSettingsOpenState(settingsEnabled && open);
     },
@@ -402,7 +408,6 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
-        setEnvironmentsOpenState(false);
       }
       setAgentConfigOpenState(open);
     },
@@ -416,7 +421,6 @@ export function ShellModeProvider({
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSessionsOpen(false);
-        setEnvironmentsOpenState(false);
       }
       setSchedulesOpenState(schedulesEnabled && open);
     },
@@ -425,24 +429,23 @@ export function ShellModeProvider({
   const setEnvironmentsOpen = useCallback(
     (open: boolean) => {
       if (open) {
-        setSettingsOpenState(false);
-        setAgentConfigOpenState(false);
-        setLibraryOpenState(false);
-        setLibraryAgentId(null);
-        setSessionsOpen(false);
-        setSchedulesOpenState(false);
+        if (!environmentsEnabled) return;
+        setSettingsOpen(true, 'environments');
+        return;
       }
-      setEnvironmentsOpenState(environmentsEnabled && open);
+      if (settingsSection === 'environments') {
+        setSettingsOpen(false);
+      }
     },
-    [environmentsEnabled, setSessionsOpen],
+    [environmentsEnabled, setSettingsOpen, settingsSection],
   );
 
   const settingsCapability = capabilities?.settings;
   useEffect(() => {
-    if (catalog == null || !hasAnySettingsSectionEnabled(settingsCapability)) {
+    if (catalog == null || (!hasAnySettingsSectionEnabled(settingsCapability) && !environmentsEnabled)) {
       setSettingsOpenState(false);
     }
-  }, [settingsCapability, catalog]);
+  }, [settingsCapability, catalog, environmentsEnabled]);
 
   useEffect(() => {
     if (!sessionsEnabled) {
@@ -458,10 +461,10 @@ export function ShellModeProvider({
   }, [schedulesEnabled]);
 
   useEffect(() => {
-    if (!environmentsEnabled) {
-      setEnvironmentsOpenState(false);
+    if (!environmentsEnabled && settingsSection === 'environments') {
+      setSettingsSection('models');
     }
-  }, [environmentsEnabled]);
+  }, [environmentsEnabled, settingsSection]);
 
   const invalidateAgentsList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.agents.all() });
@@ -518,6 +521,7 @@ export function ShellModeProvider({
         setEnvironmentsOpen(false);
         setSessionAccessError(null);
         setPendingSessionId(undefined);
+        setPendingSessionTitle(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
         const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
         setMode({
@@ -545,6 +549,7 @@ export function ShellModeProvider({
       setEnvironmentsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(undefined);
+      setPendingSessionTitle(undefined);
       setAgentConfigOpenState(false);
       setMode({
         status: 'active',
@@ -759,11 +764,13 @@ export function ShellModeProvider({
       agentName,
       isMutable: isMutableOpt,
       isCreateAgent: isCreateAgentOpt,
+      title,
     }: {
       sessionId: string;
       agentName?: string;
       isMutable?: boolean;
       isCreateAgent?: boolean;
+      title?: string;
     }) => {
       const isMutable = isMutableOpt ?? agentName == null;
       if (isMutable) {
@@ -782,6 +789,8 @@ export function ShellModeProvider({
       setEnvironmentsOpen(false);
       setSessionAccessError(null);
       setPendingSessionId(sessionId);
+      const trimmedTitle = title?.trim() ?? '';
+      setPendingSessionTitle(trimmedTitle.length > 0 ? trimmedTitle : undefined);
       setPendingSessionEpoch(n => n + 1);
       if (isMutable) {
         const isCreateAgent = isCreateAgentOpt === true;
@@ -827,6 +836,7 @@ export function ShellModeProvider({
       setAgentConfigOpenState(false);
       setSessionAccessError(message);
       setPendingSessionId(sessionId);
+      setPendingSessionTitle(undefined);
       setPendingSessionEpoch(n => n + 1);
       // Keep chrome non-idle so layouts render the thread slot (gated by sessionAccessError).
       if (isComposerEnabled) {
@@ -854,6 +864,7 @@ export function ShellModeProvider({
       if (effectiveMode.status === 'idle') return;
       setSessionAccessError(null);
       setPendingSessionId(undefined);
+      setPendingSessionTitle(undefined);
       if (effectiveMode.isMutable) {
         // Plain New Chat uses the chat seed. Builder New Chat keeps the live draft
         // so the remount does not replace the left panel with the open/save snapshot.
@@ -892,6 +903,7 @@ export function ShellModeProvider({
     if (!isLibraryEnabled || isComposerEnabled) return;
     setSessionAccessError(null);
     setPendingSessionId(undefined);
+    setPendingSessionTitle(undefined);
     setSettingsOpen(false);
     setLibraryOpenState(false);
     setLibraryAgentId(null);
@@ -951,6 +963,7 @@ export function ShellModeProvider({
       setHistoryAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
+      pendingSessionTitle,
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
@@ -998,6 +1011,7 @@ export function ShellModeProvider({
       historyAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
+      pendingSessionTitle,
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
