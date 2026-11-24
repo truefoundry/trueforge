@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';
+import type { ComposerArtifactAttach } from './ComposerAttachMenu.js';
 import { cn } from './lib/cn.js';
 
 export type ComposerShellProps = {
@@ -23,6 +24,7 @@ export type ComposerShellProps = {
   onSubmit: () => void;
   onCancel?: () => void;
   onAttach?: () => void;
+  artifactAttach?: ComposerArtifactAttach;
   className?: string;
 };
 
@@ -41,6 +43,7 @@ export function ComposerShell({
   onSubmit,
   onCancel,
   onAttach,
+  artifactAttach,
   className,
 }: ComposerShellProps) {
   const ComposerLeftSection = useSlot('ComposerLeftSection');
@@ -60,7 +63,12 @@ export function ComposerShell({
       {input}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-          <ComposerLeftSection disabled={disabled} isRunning={isRunning} onAttach={onAttach} />
+          <ComposerLeftSection
+            disabled={disabled}
+            isRunning={isRunning}
+            onAttach={onAttach}
+            artifactAttach={artifactAttach}
+          />
           {connectorStatusLabel && (
             <span className="text-text-secondary max-w-[12rem] truncate text-xs">{connectorStatusLabel}</span>
           )}

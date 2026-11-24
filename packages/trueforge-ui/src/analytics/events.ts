@@ -11,6 +11,8 @@ export const AnalyticsEvents = {
   },
   Attachment: {
     PICKED: 'trueforge.agent.attachment_picked',
+    ARTIFACT_PICKER_OPENED: 'trueforge.agent.attachment_artifact_picker_opened',
+    ARTIFACTS_SELECTED: 'trueforge.agent.attachment_artifacts_selected',
   },
   Session: {
     NEW: 'trueforge.agent.session_new',

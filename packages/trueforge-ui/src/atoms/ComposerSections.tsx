@@ -4,13 +4,15 @@ import type { ReactNode } from 'react';
 
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { useSlot } from '../theme/SlotsProvider.js';
+import type { ComposerArtifactAttach } from './ComposerAttachMenu.js';
 import { Button } from './primitives/Button.js';
 
 export type ComposerLeftSectionProps = {
   disabled: boolean;
   isRunning: boolean;
   onAttach?: () => void;
+  artifactAttach?: ComposerArtifactAttach;
 };
 
 export type ComposerRightSectionProps = {
@@ -35,20 +37,9 @@ export type ComposerLeftSectionSlot = (props: ComposerLeftSectionProps) => React
 export type ComposerRightSectionSlot = (props: ComposerRightSectionProps) => ReactNode;
 export type ComposerSendButtonSlot = (props: ComposerSendButtonProps) => ReactNode;
 
-export function ComposerLeftSection({ onAttach }: ComposerLeftSectionProps) {
-  if (!onAttach) return null;
-
-  return (
-    <button
-      type="button"
-      aria-label="Attach"
-      title="Attach"
-      className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-      onClick={onAttach}
-    >
-      <Icon name="paperclip" />
-    </button>
-  );
+export function ComposerLeftSection({ onAttach, artifactAttach }: ComposerLeftSectionProps) {
+  const ComposerAttachMenu = useSlot('ComposerAttachMenu');
+  return <ComposerAttachMenu onAttach={onAttach} artifactAttach={artifactAttach} />;
 }
 
 export function ComposerRightSection(_: ComposerRightSectionProps): ReactNode {

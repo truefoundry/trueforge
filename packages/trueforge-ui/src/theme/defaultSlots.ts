@@ -35,6 +35,7 @@ import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
+import { ArtifactPicker } from '../atoms/artifacts/ArtifactPicker.js';
 import type { ArtifactsPageProps } from '../atoms/artifacts/ArtifactsPage.js';
 import { ArtifactsButton } from '../atoms/ArtifactsButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
@@ -44,6 +45,7 @@ import { AttachmentPreviewDialog } from '../atoms/AttachmentPreviewDialog.js';
 import { ChatFileDownload } from '../atoms/ChatFileDownload.js';
 import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
+import { ComposerAttachMenu } from '../atoms/ComposerAttachMenu.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
@@ -236,6 +238,8 @@ export const defaultSlots = {
   AttachmentCard,
   AttachmentPreviewDialog,
   AttachmentPickerButton,
+  ComposerAttachMenu,
+  ArtifactPicker,
   ScrollToBottomButton,
   ThreadListRow,
   ThreadListNewButton,

@@ -3,21 +3,21 @@
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
-import { Icon } from '../../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useArtifactPickerSheet } from '../ComposerAttachMenu.js';
 import type { ComposerLeftSectionProps, ComposerRightSectionProps } from '../ComposerSections.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
-import { Tooltip } from '../primitives/Tooltip.js';
 
-export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSectionProps) {
+export function DraftComposerLeftSection({ disabled, onAttach, artifactAttach }: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
   const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
+  const ComposerAttachMenu = useSlot('ComposerAttachMenu');
+  const artifactSheet = useArtifactPickerSheet(artifactAttach);
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
@@ -48,26 +48,25 @@ export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSec
             onSelect: onAttach,
           },
         ]),
+    ...(artifactSheet.action == null ? [] : [artifactSheet.action]),
   ];
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      {!isBuilder ? <DraftCompositeSelector disabled={disabled} onAttach={onAttach} /> : null}
+      {!isBuilder ? (
+        <DraftCompositeSelector disabled={disabled} onAttach={onAttach} artifactAttach={artifactAttach} />
+      ) : null}
       {isBuilder && compact ? <DraftComposerActionsMenu actions={compactActions} disabled={disabled} /> : null}
       {isBuilder && !compact && isMobile ? <DraftAgentConfigTrigger disabled={disabled} /> : null}
-      {isBuilder && !compact && onAttach != null ? (
-        <Tooltip content="Attach a file">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={onAttach}
-          >
-            <Icon name="paperclip" />
-          </button>
-        </Tooltip>
+      {isBuilder && !compact ? (
+        <ComposerAttachMenu
+          disabled={disabled}
+          label="Attach a file"
+          onAttach={onAttach}
+          artifactAttach={artifactAttach}
+        />
       ) : null}
+      {isBuilder ? artifactSheet.sheet : null}
     </div>
   );
 }
