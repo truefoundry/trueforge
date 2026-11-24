@@ -436,25 +436,25 @@ function resolveObjectStoreConfig(appDataDir: string): ObjectStoreConfig {
   if (type === 'local') {
     return { type, root: resolveOptionalPathEnv('OBJECT_STORE_ROOT') ?? path.join(appDataDir, 'objects') };
   }
-  if (type !== 's3') {
-    throw new Error(`Environment variable OBJECT_STORE_TYPE must be "local" or "s3", got ${JSON.stringify(type)}`);
+  if (type === 's3') {
+    const bucket = optionalNonEmptyEnv('OBJECT_STORE_S3_BUCKET');
+    if (bucket === undefined) {
+      throw new Error('OBJECT_STORE_S3_BUCKET is required when OBJECT_STORE_TYPE=s3.');
+    }
+    return {
+      type,
+      bucket,
+      prefix: (getEnv('OBJECT_STORE_S3_PREFIX') ?? '').replace(/^\/+|\/+$/g, ''),
+      region: optionalNonEmptyEnv('OBJECT_STORE_S3_REGION'),
+      endpoint: optionalNonEmptyEnv('OBJECT_STORE_S3_ENDPOINT'),
+      presignTtlSeconds: parsePositiveInt({
+        envKey: 'OBJECT_STORE_PRESIGN_TTL_SECONDS',
+        raw: getEnv('OBJECT_STORE_PRESIGN_TTL_SECONDS'),
+        defaultValue: 300,
+      }),
+    };
   }
-  const bucket = optionalNonEmptyEnv('OBJECT_STORE_S3_BUCKET');
-  if (bucket === undefined) {
-    throw new Error('OBJECT_STORE_S3_BUCKET is required when OBJECT_STORE_TYPE=s3.');
-  }
-  return {
-    type,
-    bucket,
-    prefix: (getEnv('OBJECT_STORE_S3_PREFIX') ?? '').replace(/^\/+|\/+$/g, ''),
-    region: optionalNonEmptyEnv('OBJECT_STORE_S3_REGION'),
-    endpoint: optionalNonEmptyEnv('OBJECT_STORE_S3_ENDPOINT'),
-    presignTtlSeconds: parsePositiveInt({
-      envKey: 'OBJECT_STORE_PRESIGN_TTL_SECONDS',
-      raw: getEnv('OBJECT_STORE_PRESIGN_TTL_SECONDS'),
-      defaultValue: 300,
-    }),
-  };
+  throw new Error(`Environment variable OBJECT_STORE_TYPE must be "local" or "s3", got ${JSON.stringify(type)}`);
 }
 
 /** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
