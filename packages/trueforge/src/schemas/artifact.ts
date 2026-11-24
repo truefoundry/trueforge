@@ -67,14 +67,11 @@ export const ArtifactNameSchema = z
   .max(MAX_TITLE_LENGTH)
   .regex(ARTIFACT_NAME_PATTERN, 'Must not contain control, bidi, or / \\ : * ? " < > | characters.')
   .transform(name => name.replace(/\s+/gu, ' ').trim())
-  .refine(name => name.length > 0, 'Must not be blank.')
-  .refine(name => !name.endsWith('.'), 'Must not end with a dot.');
+  .refine(name => name.length > 0, 'Must not be blank.');
 
 export const UpdateArtifactRequestSchema = z
   .object({
-    name: ArtifactNameSchema.describe(
-      'New artifact name. Whitespace is collapsed and trimmed; must not be blank or end with a dot.',
-    ),
+    name: ArtifactNameSchema.describe('New artifact name. Whitespace is collapsed and trimmed; must not be blank.'),
   })
   .strict()
   .openapi('UpdateArtifactRequest');

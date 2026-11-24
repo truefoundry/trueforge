@@ -42,12 +42,6 @@ describe('ArtifactNameSchema', () => {
     expect(isValid(`  ${'a'.repeat(MAX_TITLE_LENGTH - 1)}`)).toBe(false);
   });
 
-  it('rejects a trailing dot', () => {
-    for (const name of ['report.', 'report. ', '.', '..']) {
-      expect(isValid(name)).toBe(false);
-    }
-  });
-
   it.each([
     'Q3 report (final) - v2.html',
     'Résumé für Zoë',
@@ -55,6 +49,7 @@ describe('ArtifactNameSchema', () => {
     'a\u200cb\u200db',
     'a\u200eb\u200fc',
     '.hidden',
+    'v1.',
     "It's #1 & 100% done!",
   ])('accepts %j', name => {
     expect(ArtifactNameSchema.parse(name)).toBe(name);
