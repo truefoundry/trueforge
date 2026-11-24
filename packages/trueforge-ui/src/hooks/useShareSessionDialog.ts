@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { buildSharedSessionHref } from '../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../routing/ResolvedRoutesContext.js';
+import { useServerQueryClient } from '../server/queryClient.js';
+import { queryKeys } from '../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import type { DirectoryUser, SessionAccessGrant, SessionSubject } from '../server/types.js';
 import { useCopySharedSessionLink } from './useCopySharedSessionLink.js';
@@ -34,6 +36,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   copySharedSessionLink: () => Promise<void>;
 } {
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const sessionAccess = server?.sessionAccess;
   const capabilities = useServerCapabilities();
   const toaster = useToasterOptional();
@@ -60,14 +63,30 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const canShareWithUsers = capabilities?.sessionSharing.granularity === 'subject';
   const canShare = canManage && sessionAccess != null && canShareWithUsers;
 
-  const refreshCollaborators = useCallback(async () => {
-    if (!hasSession || sessionAccess == null || collaboratorMutationsRef.current > 0) return;
-    const epoch = ++collaboratorListEpochRef.current;
-    const grants = await sessionAccess.listAccess({ sessionId });
-    if (epoch !== collaboratorListEpochRef.current || collaboratorMutationsRef.current > 0) return;
+  const applyGrants = useCallback((grants: SessionAccessGrant[]) => {
     setCollaborators(grants.filter(grant => grant.subjectType === 'user'));
     setPermission(grants.some(grant => grant.subjectType === 'tenant') ? SESSION_SHARE_TENANT : SESSION_SHARE_PRIVATE);
-  }, [hasSession, sessionAccess, sessionId]);
+  }, []);
+
+  // Paints cached grants at once. Mount reads honor the default staleTime; opening the dialog
+  // passes `fresh` so external grant changes show up. Concurrent calls share one request.
+  const refreshCollaborators = useCallback(
+    async ({ fresh = false }: { fresh?: boolean } = {}) => {
+      if (!hasSession || sessionAccess == null || collaboratorMutationsRef.current > 0) return;
+      const epoch = ++collaboratorListEpochRef.current;
+      const queryKey = queryKeys.sessions.grants(sessionId);
+      const cached = queryClient.getQueryData<SessionAccessGrant[]>(queryKey);
+      if (cached != null) applyGrants(cached);
+      const grants = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: () => sessionAccess.listAccess({ sessionId }),
+        ...(fresh ? { staleTime: 0 } : {}),
+      });
+      if (epoch !== collaboratorListEpochRef.current || collaboratorMutationsRef.current > 0) return;
+      applyGrants(grants);
+    },
+    [applyGrants, hasSession, queryClient, sessionAccess, sessionId],
+  );
 
   // Access grants include tenant sharing even when user invitations are unavailable.
   useEffect(() => {
@@ -102,7 +121,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         }
       }
       // Re-fetch on every open so external grant/revoke changes are visible.
-      if (canManage && sessionAccess != null) await refreshCollaborators();
+      if (canManage && sessionAccess != null) await refreshCollaborators({ fresh: true });
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
@@ -129,11 +148,13 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         setPermission(previous);
         toaster?.showError(caught);
       } finally {
+        // Tenant grants change the list shape in ways the cache cannot patch; drop it.
+        queryClient.removeQueries({ queryKey: queryKeys.sessions.grants(sessionId) });
         collaboratorMutationsRef.current--;
         collaboratorListEpochRef.current++;
       }
     },
-    [canChangePermission, hasSession, permission, sessionAccess, sessionId, tenantId, toaster],
+    [canChangePermission, hasSession, permission, queryClient, sessionAccess, sessionId, tenantId, toaster],
   );
 
   const invite = useCallback(
@@ -147,6 +168,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
           subjects: users.map(user => ({ subjectType: 'user', subjectId: user.id })),
         });
         setCollaborators(granted.filter(grant => grant.subjectType === 'user'));
+        queryClient.setQueryData(queryKeys.sessions.grants(sessionId), granted);
         return true;
       } catch (caught) {
         toaster?.showError(caught);
@@ -156,7 +178,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         collaboratorListEpochRef.current++;
       }
     },
-    [canShare, hasSession, sessionAccess, sessionId, toaster],
+    [canShare, hasSession, queryClient, sessionAccess, sessionId, toaster],
   );
 
   const removeCollaborator = useCallback(
@@ -177,11 +199,12 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         }
         toaster?.showError(caught);
       } finally {
+        queryClient.removeQueries({ queryKey: queryKeys.sessions.grants(sessionId) });
         collaboratorMutationsRef.current--;
         collaboratorListEpochRef.current++;
       }
     },
-    [canShare, hasSession, sessionAccess, sessionId, toaster],
+    [canShare, hasSession, queryClient, sessionAccess, sessionId, toaster],
   );
 
   const copySharedSessionLink = useCallback(async () => {

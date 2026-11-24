@@ -4,6 +4,8 @@ import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useEffect, useRef } from 'react';
 
 import { useAui, useAuiState } from '../assistant-ui.js';
+import { useServerQueryClient } from '../server/queryClient.js';
+import { invalidateSessionLists } from '../server/sessionQueries.js';
 
 /**
  * The server writes the session title when the first turn is created, before the
@@ -13,6 +15,7 @@ import { useAui, useAuiState } from '../assistant-ui.js';
  */
 export function useSyncSessionTitle(): void {
   const aui = useAui();
+  const queryClient = useServerQueryClient();
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
   const title = useAuiState(s => s.threadListItem.title);
   const firstUserMessageId = useAuiState(s => s.thread.messages.find(message => message.role === 'user')?.id);
@@ -58,6 +61,7 @@ export function useSyncSessionTitle(): void {
     // chaining through `then` adopts it so a rejection is still swallowed.
     void Promise.resolve()
       .then(() => item.generateTitle())
+      .then(() => invalidateSessionLists(queryClient))
       .catch(() => undefined);
-  }, [aui, firstUserMessageId, isRunning, remoteId, title]);
+  }, [aui, firstUserMessageId, isRunning, queryClient, remoteId, title]);
 }

@@ -10,7 +10,9 @@ import {
   readThreadLastTurnStatus,
   threadCustomWithLastTurnStatus,
 } from '../atoms/lib/threadListMeta.js';
+import { useServerQueryClient } from '../server/queryClient.js';
 import { useOptionalServer } from '../server/ServerContext.js';
+import { fetchSessionDetail, invalidateSessionLists } from '../server/sessionQueries.js';
 
 type LiveThreadMessage = {
   role: string;
@@ -42,6 +44,7 @@ function liveThreadRequiresUserAction(messages: readonly LiveThreadMessage[]): b
  */
 export function useSyncThreadListLastTurnStatus(): void {
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const aui = useAui();
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
   const lastMessageAt = useAuiState(s => s.threadListItem.lastMessageAt);
@@ -91,8 +94,9 @@ export function useSyncThreadListLastTurnStatus(): void {
     if (server == null) return;
 
     let cancelled = false;
-    void server
-      .getSession({ sessionId: remoteId })
+    // A settled turn bumps `updatedAt`, so this fresh read also retires cached history and list rows.
+    void invalidateSessionLists(queryClient);
+    void fetchSessionDetail({ queryClient, server, sessionId: remoteId, fresh: true })
       .then(session => {
         if (cancelled) return;
         const nextStatus = session.lastTurnDetails?.state.status ?? null;
@@ -112,5 +116,5 @@ export function useSyncThreadListLastTurnStatus(): void {
     return () => {
       cancelled = true;
     };
-  }, [aui, isRunning, remoteId, server]);
+  }, [aui, isRunning, queryClient, remoteId, server]);
 }

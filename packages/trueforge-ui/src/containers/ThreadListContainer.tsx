@@ -39,7 +39,9 @@ import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
 import { Icon } from '../icons/Icon.js';
+import { useServerQueryClient } from '../server/queryClient.js';
 import { useOptionalServer } from '../server/ServerContext.js';
+import { fetchSessionDetail, invalidateOutdatedSessionDetails } from '../server/sessionQueries.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { sessionListStartTimestamp } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -206,6 +208,7 @@ function ThreadListItemRow({
   const aui = useAui();
   const shell = useOptionalShellMode();
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const runtimeKeyRef = useRef(shell?.runtimeKey);
   runtimeKeyRef.current = shell?.runtimeKey;
   const track = useTrackAnalytics();
@@ -312,8 +315,7 @@ function ThreadListItemRow({
           // A row created in this client has no custom yet; defaulting to mutable would
           // reopen a saved-agent chat as a draft, so ask the server first.
           if (remoteId != null && server != null && readThreadIsMutable(custom) === undefined && agentName == null) {
-            void server
-              .getSession({ sessionId: remoteId })
+            void fetchSessionDetail({ queryClient, server, sessionId: remoteId })
               .then(
                 session => ({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
                 () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
@@ -527,6 +529,7 @@ export function ThreadListContainer({
 }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
+  const queryClient = useServerQueryClient();
   const track = useTrackAnalytics();
   const isLoading = useAuiState(s => s.threads.isLoading);
   const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
@@ -593,6 +596,7 @@ export function ThreadListContainer({
           startTimestamp: sessionListStartTimestamp(),
           ...(listSessionsAgentId == null || listSessionsAgentId.length === 0 ? {} : { agentId: listSessionsAgentId }),
         });
+        invalidateOutdatedSessionDetails({ queryClient, sessions: page.data });
 
         const statusByRemoteId = new Map(
           page.data.map(
@@ -622,7 +626,7 @@ export function ThreadListContainer({
       } catch {
         // Keep showing the last known status on transient poll failures.
       }
-    }, [listSessionsAgentId, server]),
+    }, [listSessionsAgentId, queryClient, server]),
   });
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.

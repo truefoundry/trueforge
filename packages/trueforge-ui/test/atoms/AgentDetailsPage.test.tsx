@@ -624,7 +624,7 @@ describe('AgentDetailsPage', () => {
       expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
       expect(listSessionEvents).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'sess-1' }));
     });
-    expect(screen.getByText('timeline-body')).toBeInTheDocument();
+    expect(await screen.findByText('timeline-body')).toBeInTheDocument();
   });
 
   it('stays on Overview when the URL only has an unrelated chat sessionId', async () => {

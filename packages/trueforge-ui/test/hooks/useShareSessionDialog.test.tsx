@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createServerQueryClient, ServerQueryClientContext } from '@/server/queryClient.js';
+import { queryKeys } from '@/server/queryKeys.js';
 import type {
   AgentBuilderCapabilitiesResponse,
   Session,
@@ -99,6 +102,36 @@ describe('useShareSessionDialog', () => {
     listAccess.mockResolvedValue([]);
     await act(() => result.current.load());
     expect(result.current.collaborators).toEqual([]);
+  });
+
+  it('paints cached grants while the refetch is still pending', async () => {
+    const queryClient = createServerQueryClient();
+    queryClient.setQueryData(queryKeys.sessions.grants('s1'), [grant({ subjectId: 'cached' })]);
+    listAccess.mockImplementation(() => new Promise<SessionAccessGrant[]>(() => undefined));
+    const { result } = renderHook(() => useShareSessionDialog('s1'), {
+      wrapper: ({ children }) => (
+        <ServerQueryClientContext.Provider value={queryClient}>{children}</ServerQueryClientContext.Provider>
+      ),
+    });
+
+    act(() => {
+      void result.current.load();
+    });
+    expect(result.current.collaborators.map(item => item.subjectId)).toEqual(['cached']);
+  });
+
+  it('reuses cached grants on remount instead of listing them again', async () => {
+    const queryClient = createServerQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ServerQueryClientContext.Provider value={queryClient}>{children}</ServerQueryClientContext.Provider>
+    );
+    const first = renderHook(() => useShareSessionDialog('s1'), { wrapper });
+    await waitFor(() => expect(first.result.current.collaborators).toHaveLength(1));
+    first.unmount();
+
+    const second = renderHook(() => useShareSessionDialog('s1'), { wrapper });
+    await waitFor(() => expect(second.result.current.collaborators).toHaveLength(1));
+    expect(listAccess).toHaveBeenCalledTimes(1);
   });
 
   it('does not list grants for viewers who cannot manage the session', async () => {

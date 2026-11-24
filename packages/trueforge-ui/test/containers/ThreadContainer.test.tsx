@@ -134,7 +134,7 @@ describe('ThreadContainer', () => {
     expect(composer.closest('[data-slot="aui_thread-composer"]')).toBeNull();
   });
 
-  it('omits the composer area entirely while loading', () => {
+  it('omits the composer while a session-less thread is loading', () => {
     renderThread([], { isLoading: true, composer: <div data-testid="composer-slot" /> });
     expect(screen.queryByTestId('composer-slot')).not.toBeInTheDocument();
   });

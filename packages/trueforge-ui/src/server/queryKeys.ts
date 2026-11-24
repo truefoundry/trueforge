@@ -3,7 +3,6 @@ import type {
   AgentMetricRangeRequest,
   ListSandboxEnvironmentsParams,
   ListSchedulesParams,
-  ListSessionEventsParams,
   ListSessionsParams,
   PermissionResourceType,
   SearchAgentsParams,
@@ -19,10 +18,8 @@ function key<const T extends readonly unknown[]>(...parts: T): readonly [typeof 
 type SessionHistoryPageParams = {
   sessionId: string;
   pageToken?: string;
-  lastTurnId?: string;
-  limit?: number;
-  /** Session `updatedAt` the newest page was read against; omitted for older pages. */
-  version?: string;
+  /** Session `updatedAt` the page was read against; an edit or branch can reshape older pages too. */
+  version: string;
 };
 
 /** Query keys for server reads; one QueryClient exists per server, so keys need no server scope. */
@@ -59,9 +56,12 @@ export const queryKeys = {
     list: (params: ListSessionsParams) => key('sessions', 'list', params),
     /** Infinite pages for the sessions browser; nested under `lists()` so session invalidation reaches them. */
     pages: (params: ListSessionsParams) => key('sessions', 'list', 'pages', params),
-    lastRun: (agentId: string) => key('sessions', 'list', 'last-run', agentId),
     detail: (sessionId: string) => key('sessions', 'detail', sessionId),
-    events: (params: ListSessionEventsParams) => key('sessions', 'events', params),
+    /** Access grants shown in the share dialog. */
+    grants: (sessionId: string) => key('sessions', 'grants', sessionId),
+    /** Full event timeline as of session `updatedAt`, so a settled turn reads a new entry. */
+    events: ({ sessionId, version }: { sessionId: string; version: string }) =>
+      key('sessions', 'events', sessionId, version),
   },
   /** Chat history pages; kept outside `sessions` so session-list invalidation does not evict them. */
   sessionHistory: {

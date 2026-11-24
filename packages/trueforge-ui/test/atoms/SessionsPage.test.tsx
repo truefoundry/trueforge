@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
+import { SESSION_LIST_POLL_INTERVAL_MS } from '@/atoms/lib/sessionListPoll.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
@@ -435,15 +436,44 @@ describe('SessionsPage', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: 'Load recent sessions' })).toBeInTheDocument();
-    const row = screen.getByText('Draft session');
+    const row = await screen.findByText('Draft session');
     fireEvent.click(row.closest('button') ?? row);
 
     expect(screen.getByRole('button', { name: 'Load recent sessions' })).toBeInTheDocument();
   });
 
+  it('polls the list only while a row has a live turn', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const running: SessionListEntry = {
+        ...namedRow,
+        lastTurnDetails: { id: 'turn-1', state: { status: 'running' } },
+      };
+      const listSessions = vi
+        .fn()
+        .mockResolvedValueOnce({ data: [running, draftRow] })
+        .mockResolvedValue({ data: [namedRow, draftRow] });
+      renderPage({ listSessions });
+
+      await screen.findByText('Named session');
+      expect(listSessions).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(SESSION_LIST_POLL_INTERVAL_MS);
+      await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(2));
+
+      await vi.advanceTimersByTimeAsync(SESSION_LIST_POLL_INTERVAL_MS * 2);
+      expect(listSessions).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('deletes only after the confirmation dialog is accepted', async () => {
-    const deleteSession = vi.fn(async () => undefined);
-    renderPage({ deleteSession });
+    let rows = [namedRow, draftRow];
+    const deleteSession = vi.fn(async ({ sessionId }: { sessionId: string }) => {
+      rows = rows.filter(row => row.id !== sessionId);
+    });
+    renderPage({ deleteSession, listSessions: vi.fn(async () => ({ data: rows })) });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for Named session' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
@@ -461,8 +491,8 @@ describe('SessionsPage', () => {
 
     await waitFor(() => {
       expect(deleteSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+      expect(screen.queryByText('Named session')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Named session')).not.toBeInTheDocument();
     expect(screen.getByText('Draft session')).toBeInTheDocument();
   });
 

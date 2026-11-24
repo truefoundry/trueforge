@@ -671,6 +671,27 @@ describe('useTrueForgeAgentMessages', () => {
     expect(result.current.messages[0]?.role).toBe('user');
   });
 
+  it('keeps the loaded transcript when the thread is selected again', async () => {
+    let hang = false;
+    vi.mocked(loadSessionSnapshot).mockImplementation(() =>
+      hang ? new Promise<SessionSnapshot>(() => undefined) : Promise.resolve(snapshotWithUserTurn('hello')),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ isMain }: { isMain: boolean }) =>
+        useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', isMain }),
+      { initialProps: { isMain: true } },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    hang = true;
+    rerender({ isMain: false });
+    rerender({ isMain: true });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.messages.some(message => message.role === 'user')).toBe(true);
+  });
+
   it('resumes a running turn after load', async () => {
     vi.mocked(resumeTurnStream).mockReturnValue(singleUpdateStream());
     const fold = new PeerThreadFoldState();

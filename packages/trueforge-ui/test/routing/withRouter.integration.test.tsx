@@ -209,7 +209,7 @@ describe('withRouter end to end', () => {
     expect(await screen.findByRole('heading', { name: 'Shared session' })).toBeInTheDocument();
     expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Last 30 days' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('shared-session-timeline')).toHaveTextContent('60rem');
+    expect(await screen.findByTestId('shared-session-timeline')).toHaveTextContent('60rem');
     expect(listSessions).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close session details' }));
