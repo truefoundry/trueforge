@@ -38,7 +38,7 @@ Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload) 
 proxies `/api/*` to `VITE_SERVER_URL` (default `http://localhost:8790`).
 `FRONTEND_PORT` moves Vite off `:3000`. Vite uses `strictPort` — if that port is
 already bound, dev exits instead of picking another. Proxy wiring lives in
-[`vite.config.ts`](vite.config.ts).
+[`vite.config.ts`](vite.config.ts). Set `VITE_ENABLE_ARTIFACTS=true` to show the Artifacts page.
 
 `predev` / `prebuild` / `pretypecheck` build `@truefoundry/trueforge-sdk` and
 `@truefoundry/trueforge-ui` first so clean checkouts do not rely on stale `dist/`.

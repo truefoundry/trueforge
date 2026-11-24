@@ -42,7 +42,7 @@ export type RoutesConfig = {
     environments?: string | false;
     /** Artifacts page. `false` keeps artifacts overlay-only (no URL). Default `'/artifacts'`. */
     artifacts?: string | false;
-    /** Artifact preview (`name-id`). `false` disables. Default `'/artifacts/:artifactRef'`. */
+    /** Artifact preview (`name--id`). `false` disables. Default `'/artifacts/:artifactRef'`. */
     artifact?: string | false;
     /** Agent builder. `false` disables its dedicated URL. Default `'/build-agent'`. */
     buildAgent?: string | false;

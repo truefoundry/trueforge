@@ -4,4 +4,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Add an optional `artifacts` server port and an Artifacts page (list plus file preview) after Environments. The standalone app shows it with dummy data only when `VITE_ENABLE_ARTIFACTS=true`.
+Add an Artifacts page after Environments. The standalone app shows it when `VITE_ENABLE_ARTIFACTS=true`. The list reads `GET /api/v1/artifacts`. Preview, rename, delete, and file read stay unwired until those routes exist.

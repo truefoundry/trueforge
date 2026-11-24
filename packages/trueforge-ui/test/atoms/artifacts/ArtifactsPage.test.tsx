@@ -13,20 +13,21 @@ import { createMockAgentUIServer, createMockArtifactServer, createMockCatalog } 
 
 const subject = { subjectId: 'user-1', subjectType: 'user', subjectDisplayName: 'alice' };
 
-function artifact(overrides: Partial<Artifact> & Pick<Artifact, 'id' | 'slug' | 'title'>): Artifact {
+function artifact(overrides: Partial<Artifact> & Pick<Artifact, 'id' | 'name'>): Artifact {
   return {
     latestVersion: 2,
     entryPoint: 'report.md',
     createdBySubject: subject,
     createdBySessionId: 'session-1',
+    createdByAgentId: null,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-02T00:00:00.000Z',
     ...overrides,
   };
 }
 
-const q4Brief = artifact({ id: 'a1', slug: 'q4-brief', title: 'Q4 brief' });
-const sample = [q4Brief, artifact({ id: 'a2', slug: 'empty-draft', title: 'Empty draft', entryPoint: null })];
+const q4Brief = artifact({ id: 'a1', name: 'Q4 brief' });
+const sample = [q4Brief, artifact({ id: 'a2', name: 'Empty draft', entryPoint: null })];
 
 // FilePreviewProvider reads thread state, so the page needs a runtime like the real layouts give it.
 function WithRuntime({ children }: { children: ReactNode }) {
@@ -57,7 +58,6 @@ describe('ArtifactsPage', () => {
   it('lists artifacts with type and version', async () => {
     renderWith(createMockArtifactServer({ listArtifacts: vi.fn(async () => ({ data: sample })) }));
     expect(await screen.findByText('Q4 brief')).toBeInTheDocument();
-    expect(screen.getByText('q4-brief')).toBeInTheDocument();
     expect(screen.getAllByText('v2')).toHaveLength(2);
     expect(screen.getByText('Markdown')).toBeInTheDocument();
     expect(screen.getByText('Unknown')).toBeInTheDocument();
@@ -79,19 +79,19 @@ describe('ArtifactsPage', () => {
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
   });
 
-  it('sends the debounced search text as title', async () => {
+  it('sends the debounced search text as name', async () => {
     const listArtifacts = vi.fn(async () => ({ data: sample }));
     renderWith(createMockArtifactServer({ listArtifacts }));
     await screen.findByText('Q4 brief');
-    fireEvent.change(screen.getByPlaceholderText('Search artifacts by title'), { target: { value: ' brief ' } });
-    await waitFor(() => expect(listArtifacts).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'brief' })));
+    fireEvent.change(screen.getByPlaceholderText('Search artifacts by name'), { target: { value: ' brief ' } });
+    await waitFor(() => expect(listArtifacts).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'brief' })));
   });
 
   it('opens the preview from a row click by reading the artifact file', async () => {
     const readArtifactFile = vi.fn(async () => new Blob(['# Hello'], { type: 'text/markdown' }));
     renderWith(createMockArtifactServer({ listArtifacts: async () => ({ data: sample }), readArtifactFile }));
     fireEvent.click(await screen.findByText('Q4 brief'));
-    await waitFor(() => expect(readArtifactFile).toHaveBeenCalledWith({ slug: 'q4-brief' }));
+    await waitFor(() => expect(readArtifactFile).toHaveBeenCalledWith({ id: 'a1' }));
   });
 
   it('puts the artifact in the URL on open, and deep-links by id', async () => {
@@ -113,7 +113,7 @@ describe('ArtifactsPage', () => {
       </>,
     );
     fireEvent.click(await screen.findByText('Q4 brief'));
-    await waitFor(() => expect(screen.getByTestId('ref')).toHaveTextContent('q4-brief-a1'));
+    await waitFor(() => expect(screen.getByTestId('ref')).toHaveTextContent('q4-brief--a1'));
     expect(getArtifact).not.toHaveBeenCalled();
   });
 

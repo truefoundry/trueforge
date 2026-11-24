@@ -23,6 +23,6 @@ export function artifactTypeLabel(entryPoint: string | null): string {
 export const NO_ENTRY_POINT_REASON = 'This artifact has no entry file to open.';
 
 /** Preview cache identity; a new version must not reuse the previous bytes. */
-export function artifactPreviewKey({ slug, latestVersion }: Pick<Artifact, 'slug' | 'latestVersion'>): string {
-  return `${slug}@v${String(latestVersion)}`;
+export function artifactPreviewKey({ id, latestVersion }: Pick<Artifact, 'id' | 'latestVersion'>): string {
+  return `${id}@v${String(latestVersion)}`;
 }

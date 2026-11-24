@@ -18,7 +18,6 @@ import {
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
-import { createDummyArtifactServer } from './artifacts/dummyArtifactServer';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
@@ -33,6 +32,7 @@ import { withSentryRootSpan } from './sentryFetch';
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+const ARTIFACTS_ENABLED = import.meta.env.VITE_ENABLE_ARTIFACTS === 'true';
 
 if (SENTRY_DSN) {
   Sentry.init({
@@ -64,8 +64,6 @@ const authAwareFetch = SENTRY_DSN ? withSentryRootSpan(createAuthAwareFetch()) :
 // UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
-// Stable identity: the resolved server rebuilds when `artifacts` changes.
-const dummyArtifactServer = createDummyArtifactServer();
 
 /** Host brand: primary CTA fill is a gradient (see `index.css`); keep solid token for accents. */
 const appTheme: ThemeConfig = {
@@ -261,7 +259,7 @@ export function App() {
           type: 'trueforge',
           baseUrl: API_BASE_URL,
           fetch: authAwareFetch,
-          artifacts: dummyArtifactServer,
+          ...(ARTIFACTS_ENABLED ? { artifactsEnabled: true } : {}),
         }}
         layout="sidebar"
         withRouter

@@ -71,11 +71,11 @@ describe('derivePlace', () => {
   });
 
   it('artifact preview is a distinct place only while artifacts is open', () => {
-    expect(derivePlace(snap({ artifactsOpen: true, artifactRef: 'q4-brief-a1' }))).toEqual({
+    expect(derivePlace(snap({ artifactsOpen: true, artifactRef: 'q4-brief--a1' }))).toEqual({
       type: 'artifact',
-      artifactRef: 'q4-brief-a1',
+      artifactRef: 'q4-brief--a1',
     });
-    expect(derivePlace(snap({ artifactsOpen: false, artifactRef: 'q4-brief-a1' }))).toEqual({ type: 'root' });
+    expect(derivePlace(snap({ artifactsOpen: false, artifactRef: 'q4-brief--a1' }))).toEqual({ type: 'root' });
   });
 
   it('schedules wins over environments when both are open', () => {

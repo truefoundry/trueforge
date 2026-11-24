@@ -800,14 +800,14 @@ describe('ShellRouteSync', () => {
 
   it('opens an artifact preview from a deep link and returns to the list', async () => {
     renderSync({
-      initialEntries: ['/artifacts/q4-brief-a1'],
+      initialEntries: ['/artifacts/q4-brief--a1'],
       agentConfig: { mode: 'AgentLibraryWithComposer' },
       includeArtifacts: true,
     });
     await waitFor(() => {
       expect(shell.artifactsOpen).toBe(true);
-      expect(shell.artifactRef).toBe('q4-brief-a1');
-      expect(pathname).toBe('/artifacts/q4-brief-a1');
+      expect(shell.artifactRef).toBe('q4-brief--a1');
+      expect(pathname).toBe('/artifacts/q4-brief--a1');
     });
     act(() => shell.setArtifactRef(null));
     expect(pathname).toBe('/artifacts');

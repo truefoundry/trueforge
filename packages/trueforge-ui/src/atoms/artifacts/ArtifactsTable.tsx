@@ -52,7 +52,7 @@ export function ArtifactsTable({
           const noEntryReason = artifact.entryPoint == null ? NO_ENTRY_POINT_REASON : undefined;
           return (
             <TableRow
-              key={artifact.slug}
+              key={artifact.id}
               className={cn(
                 'cursor-pointer',
                 artifactPreviewKey(artifact) === selectedKey && 'bg-secondary-button-hover',
@@ -60,10 +60,7 @@ export function ArtifactsTable({
               onClick={() => onOpen(artifact)}
             >
               <TableCell>
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate font-medium text-text-primary">{artifact.title}</span>
-                  <span className="truncate text-xs text-text-secondary">{artifact.slug}</span>
-                </div>
+                <span className="truncate font-medium text-text-primary">{artifact.name}</span>
               </TableCell>
               <TableCell>
                 <Badge variant="outline" shape="pill">
@@ -81,7 +78,7 @@ export function ArtifactsTable({
                     <button
                       type="button"
                       className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                      aria-label={`Actions for ${artifact.title}`}
+                      aria-label={`Actions for ${artifact.name}`}
                     >
                       <Icon name="ellipsis-vertical" className="size-3.5" />
                     </button>

@@ -31,6 +31,13 @@ describe('createTrueForgeAgentUIServer permissions', () => {
     expect(server.permissions?.listPermissions).toEqual(expect.any(Function));
   });
 
+  it('omits artifacts unless artifactsEnabled is set', () => {
+    expect(createTrueForgeAgentUIServer({ fetch: vi.fn() }).artifacts).toBeUndefined();
+    expect(createTrueForgeAgentUIServer({ fetch: vi.fn(), artifactsEnabled: true }).artifacts?.listArtifacts).toEqual(
+      expect.any(Function),
+    );
+  });
+
   it('preserves an explicit permissions port', () => {
     const permissions: PermissionsServer = {
       listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({

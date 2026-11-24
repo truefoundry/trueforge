@@ -21,10 +21,10 @@ export function ArtifactEditDialog({
 }: {
   artifact: Artifact;
   onCancel: () => void;
-  onSave: (title: string) => void;
+  onSave: (name: string) => void;
 }) {
-  const [title, setTitle] = useState(artifact.title);
-  const trimmed = title.trim();
+  const [name, setName] = useState(artifact.name);
+  const trimmed = name.trim();
 
   return (
     <Dialog
@@ -41,10 +41,10 @@ export function ArtifactEditDialog({
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-text-secondary">Name</span>
           <input
-            value={title}
+            value={name}
             aria-label="Artifact name"
             className={auiInputClass('h-8')}
-            onChange={event => setTitle(event.target.value)}
+            onChange={event => setName(event.target.value)}
           />
         </label>
       </DialogContent>
@@ -54,7 +54,7 @@ export function ArtifactEditDialog({
         </Button.Secondary>
         <Button.Primary
           type="button"
-          disabled={trimmed.length === 0 || trimmed === artifact.title}
+          disabled={trimmed.length === 0 || trimmed === artifact.name}
           onClick={() => onSave(trimmed)}
         >
           Save
@@ -78,7 +78,7 @@ export function ArtifactDeleteDialog({
       title="Delete artifact"
       description={
         <>
-          Delete <span className="font-medium text-text-primary">{artifact.title}</span>? This cannot be undone.
+          Delete <span className="font-medium text-text-primary">{artifact.name}</span>? This cannot be undone.
         </>
       }
       confirmLabel="Delete"
@@ -107,10 +107,10 @@ export function artifactMutations({
   setArtifactRef: ((ref: string | null) => void) | undefined;
   openedRef: MutableRefObject<string | null>;
 }) {
-  const saveTitle = async ({ artifact, title }: { artifact: Artifact; title: string }) => {
+  const saveName = async ({ artifact, name }: { artifact: Artifact; name: string }) => {
     try {
-      await artifactServer.updateArtifact({ id: artifact.id, title });
-      track(AnalyticsEvents.Artifact.EDITED, { artifact_slug: artifact.slug });
+      await artifactServer.updateArtifact({ id: artifact.id, name });
+      track(AnalyticsEvents.Artifact.EDITED, { artifact_id: artifact.id });
       toaster?.showSuccess({ title: 'Artifact updated' });
       void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.all() });
       return true;
@@ -128,7 +128,7 @@ export function artifactMutations({
         closePreview();
         setArtifactRef?.(null);
       }
-      track(AnalyticsEvents.Artifact.DELETED, { artifact_slug: artifact.slug });
+      track(AnalyticsEvents.Artifact.DELETED, { artifact_id: artifact.id });
       toaster?.showSuccess({ title: 'Artifact deleted' });
       void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.all() });
     } catch (caught) {
@@ -136,5 +136,5 @@ export function artifactMutations({
     }
   };
 
-  return { saveTitle, deleteArtifact };
+  return { saveName, deleteArtifact };
 }

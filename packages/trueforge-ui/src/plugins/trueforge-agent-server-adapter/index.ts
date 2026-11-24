@@ -5,6 +5,7 @@ import { createTrueForgeServer } from '../../server/createTrueForgeServer.js';
 import type { ArtifactServer, CatalogServer, PermissionsServer } from '../../server/types.js';
 import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
+import { createArtifactServer } from './artifactServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
 import { createMemoryProviderCatalog } from './catalogs/memoryProviderCatalog.js';
@@ -26,6 +27,7 @@ export {
   createHarnessAgentSessionsServer,
   type CreateHarnessAgentSessionsServerOptions,
 } from './agentSessionsServer.js';
+export { createArtifactServer } from './artifactServer.js';
 export {
   createHarnessBuilderServer,
   modelProviderLogosByName,
@@ -98,15 +100,17 @@ export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions &
   catalog?: CatalogServer;
   /** Optional host-provided resource permissions port. */
   permissions?: PermissionsServer;
-  /** Optional host-provided artifacts port. */
+  /** Override the list-backed artifacts port. */
   artifacts?: ArtifactServer;
+  /** Attach the list-backed port when `artifacts` is omitted. */
+  artifactsEnabled?: boolean;
 };
 
 /**
  * Compose chat + builder + agent sessions + default settings catalogs into an `AgentUIServer`.
  */
 export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServerOptions = {}) {
-  const { catalog: catalogOverride, permissions, artifacts, ...clientOptions } = options;
+  const { catalog: catalogOverride, permissions, artifacts, artifactsEnabled, ...clientOptions } = options;
   const client = createTrueForgeClient(clientOptions);
   const catalog =
     catalogOverride ??
@@ -119,6 +123,8 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
       memoryCatalog: createMemoryProviderCatalog(client),
     } satisfies CatalogServer);
 
+  const resolvedArtifacts = artifacts ?? (artifactsEnabled === true ? createArtifactServer(client) : undefined);
+
   return createTrueForgeServer<HarnessAgentSpec>({
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
@@ -128,7 +134,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
     sandboxEnvironments: createSandboxEnvironmentServer({ client }),
-    ...(artifacts == null ? {} : { artifacts }),
+    ...(resolvedArtifacts != null ? { artifacts: resolvedArtifacts } : {}),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
     sessionAccess: createHarnessSessionAccessServer({ client }),
     getMe: async () => {

@@ -14,8 +14,10 @@ export type TrueForgeBuiltInServerConfig = {
   fetch?: typeof fetch;
   catalog?: CatalogServer;
   permissions?: PermissionsServer;
-  /** Artifacts page port; omit to hide the Artifacts surface. */
+  /** Custom artifacts port. When set, it replaces the built-in list client. */
   artifacts?: ArtifactServer;
+  /** Attach the built-in list client. Ignored when `artifacts` is set. */
+  artifactsEnabled?: boolean;
 };
 
 /**

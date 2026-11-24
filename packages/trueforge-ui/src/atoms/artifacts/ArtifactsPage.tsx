@@ -59,12 +59,12 @@ function ArtifactsPageBody() {
   const openedRefRef = useRef<string | null>(null);
 
   const [searchInput, setSearchInput] = useState('');
-  const [title, setTitle] = useState('');
+  const [name, setName] = useState('');
   const [scope, setScope] = useState<ArtifactScope>('all');
   const [editing, setEditing] = useState<Artifact | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Artifact | null>(null);
   const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
-  const pageScope = JSON.stringify([pageSize, title, scope]);
+  const pageScope = JSON.stringify([pageSize, name, scope]);
   const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>({
     scope: pageScope,
     token: undefined,
@@ -78,7 +78,7 @@ function ArtifactsPageBody() {
   }, [closePreview]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setTitle(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    const timer = window.setTimeout(() => setName(searchInput.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
@@ -86,10 +86,10 @@ function ArtifactsPageBody() {
     (): ListArtifactsParams => ({
       limit: pageSize,
       ...(pageToken === undefined ? {} : { pageToken }),
-      ...(title === '' ? {} : { title }),
+      ...(name === '' ? {} : { name }),
       scope,
     }),
-    [pageSize, pageToken, scope, title],
+    [name, pageSize, pageToken, scope],
   );
   const listQuery = useQuery(
     {
@@ -112,17 +112,17 @@ function ArtifactsPageBody() {
 
   const openPreview = useCallback(
     (artifact: Artifact) => {
-      const { entryPoint, slug } = artifact;
+      const { entryPoint, id } = artifact;
       if (entryPoint == null) return;
-      track(AnalyticsEvents.Artifact.PREVIEW_OPENED, { artifact_slug: slug });
+      track(AnalyticsEvents.Artifact.PREVIEW_OPENED, { artifact_id: id });
       const ref = artifactRef(artifact);
       openedRefRef.current = ref;
       setArtifactRef?.(ref);
       openFilePreview({
-        name: artifact.title,
+        name: artifact.name,
         path: entryPoint,
         turnId: artifactPreviewKey(artifact),
-        load: () => artifactServer.readArtifactFile({ slug }),
+        load: () => artifactServer.readArtifactFile({ id }),
       });
     },
     [artifactServer, openFilePreview, setArtifactRef, track],
@@ -163,7 +163,7 @@ function ArtifactsPageBody() {
     }
   }, [previewOpen, setArtifactRef]);
 
-  const { saveTitle, deleteArtifact } = artifactMutations({
+  const { saveName, deleteArtifact } = artifactMutations({
     artifactServer,
     queryClient,
     toaster,
@@ -177,9 +177,9 @@ function ArtifactsPageBody() {
   const downloadArtifact = async (artifact: Artifact) => {
     if (artifact.entryPoint == null) return;
     try {
-      const blob = await artifactServer.readArtifactFile({ slug: artifact.slug });
+      const blob = await artifactServer.readArtifactFile({ id: artifact.id });
       triggerBrowserDownload(blob, filenameFromPath(artifact.entryPoint));
-      track(AnalyticsEvents.Artifact.DOWNLOADED, { artifact_slug: artifact.slug });
+      track(AnalyticsEvents.Artifact.DOWNLOADED, { artifact_id: artifact.id });
     } catch (caught) {
       toaster?.showError(caught);
     }
@@ -194,7 +194,7 @@ function ArtifactsPageBody() {
         end={
           <div className="flex items-center gap-2">
             <div className="w-64">
-              <SearchInput query={searchInput} setQuery={setSearchInput} placeholder="Search artifacts by title" />
+              <SearchInput query={searchInput} setQuery={setSearchInput} placeholder="Search artifacts by name" />
             </div>
             <ArtifactScopeFilter scope={scope} onChange={setScope} />
           </div>
@@ -217,7 +217,7 @@ function ArtifactsPageBody() {
               ))}
             </div>
           ) : artifacts.length === 0 ? (
-            <ArtifactsEmptyState title={title} scope={scope} />
+            <ArtifactsEmptyState title={name} scope={scope} />
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
               <ArtifactsTable
@@ -227,7 +227,7 @@ function ArtifactsPageBody() {
                 onDownload={artifact => void downloadArtifact(artifact)}
                 onEdit={setEditing}
                 onDelete={setPendingDelete}
-                onShare={artifact => track(AnalyticsEvents.Artifact.SHARE_OPENED, { artifact_slug: artifact.slug })}
+                onShare={artifact => track(AnalyticsEvents.Artifact.SHARE_OPENED, { artifact_id: artifact.id })}
               />
               {hasPageNav ? (
                 <TableTokenPagination
@@ -254,7 +254,7 @@ function ArtifactsPageBody() {
           onCancel={() => setEditing(null)}
           onSave={next => {
             if (editing == null) return;
-            void saveTitle({ artifact: editing, title: next }).then(saved => {
+            void saveName({ artifact: editing, name: next }).then(saved => {
               if (saved) setEditing(null);
             });
           }}

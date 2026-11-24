@@ -1,15 +1,20 @@
 import type { Artifact } from '../server/types.js';
 
-/** URL segment `title-with-hyphens-{id}`; the id is everything after the last `-`. */
-export function artifactRef({ title, id }: Pick<Artifact, 'title' | 'id'>): string {
-  const name = title
+// Ids are lowercase ULIDs with no `-`, and the slug collapses runs of `-`, so `--` only appears as the separator.
+const REF_SEPARATOR = '--';
+
+/** URL segment `name-with-hyphens--{id}`. */
+export function artifactRef({ name, id }: Pick<Artifact, 'name' | 'id'>): string {
+  const slug = name
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return name === '' ? id : `${name}-${id}`;
+  return slug === '' ? id : `${slug}${REF_SEPARATOR}${id}`;
 }
 
+/** Reads only the id after the last `--`. The name part is display-only and is never parsed. */
 export function artifactIdFromRef(ref: string): string {
-  return ref.slice(ref.lastIndexOf('-') + 1);
+  const at = ref.lastIndexOf(REF_SEPARATOR);
+  return at < 0 ? ref : ref.slice(at + REF_SEPARATOR.length);
 }

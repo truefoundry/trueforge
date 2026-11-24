@@ -1380,13 +1380,15 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
 export interface Artifact {
   /** Stable identifier used in URLs. Must not contain `-`. */
   id: string;
-  slug: string;
-  title: string;
+  name: string;
+  /** Latest version. 0 before the first version. */
   latestVersion: number;
   /** Latest version's default file to render, relative to the version. Null before the first version. */
   entryPoint: string | null;
   createdBySubject: Subject;
   createdBySessionId: string;
+  /** Registry agent of the creating session. Null when the session used an inline agent spec. */
+  createdByAgentId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1394,9 +1396,12 @@ export interface Artifact {
 export interface ListArtifactsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
   /** Only artifacts created in this session. */
   createdBySessionId?: string;
-  /** Case-insensitive substring match on title. */
-  title?: string;
-  /** Resolved by the server against the caller. Defaults to `all`. */
+  /** Case-insensitive substring match on name. */
+  name?: string;
+  /**
+   * Not on the list API yet. The page still sends it; the adapter does not forward it
+   * until the backend confirms `created_by_me` / `shared_with_me`.
+   */
   scope?: 'all' | 'created_by_me' | 'shared_with_me';
 }
 
@@ -1404,10 +1409,10 @@ export interface ArtifactServer<TArtifact extends Artifact = Artifact> {
   /** Caller's artifacts, most recently updated first. */
   listArtifacts(req?: ListArtifactsParams): Promise<ListResult<TArtifact>>;
   getArtifact(req: { id: string }): Promise<TArtifact>;
-  updateArtifact(req: { id: string; title: string }): Promise<TArtifact>;
+  updateArtifact(req: { id: string; name: string }): Promise<TArtifact>;
   deleteArtifact(req: { id: string }): Promise<void>;
   /** Defaults to the latest version and its `entryPoint`. */
-  readArtifactFile(req: { slug: string; version?: number; path?: string }): Promise<Blob>;
+  readArtifactFile(req: { id: string; version?: number; path?: string }): Promise<Blob>;
 }
 
 // ---------------------------------------------------------------------------
