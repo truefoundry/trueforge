@@ -1,3 +1,5 @@
+## [0.186.0-rc.1] - 2026-11-24
+
 ## [0.186.0-rc.0] - 2026-11-16
 
 ## [0.185.0] - 2026-11-13
@@ -45,6 +47,12 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.186.0-rc.1
+
+### Patch Changes
+
+- a80ed4a: Regenerate the TypeScript and Python SDKs after the Fern core/generator bump (schema validation fixes; Python distribution name `trueforge-sdk`).
 
 ## 0.185.0
 
