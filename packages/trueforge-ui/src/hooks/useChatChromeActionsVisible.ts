@@ -8,7 +8,6 @@ import { isNewChatView } from '../utils/isNewChatView.js';
 
 export type NamedAgentHeaderState = {
   name: string;
-  isEditing: boolean;
   /** When true, prefer a non-empty thread/session title over `name`. */
   allowThreadTitle: boolean;
 };
@@ -22,7 +21,6 @@ export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   if (identity != null && identity.length > 0) {
     return {
       name: identity,
-      isEditing: shell.mode.isMutable && shell.mode.agentId != null,
       allowThreadTitle: false,
     };
   }
@@ -32,7 +30,6 @@ export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   const isCreateAgent = shell.mode.isCreateAgent;
   return {
     name: isCreateAgent ? 'New Agent' : 'New Chat',
-    isEditing: false,
     allowThreadTitle: true,
   };
 }

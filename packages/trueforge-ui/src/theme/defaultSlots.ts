@@ -110,6 +110,7 @@ import { ToolApprovalBar } from '../atoms/ToolApprovalBar.js';
 import { ToolCallCard } from '../atoms/ToolCallCard.js';
 import { ToolCallContentBlock } from '../atoms/ToolCallContentBlock.js';
 import { ToolGroupCard } from '../atoms/ToolGroupCard.js';
+import { UnsavedChangesIndicator } from '../atoms/UnsavedChangesIndicator.js';
 import { UserAvatar } from '../atoms/UserAvatar.js';
 import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
@@ -269,6 +270,7 @@ export const defaultSlots = {
   EnvironmentsButton,
   SaveAgentButton,
   SaveAgentForm,
+  UnsavedChangesIndicator,
   SelectAgentEmptyState,
   ClearChatButton,
   ResetAgentBuilderButton,

@@ -108,7 +108,7 @@ describe('NamedAgentHeaderLabel', () => {
     expect(screen.getByRole('heading', { name: 'New Agent' })).toBeInTheDocument();
   });
 
-  it('shows an Editing label for a saved agent opened in mutable mode', () => {
+  it('shows only the agent name for a saved agent opened in mutable mode', () => {
     render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <RuntimeHarness messages={[]}>
@@ -122,10 +122,11 @@ describe('NamedAgentHeaderLabel', () => {
       screen.getByRole('button', { name: 'edit' }).click();
     });
 
-    expect(screen.getByRole('heading', { name: 'reviewer Editing' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'reviewer' })).toBeInTheDocument();
+    expect(screen.queryByText('Editing')).not.toBeInTheDocument();
   });
 
-  it('shows the clone draft name without an Editing label', () => {
+  it('shows the clone draft name', () => {
     render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <RuntimeHarness messages={[]}>

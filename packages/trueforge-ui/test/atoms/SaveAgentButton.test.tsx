@@ -373,6 +373,22 @@ describe('SaveAgentButton', () => {
     );
   });
 
+  it('shows Unsaved changes only while the live spec differs from the saved agent', async () => {
+    const { rerenderButton } = renderButton({
+      children: <BoundMutableSaveButton agentId="writer" description="Writes docs." />,
+    });
+    await screen.findByRole('button', { name: 'Update Agent' });
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+
+    agentSpec = { ...agentSpec, model: { name: 'anthropic/claude-sonnet-4-6' } };
+    rerenderButton();
+    expect(await screen.findByText('Unsaved changes')).toBeInTheDocument();
+
+    agentSpec = { ...agentSpec, model: { name: 'openai/gpt-4.1' } };
+    rerenderButton();
+    await waitFor(() => expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument());
+  });
+
   it('treats a named create draft (clone) as Save Agent create, not update', async () => {
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'writer-clone-id' }));
     renderButton({
