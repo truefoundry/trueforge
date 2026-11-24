@@ -276,7 +276,10 @@ describe('capabilities routers', () => {
 
   describe('auto', () => {
     const routingForDefaultTenant = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { tenant_id: 'default', name: 'typesafe/jev-1.13.0' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
 
     const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;

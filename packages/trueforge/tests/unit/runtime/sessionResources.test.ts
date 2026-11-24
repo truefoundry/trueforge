@@ -225,7 +225,10 @@ describe('validateAgentSpec', () => {
       manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: false } },
     });
     const modelRouting = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { tenant_id: 'default', name: 'typesafe/jev-1.13.0' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
     await expect(
       validateAgentSpec({
