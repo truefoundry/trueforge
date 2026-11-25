@@ -66,13 +66,15 @@ function renderBridge({
       },
     }),
   });
-  return render(
+  const tree = () => (
     <ServerProvider server={server}>
       <DraftCatalogProvider>
         <DraftSpecPreferenceBridge />
       </DraftCatalogProvider>
-    </ServerProvider>,
+    </ServerProvider>
   );
+  const result = render(tree());
+  return { ...result, rerenderBridge: () => result.rerender(tree()) };
 }
 
 beforeEach(() => {
@@ -257,6 +259,29 @@ describe('DraftSpecPreferenceBridge Auto default', () => {
     renderBridge({ auto: { status: 'enabled' } });
 
     await new Promise(resolve => setTimeout(resolve, 50));
+    for (const [update] of updateAgentSpec.mock.calls) {
+      expect(update.model).not.toEqual(AUTO_MODEL_PATCH);
+    }
+  });
+
+  it('switches to Auto only once when storage cannot keep the marker', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+
+    const { rerenderBridge } = renderBridge({ auto: { status: 'enabled' } });
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({ model: AUTO_MODEL_PATCH });
+    });
+
+    updateAgentSpec.mockClear();
+    agentSpec = { model: { name: 'picked' } };
+    rerenderBridge();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    setItemSpy.mockRestore();
+
     for (const [update] of updateAgentSpec.mock.calls) {
       expect(update.model).not.toEqual(AUTO_MODEL_PATCH);
     }
