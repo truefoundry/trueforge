@@ -21,6 +21,7 @@
 - HTTP/OpenAPI wire shapes (path params, query params, request/response JSON fields) and database identifiers (table/column names, persisted jsonb document keys) MUST use `snake_case`.
 - Server code MUST NOT read environment variables via `process.env` directly; all env reads MUST go through `packages/trueforge/src/config.ts`, unless there is a documented special requirement (for example bootstrap before config is loaded).
 - UI styles MUST use `rem` for lengths (not `px`); assume **1rem = 16px**. Prefer Tailwind spacing/type scale utilities when they fit. Exceptions: `0px` in `calc()`/`env()` fallbacks, existing media-query breakpoints, and canvas/measurement APIs that require CSS pixels.
+- GitHub Actions that push commits to `main` or `release-v*`, open or merge PRs into those branches, or write to another repository MUST use a TrueForge Dev Bot GitHub App installation token (`TRUEFORGE_GENERATE_SDK_APP_ID` / `TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY` via `actions/create-github-app-token`). Same-repo API reads and creating package git tags or GitHub Releases MUST use `secrets.GITHUB_TOKEN`; do not mint the App token when `GITHUB_TOKEN` is enough. Any job that calls `api.github.com` with either token MUST join `tag:ci-github-egress` first (org IP allowlist).
 
 ## Code comments
 
