@@ -269,14 +269,6 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - name: Join the tailnet for GitHub egress
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
-        with:
-          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
-          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
-          tags: tag:ci-github-egress
-          hostname: gh-trueforge-publish-${{ github.run_id }}
-
       - name: Check out repo
         uses: actions/checkout@v7
         with:
@@ -293,7 +285,16 @@ jobs:
           # pnpm's OIDC exchange for npm trusted publishing.
           package-manager-cache: false
 
+      # Join after install so allowed lifecycle scripts never run on the egress tag.
       - run: pnpm install --frozen-lockfile
+
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-publish-${{ github.run_id }}
 
       - name: Publish packages
         id: publish
