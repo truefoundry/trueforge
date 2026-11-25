@@ -46,14 +46,17 @@ describe('orchestration: mocked LLM and no tools', () => {
         iterationLimit: undefined,
         toolSets: undefined,
       },
-      resolveModel: undefined,
-      model: {
-        client: {
-          create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-          createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: {
+              create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+              createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: THREAD_ID,
       title: 'orchestration',
       parent: undefined,

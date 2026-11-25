@@ -223,10 +223,8 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
-  /** Undefined until `resolveModel` resolves it, when the thread first runs. */
-  model: AgentModel | undefined;
-  /** Resolves the model of a thread built without one. `routed` when model routing chose it. */
-  resolveModel: (() => Promise<{ model: AgentModel; routed: boolean }>) | undefined;
+  /** Resolves the thread's model when it first runs. `routed` when model routing chose it. */
+  resolveModel: () => Promise<{ model: AgentModel; routed: boolean }>;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

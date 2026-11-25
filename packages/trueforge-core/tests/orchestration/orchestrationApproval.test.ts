@@ -672,14 +672,17 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
         iterationLimit: undefined,
         toolSets: [toolSet],
       },
-      resolveModel: undefined,
-      model: {
-        client: {
-          create: jest.fn(),
-          createNonStream: jest.fn(),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: {
+              create: jest.fn(),
+              createNonStream: jest.fn(),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: ROOT_ID,
       title: 'orchestration-approval-policy',
       parent: undefined,
@@ -834,17 +837,20 @@ function makeApprovalHarness(
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    resolveModel: undefined,
-    model: {
-      client: {
-        create: jest
-          .fn()
-          .mockImplementationOnce(() => writeNoteToolCallStream())
-          .mockImplementation(() => textReplyStream(finalReply)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest
+              .fn()
+              .mockImplementationOnce(() => writeNoteToolCallStream())
+              .mockImplementation(() => textReplyStream(finalReply)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId: ROOT_ID,
     title: 'orchestration-approval',
     parent: undefined,
@@ -900,17 +906,20 @@ function makeApprovalHarnessWithUserToolSet(
       iterationLimit: undefined,
       toolSets: [toolSet],
     },
-    resolveModel: undefined,
-    model: {
-      client: {
-        create: jest
-          .fn()
-          .mockImplementationOnce(() => writeNoteToolCallStream())
-          .mockImplementation(() => textReplyStream(finalReply)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest
+              .fn()
+              .mockImplementationOnce(() => writeNoteToolCallStream())
+              .mockImplementation(() => textReplyStream(finalReply)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId: ROOT_ID,
     title: 'orchestration-approval-policy-flow',
     parent: undefined,

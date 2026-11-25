@@ -612,7 +612,6 @@ export class SessionHandle<
     ];
     return new AgentThread({
       definition,
-      model: undefined,
       resolveModel: this.threadModelResolver({
         resolver: input.resolver,
         spec: input.spec,
@@ -683,7 +682,6 @@ export class SessionHandle<
       const rootModel = input.rootThread.model;
       return new AgentThread({
         definition: childDefinition,
-        model: undefined,
         resolveModel: this.threadModelResolver({
           resolver: input.resolver,
           spec: input.spec,
@@ -709,7 +707,8 @@ export class SessionHandle<
 
   /**
    * A root runs on the model its spec names; an auto root routes on a new turn and resumes on its saved model. A
-   * subagent routes when it is created and resumes on its saved model, running on the root's when neither applies.
+   * subagent routes when it is created and resumes on its saved model, running on the model it was asked for, else
+   * the root's, when neither applies.
    */
   private threadModelResolver(input: {
     resolver: ITurnResourceResolver<TTurnCustom>;
@@ -719,7 +718,7 @@ export class SessionHandle<
     userMessage: UserMessage[] | undefined;
     threadId: string;
     isRoot: boolean;
-    /** The delegated task a subagent routes on when it is created. */
+    /** The delegated task a subagent routes on when it is created, and the model it was asked to run on. */
     request: AgentInfo | undefined;
     /** The root's model, for a subagent that is neither routed nor saved. */
     rootModel: ModelSnapshot | undefined;
@@ -739,6 +738,7 @@ export class SessionHandle<
       const model = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
       return () => resolver.resolveModel({ spec, model, routingInput });
     }
+    const requested = request?.model === undefined ? undefined : { name: request.model, effort: null };
     if (previousThread === undefined) {
       if (request === undefined) {
         throw new Error(`Unreachable: subagent ${threadId} was created without a request`);
@@ -749,8 +749,8 @@ export class SessionHandle<
         input: `Name: ${request.name}\n\nTask:\n${request.input}`,
         instructions: TASK_ROUTING_INSTRUCTIONS,
       };
-      return () => resolver.resolveModel({ spec, model: input.rootModel, routingInput });
+      return () => resolver.resolveModel({ spec, model: requested ?? input.rootModel, routingInput });
     }
-    return () => resolver.resolveModel({ spec, model: saved ?? input.rootModel, routingInput: undefined });
+    return () => resolver.resolveModel({ spec, model: saved ?? requested ?? input.rootModel, routingInput: undefined });
   }
 }

@@ -178,11 +178,14 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
           json_schema: { name: 'out', nested_ext: 'keep' },
         }),
       },
-      resolveModel: undefined,
-      model: {
-        client: modelClient,
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: modelClient,
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       // Prior-turn assistant in context — must be replayed with gateway semantics.
       context: [{ role: 'user', content: 'prev' }, assistant],
     });

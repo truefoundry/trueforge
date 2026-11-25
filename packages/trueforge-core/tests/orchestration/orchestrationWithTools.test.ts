@@ -127,18 +127,21 @@ describe('orchestration: dynamic sub-agent', () => {
         iterationLimit: undefined,
         toolSets: undefined,
       },
-      resolveModel: undefined,
-      model: {
-        // This is an instance if ILLM
-        client: {
-          create: jest
-            .fn()
-            .mockImplementationOnce(() => createSubAgentStream())
-            .mockImplementation(() => textReplyStream(ROOT_FINAL)),
-          createNonStream: jest.fn(),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            // This is an instance if ILLM
+            client: {
+              create: jest
+                .fn()
+                .mockImplementationOnce(() => createSubAgentStream())
+                .mockImplementation(() => textReplyStream(ROOT_FINAL)),
+              createNonStream: jest.fn(),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: ROOT_ID,
       title: 'orchestration-with-tools',
       // Undefined
@@ -179,7 +182,6 @@ describe('orchestration: dynamic sub-agent', () => {
       };
       return new AgentThread({
         definition: agentDefinition,
-        model: undefined,
         resolveModel: () =>
           Promise.resolve({
             model: { client, name: CHILD_MODEL, params: { reasoning_effort: 'low' } },

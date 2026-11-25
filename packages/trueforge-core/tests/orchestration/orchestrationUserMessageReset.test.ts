@@ -66,14 +66,17 @@ function baseThreadInput(
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    resolveModel: undefined,
-    model: {
-      client: {
-        create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
-        createNonStream: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
+            createNonStream: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     parent: undefined,
     agentInfo: undefined,
     context: undefined,
@@ -115,15 +118,7 @@ describe('orchestration: user-message reset', () => {
           iterationLimit: undefined,
           toolSets: undefined,
         },
-        model: {
-          client: {
-            create: jest.fn().mockImplementation(() => {
-              throw new Error('cancelled child must not call the model');
-            }),
-            createNonStream: jest.fn(),
-          },
-          name: TEST_MODEL_NAME,
-        },
+        resolveModel: () => Promise.reject(new Error('cancelled child must not resolve a model')),
       }),
     );
 

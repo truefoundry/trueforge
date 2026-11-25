@@ -112,11 +112,14 @@ async function registeredToolNames(input: {
     definition: {
       toolSets: input.toolSets ?? [],
     },
-    resolveModel: undefined,
-    model: {
-      client: { create, createNonStream: jest.fn() },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: { create, createNonStream: jest.fn() },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     context: [{ role: 'user', content: 'hi' }],
   });
   for await (const event of thread.execute({ signal: new AbortController().signal })) {

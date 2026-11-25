@@ -240,7 +240,14 @@ describe('SessionHandle.createTurn named resolve', () => {
 });
 
 describe('SessionHandle rebuild', () => {
-  it('brings a subagent back on the model it ran on when a paused turn is rebuilt', async () => {
+  it.each([
+    {
+      name: 'the model it ran on',
+      saved: { name: 'acct/routed', effort: 'high' },
+      expected: { name: 'acct/routed', effort: 'high' },
+    },
+    { name: 'the model it was asked for', saved: null, expected: { name: 'acct/requested', effort: null } },
+  ])('brings a subagent back on $name when a paused turn is rebuilt', async ({ saved, expected }) => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
@@ -269,7 +276,7 @@ describe('SessionHandle rebuild', () => {
           current_context_usage: getEmptyCurrentContextUsage(),
           parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
           agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/requested' },
-          model: { name: 'acct/routed', effort: 'high' },
+          model: saved,
           completion: null,
           pending_mcp_auth: false,
           capability_state: null,
@@ -308,7 +315,7 @@ describe('SessionHandle rebuild', () => {
     }
 
     expect(resolveModel.mock.calls.map(([input]) => input)).toContainEqual(
-      expect.objectContaining({ model: { name: 'acct/routed', effort: 'high' }, routingInput: undefined }),
+      expect.objectContaining({ model: expected, routingInput: undefined }),
     );
     expect(resolveAgentDefinition.mock.calls.map(([input]) => input.agent_info)).toContainEqual(undefined);
   });

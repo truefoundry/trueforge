@@ -38,14 +38,17 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    resolveModel: undefined,
-    model: {
-      client: {
-        create: jest.fn(() => textReplyStream(`${threadId} done`)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest.fn(() => textReplyStream(`${threadId} done`)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId,
     title: threadId,
     parent: undefined,

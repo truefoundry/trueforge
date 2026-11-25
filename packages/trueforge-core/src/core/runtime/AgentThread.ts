@@ -474,8 +474,9 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
-  private currentModel: AgentModel | undefined;
-  private readonly resolveModel: AgentThreadConstructorInput['resolveModel'];
+  /** Undefined until the thread first runs and resolves it. */
+  private currentModel: AgentModel | undefined = undefined;
+  private readonly modelResolver: AgentThreadConstructorInput['resolveModel'];
   readonly agentInfo?: AgentInfo | undefined;
   private readonly title: string;
 
@@ -515,8 +516,7 @@ export class AgentThread {
     this.logger = input.logger.child({ module: 'AgentThread' });
     this.threadId = input.threadId;
     this.definition = input.definition;
-    this.currentModel = input.model;
-    this.resolveModel = input.resolveModel;
+    this.modelResolver = input.resolveModel;
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
@@ -934,15 +934,9 @@ export class AgentThread {
     return this.currentModel;
   }
 
-  /** Resolves a model the thread was built without, and records it when model routing chose it. */
-  private async *ensureModel(): AsyncGenerator<ThreadSwitchModelEvent, void, unknown> {
-    if (this.currentModel !== undefined) {
-      return;
-    }
-    if (this.resolveModel === undefined) {
-      throw new Error(`Unreachable: thread ${this.threadId} has no model and no way to resolve one`);
-    }
-    const { model, routed } = await this.resolveModel();
+  /** Resolves the thread's model, recording it only when model routing chose it. */
+  private async *resolveModel(): AsyncGenerator<ThreadSwitchModelEvent, AgentModel, unknown> {
+    const { model, routed } = await this.modelResolver();
     if (routed) {
       const effort = model.params?.reasoning_effort;
       if (effort === undefined) {
@@ -956,7 +950,7 @@ export class AgentThread {
         model: { name: model.name, params: { reasoning_effort: effort } },
       };
     }
-    this.currentModel = model;
+    return model;
   }
 
   private requireModel(): AgentModel {
@@ -1630,8 +1624,6 @@ export class AgentThread {
         return;
       }
 
-      yield* this.ensureModel();
-
       if (!this.convertedTools) {
         const { initializationInfo, authRequirementInfo, convertedTools, tfyManagedServerNames } =
           await this.tracing.withInitSpan(() => this.initTools());
@@ -1660,6 +1652,8 @@ export class AgentThread {
       // A resumed turn that is still awaiting user input never reaches this loop — orchestrator
       // send() / validateSendInput rejects empty or incomplete batches before execute runs.
       let currentModelMessageEventId = '';
+
+      this.currentModel ??= yield* this.resolveModel();
 
       for (;;) {
         for (;;) {
