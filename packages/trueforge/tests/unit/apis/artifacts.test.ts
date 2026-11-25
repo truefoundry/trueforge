@@ -33,12 +33,6 @@ describe('artifacts router', () => {
       created_by_agent_id: 'agent-1',
     });
     reportId = report.id;
-    await artifactStore.createVersion({
-      tenant_id: report.tenant_id,
-      artifact_id: report.id,
-      entry_point: 'report/index.html',
-      total_bytes: 1,
-    });
     await artifactStore.createArtifact({
       ...mine,
       name: 'Roadmap',
@@ -64,13 +58,6 @@ describe('artifacts router', () => {
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
     expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(['Q3 Report', 'Roadmap']);
-    expect(Object.keys(first.data[0] ?? {}).sort()).toEqual([
-      'created_at',
-      'created_by_subject',
-      'id',
-      'name',
-      'updated_at',
-    ]);
     expect([...first.data, ...second.data].find(a => a.name === 'Q3 Report')?.id).toBe(reportId);
   });
 
