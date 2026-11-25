@@ -14,6 +14,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Optional,
@@ -37,8 +38,8 @@ if TYPE_CHECKING:
 IS_PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
 
 if IS_PYDANTIC_V2:
-    _datetime_adapter = pydantic.TypeAdapter(dt.datetime)  # type: ignore[attr-defined]
-    _date_adapter = pydantic.TypeAdapter(dt.date)  # type: ignore[attr-defined]
+    _datetime_adapter = pydantic.TypeAdapter(dt.datetime)  # type: ignore[attr-defined,var-annotated]
+    _date_adapter = pydantic.TypeAdapter(dt.date)  # type: ignore[attr-defined,var-annotated]
 
     def parse_datetime(value: Any) -> dt.datetime:  # type: ignore[misc]
         if isinstance(value, dt.datetime):
@@ -129,7 +130,7 @@ else:
     from pydantic.typing import is_union as is_union  # type: ignore[no-redef]
 
 from .datetime_utils import serialize_datetime
-from .serialization import convert_and_respect_annotation_metadata
+from .serialization import convert_and_respect_annotation_metadata, get_field_to_alias_mapping
 from typing_extensions import TypeAlias
 
 T = TypeVar("T")
@@ -237,6 +238,59 @@ def _coerce_keys_to_aliases(model: type, data: Any) -> Any:
     return rewritten
 
 
+_declared_keys_cache: "weakref.WeakKeyDictionary[type, Tuple[FrozenSet[str], FrozenSet[str]]]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _get_declared_keys(model: type) -> Tuple[FrozenSet[str], FrozenSet[str]]:
+    """
+    Keys that refer to a declared field (field names, Pydantic aliases and FieldMetadata aliases), together with
+    their casefolded forms. Computed once per model class.
+    """
+    cached = _declared_keys_cache.get(model)
+    if cached is None:
+        fields: Mapping[str, Any] = (
+            getattr(model, "model_fields", {}) if IS_PYDANTIC_V2 else getattr(model, "__fields__", {})
+        )
+        keys: Set[str] = set(fields)
+        for field in fields.values():
+            alias = getattr(field, "alias", None)
+            if isinstance(alias, str):
+                keys.add(alias)
+        keys.update(get_field_to_alias_mapping(model).values())
+        cached = (frozenset(keys), frozenset(key.casefold() for key in keys))
+        _declared_keys_cache[model] = cached
+    return cached
+
+
+def _allows_extra_fields(model: type) -> bool:
+    if IS_PYDANTIC_V2:
+        return getattr(model, "model_config", {}).get("extra") == "allow"
+    extra = getattr(getattr(model, "__config__", None), "extra", None)
+    return getattr(extra, "value", extra) == "allow"
+
+
+def _drop_extras_colliding_with_fields(model: type, data: Any) -> Any:
+    """
+    Drop unknown keys that match a declared field case-insensitively (e.g. `VALUE` next to `value`). Kept as
+    extras, they would be sent again after the declared field, and a case-insensitive decoder such as Go's
+    encoding/json would read them instead of it.
+    """
+    if not isinstance(data, Mapping) or not _allows_extra_fields(model):
+        return data
+
+    declared_keys, declared_casefolded = _get_declared_keys(model)
+    colliding = {
+        key
+        for key in data
+        if isinstance(key, str) and key not in declared_keys and key.casefold() in declared_casefolded
+    }
+    if not colliding:
+        return data
+    return {key: value for key, value in data.items() if key not in colliding}
+
+
 def parse_obj_as(type_: Type[T], object_: Any) -> T:
     # convert_and_respect_annotation_metadata is required for TypedDict aliasing.
     #
@@ -279,7 +333,7 @@ class UniversalBaseModel(pydantic.BaseModel):
         @pydantic.model_validator(mode="before")  # type: ignore[attr-defined]
         @classmethod
         def _coerce_field_names_to_aliases(cls, data: Any) -> Any:
-            return _coerce_keys_to_aliases(cls, data)
+            return _coerce_keys_to_aliases(cls, _drop_extras_colliding_with_fields(cls, data))
 
         @pydantic.model_serializer(mode="plain", when_used="json")  # type: ignore[attr-defined]
         def serialize_model(self) -> Any:  # type: ignore[name-defined]
@@ -295,7 +349,7 @@ class UniversalBaseModel(pydantic.BaseModel):
 
         @pydantic.root_validator(pre=True)
         def _coerce_field_names_to_aliases(cls, values: Any) -> Any:
-            return _coerce_keys_to_aliases(cls, values)  # type: ignore[arg-type]
+            return _coerce_keys_to_aliases(cls, _drop_extras_colliding_with_fields(cls, values))  # type: ignore[arg-type]
 
     @classmethod
     def model_construct(cls: Type["Model"], _fields_set: Optional[Set[str]] = None, **values: Any) -> "Model":
