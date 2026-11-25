@@ -49,11 +49,6 @@ function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
 }
 
-/** Routing replaces the spec's model, so its `model.params` are dropped; the thread gets the routed model's defaults. */
-function specForRoutedModel(spec: AgentSpec, routed: RoutedModel): AgentSpec {
-  return { ...spec, model: { name: routed.model, params: { reasoning_effort: routed.effort } } };
-}
-
 /** A saved effort replaces the freshly resolved one. `null` means the thread ran with none. */
 function applySavedEffort(baseParams: ModelParams, effort: string | null | undefined): ModelParams {
   if (effort === undefined) {
@@ -313,67 +308,32 @@ export class TurnResourceResolver<
 
   async resolveModel(input: {
     spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
     model: ModelSnapshot | undefined;
     routingInput: RouteInput | undefined;
-    fallback: ModelSnapshot | undefined;
   }): Promise<{ model: AgentModel; routed: boolean }> {
-    const { spec, agent_info } = input;
-    const usesAutoModel = spec.model.name === AUTO_MODEL;
-    if (usesAutoModel && !this.autoModelRouterAvailable) {
-      throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
-    }
-    // A root that names a model always runs on it, even when resuming; a subagent resumes on whatever it ran on.
-    if (agent_info === undefined && !usesAutoModel) {
-      return {
-        model: await this.loadModel({ spec, agent_info, model: undefined }),
-        routed: false,
-      };
-    }
-    if (input.model !== undefined) {
-      return { model: await this.loadModel({ spec, agent_info, model: input.model }), routed: false };
-    }
+    const { spec } = input;
     const routed = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
-    if (routed !== undefined) {
-      return {
-        model: await this.loadModel({
-          spec: specForRoutedModel(spec, routed),
-          agent_info,
-          model: { name: routed.model, effort: routed.effort },
-        }),
-        routed: true,
-      };
-    }
-    if (!usesAutoModel) {
-      return { model: await this.loadModel({ spec, agent_info, model: undefined }), routed: false };
-    }
-    if (agent_info === undefined) {
+    const chosen = routed === undefined ? input.model : { name: routed.model, effort: routed.effort };
+    if (chosen === undefined && spec.model.name === AUTO_MODEL) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }
-    if (input.fallback === undefined) {
-      throw new Error('Unreachable: an auto subagent the router could not place has no root model to fall back on');
-    }
-    return { model: await this.loadModel({ spec, agent_info, model: input.fallback }), routed: false };
-  }
-
-  private async loadModel(input: {
-    spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
-    model: ModelSnapshot | undefined;
-  }): Promise<AgentModel> {
-    const { spec } = input;
-    const modelName = input.model?.name ?? input.agent_info?.model ?? spec.model.name;
-    const resolvedModel = await this.getModel(modelName);
+    const name = chosen?.name ?? spec.model.name;
+    const resolvedModel = await this.getModel(name);
+    // The spec's params belong to its own model, and routing drops them; any other model runs on its defaults. A chosen
+    // effort replaces either.
     const baseParams =
-      modelName === spec.model.name
+      routed === undefined && name === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
         : { ...resolvedModel.defaultModelParams };
     return {
-      client: resolvedModel.modelClient,
-      name: modelName,
-      ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
-      properties: resolvedModel.modelProperties,
-      params: applySavedEffort(baseParams, input.model?.effort),
+      model: {
+        client: resolvedModel.modelClient,
+        name,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
+        properties: resolvedModel.modelProperties,
+        params: applySavedEffort(baseParams, chosen?.effort),
+      },
+      routed: routed !== undefined,
     };
   }
 

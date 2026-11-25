@@ -286,6 +286,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
     const thread = new AgentThread({
       definition: {},
+      resolveModel: undefined,
       model: {
         client: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
         name: TEST_MODEL_NAME,

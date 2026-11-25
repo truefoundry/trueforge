@@ -30,7 +30,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   readonly webSearchProvider?: IWebSearchProvider | undefined;
   /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
   readonly logger: Logger;
-  /** False when the tenant has model routing off, so an auto agent can't run. */
+  /** Whether model routing is available for this turn's tenant. A spec whose model is `auto` needs it. */
   readonly autoModelRouterAvailable: boolean;
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
@@ -67,15 +67,16 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
+  /**
+   * The model a thread runs on: the routed model, else `model`, else the spec's. Throws when an auto spec ends up with
+   * neither.
+   */
   resolveModel(input: {
     spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
-    /** A saved model to resume on; skips routing. */
+    /** The model to run on when nothing is routed: a saved one, or the root's for a subagent. */
     model: ModelSnapshot | undefined;
-    /** What to route on: the conversation for a root, the delegated task for a subagent. */
+    /** What to route on; undefined to not route. */
     routingInput: RouteInput | undefined;
-    /** The model an auto subagent runs on when the router can't place it: the root's. */
-    fallback: ModelSnapshot | undefined;
   }): Promise<{ model: AgentModel; routed: boolean }>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:

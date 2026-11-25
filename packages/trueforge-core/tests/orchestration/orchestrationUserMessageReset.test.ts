@@ -7,13 +7,7 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
-import {
-  llmCreateInputs,
-  rejectModelSelection,
-  runExecute,
-  textReplyStream,
-  threadModelClient,
-} from './helpers/helpers';
+import { llmCreateInputs, runExecute, textReplyStream, threadModelClient } from './helpers/helpers';
 
 const MAIN_ID = 'main';
 const CHILD_ID = 'child';
@@ -72,6 +66,7 @@ function baseThreadInput(
       iterationLimit: undefined,
       toolSets: undefined,
     },
+    resolveModel: undefined,
     model: {
       client: {
         create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
@@ -133,7 +128,6 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
-      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],
@@ -226,7 +220,6 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
-      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],
@@ -313,7 +306,6 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
-      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],

@@ -163,6 +163,7 @@ export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | Use
 export type AgentThreadSendBatch = UserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
+  | ThreadSwitchModelEvent
   | ModelMessageEvent
   | ModelMessageDeltaEvent
   | ToolResponseEvent
@@ -191,9 +192,7 @@ export interface InternalTurnStateEvent {
 }
 
 export type AgentThreadExecutionEvent =
-  | WithRegisteredPassthrough<
-      ThreadCreatedEvent | ThreadSwitchModelEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
-    >
+  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
   | InternalTurnStateEvent;
 
 export interface AgentThreadExecutionResult {
@@ -224,8 +223,10 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
-  /** Undefined until the orchestrator resolves it, before the thread first runs. */
+  /** Undefined until `resolveModel` resolves it, when the thread first runs. */
   model: AgentModel | undefined;
+  /** Resolves the model of a thread built without one. `routed` when model routing chose it. */
+  resolveModel: (() => Promise<{ model: AgentModel; routed: boolean }>) | undefined;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

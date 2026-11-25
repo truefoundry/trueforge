@@ -9,8 +9,14 @@ import { AUTO_MODEL, type RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
-import { AgentThreadOrchestrator, type AgentThreadOrchestratorInput } from '../core/runtime/AgentThreadOrchestrator';
+import type {
+  AgentInfo,
+  AgentThreadAppendContext,
+  AgentThreadConstructorInput,
+  AgentThreadSnapshot,
+  ModelSnapshot,
+} from '../core/runtime/AgentThread.types';
+import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -478,6 +484,8 @@ export class SessionHandle<
 
     const agentThreads = this.buildThreads({
       previous: input.previous,
+      resuming: input.resuming,
+      userMessage: input.userMessage,
       resolver: input.resolver,
       spec,
       sandbox,
@@ -492,6 +500,9 @@ export class SessionHandle<
     const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
       resolver: input.resolver,
       previous: input.previous,
+      resuming: input.resuming,
+      userMessage: input.userMessage,
+      rootThread,
       spec,
       sandbox,
       tracing,
@@ -503,14 +514,6 @@ export class SessionHandle<
       agentThreads,
       ...(maxParallelSubAgents !== undefined ? { maxParallelSubAgents } : {}),
       createDynamicSubAgentThread,
-      resolveModel: this.makeResolveModel({
-        resolver: input.resolver,
-        spec,
-        previous: input.previous,
-        resuming: input.resuming,
-        userMessage: input.userMessage,
-        rootThread,
-      }),
       tracing,
       logger: input.resolver.logger,
       pendingTurnEvents: input.pendingTurnEvents,
@@ -548,6 +551,8 @@ export class SessionHandle<
 
   private buildThreads(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
+    resuming: boolean;
+    userMessage: UserMessage[] | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
     sandbox: HarnessSandbox | undefined;
@@ -565,6 +570,9 @@ export class SessionHandle<
         threadId,
         this.buildThread({
           threadId,
+          previous: input.previous,
+          resuming: input.resuming,
+          userMessage: input.userMessage,
           previousThreadSnapshot: snapshots?.[threadId],
           resolver: input.resolver,
           spec: input.spec,
@@ -579,6 +587,9 @@ export class SessionHandle<
 
   private buildThread(input: {
     threadId: string;
+    previous: TurnRecord<TTurnCustom> | undefined;
+    resuming: boolean;
+    userMessage: UserMessage[] | undefined;
     previousThreadSnapshot?: AgentThreadSnapshot | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
@@ -602,6 +613,18 @@ export class SessionHandle<
     return new AgentThread({
       definition,
       model: undefined,
+      resolveModel: this.threadModelResolver({
+        resolver: input.resolver,
+        spec: input.spec,
+        previous: input.previous,
+        resuming: input.resuming,
+        userMessage: input.userMessage,
+        threadId: input.threadId,
+        // Only the main thread has no parent.
+        isRoot: !isChild,
+        request: input.previousThreadSnapshot?.agent_info ?? undefined,
+        rootModel: input.previous?.snapshot.threads[MAIN_THREAD_ID]?.model ?? undefined,
+      }),
       threadId: input.threadId,
       title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
@@ -621,6 +644,9 @@ export class SessionHandle<
   private makeCreateDynamicSubAgentThread(input: {
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
+    resuming: boolean;
+    userMessage: UserMessage[] | undefined;
+    rootThread: AgentThread;
     spec: AgentSpec;
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
@@ -654,9 +680,21 @@ export class SessionHandle<
         }),
         ...(extraCapabilities ?? []),
       ];
+      const rootModel = input.rootThread.model;
       return new AgentThread({
         definition: childDefinition,
         model: undefined,
+        resolveModel: this.threadModelResolver({
+          resolver: input.resolver,
+          spec: input.spec,
+          previous: input.previous,
+          resuming: input.resuming,
+          userMessage: input.userMessage,
+          threadId: params.threadId,
+          isRoot: false,
+          request: params.request,
+          rootModel: rootModel === undefined ? undefined : modelSnapshotFromAgent(rootModel),
+        }),
         threadId: params.threadId,
         title: params.request.name,
         sandbox: input.sandbox,
@@ -670,58 +708,49 @@ export class SessionHandle<
   }
 
   /**
-   * A new turn's root routes on the conversation, and a subagent created this turn on its delegated task. Only routed
-   * models are saved, so any other thread resumes on its saved model or, if it has none, on the one its spec or request
-   * names.
+   * A root runs on the model its spec names; an auto root routes on a new turn and resumes on its saved model. A
+   * subagent routes when it is created and resumes on its saved model, running on the root's when neither applies.
    */
-  private makeResolveModel(input: {
+  private threadModelResolver(input: {
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
     previous: TurnRecord<TTurnCustom> | undefined;
     resuming: boolean;
     userMessage: UserMessage[] | undefined;
-    rootThread: AgentThread;
-  }): AgentThreadOrchestratorInput['resolveModel'] {
-    return async thread => {
-      const request = thread.agentInfo;
-      const isRoot = request === undefined;
-      const previousThread = input.previous?.snapshot.threads[thread.threadId];
-      const previousRoot = input.previous?.snapshot.threads[MAIN_THREAD_ID];
-      // A new turn's root and a subagent created this turn choose a model; every other thread reuses its saved one.
-      const isNew = isRoot ? !input.resuming : previousThread === undefined;
-      const saved = isNew ? undefined : (previousThread?.model ?? undefined);
-      // An auto root without a saved model has nothing else to run on, so it routes even when resuming.
-      const routes = isNew || (isRoot && saved === undefined);
-      const rootModel = input.rootThread.model;
-      return input.resolver.resolveModel({
-        spec: input.spec,
-        agent_info: request,
-        model: saved,
-        routingInput: routes ? routeFor({ thread, previousRoot, userMessage: input.userMessage }) : undefined,
-        // While a rebuilt root is still being restored, its saved model is the fallback.
-        fallback: rootModel === undefined ? (previousRoot?.model ?? undefined) : modelSnapshotFromAgent(rootModel),
-      });
-    };
+    threadId: string;
+    isRoot: boolean;
+    /** The delegated task a subagent routes on when it is created. */
+    request: AgentInfo | undefined;
+    /** The root's model, for a subagent that is neither routed nor saved. */
+    rootModel: ModelSnapshot | undefined;
+  }): AgentThreadConstructorInput['resolveModel'] {
+    const { resolver, spec, threadId, request } = input;
+    const previousThread = input.previous?.snapshot.threads[threadId];
+    const saved = previousThread?.model ?? undefined;
+    if (input.isRoot) {
+      const routes = spec.model.name === AUTO_MODEL && !input.resuming;
+      const routingInput: RouteInput | undefined = routes
+        ? {
+            threadId: MAIN_THREAD_ID,
+            input: routingConversation(previousThread?.context ?? [], input.userMessage ?? []),
+            instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
+          }
+        : undefined;
+      const model = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
+      return () => resolver.resolveModel({ spec, model, routingInput });
+    }
+    if (previousThread === undefined) {
+      if (request === undefined) {
+        throw new Error(`Unreachable: subagent ${threadId} was created without a request`);
+      }
+      // The classifier requires the name and input to classify the task.
+      const routingInput: RouteInput = {
+        threadId,
+        input: `Name: ${request.name}\n\nTask:\n${request.input}`,
+        instructions: TASK_ROUTING_INSTRUCTIONS,
+      };
+      return () => resolver.resolveModel({ spec, model: input.rootModel, routingInput });
+    }
+    return () => resolver.resolveModel({ spec, model: saved ?? input.rootModel, routingInput: undefined });
   }
-}
-
-function routeFor(input: {
-  thread: AgentThread;
-  previousRoot: AgentThreadSnapshot | undefined;
-  userMessage: UserMessage[] | undefined;
-}): RouteInput {
-  const request = input.thread.agentInfo;
-  if (request === undefined) {
-    return {
-      threadId: MAIN_THREAD_ID,
-      input: routingConversation(input.previousRoot?.context ?? [], input.userMessage ?? []),
-      instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
-    };
-  }
-  // The classifier requires the name and input to classify the task.
-  return {
-    threadId: input.thread.threadId,
-    input: `Name: ${request.name}\n\nTask:\n${request.input}`,
-    instructions: TASK_ROUTING_INSTRUCTIONS,
-  };
 }

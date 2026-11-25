@@ -6,7 +6,7 @@ import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrche
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { withTimeout } from '../../src/core/util/promiseUtils';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { rejectModelSelection, textReplyStream, threadModelClient } from './helpers/helpers';
+import { textReplyStream, threadModelClient } from './helpers/helpers';
 
 function makeAuthBlockedThread(threadId: string): AgentThread {
   const authToolSet: IToolSet = {
@@ -38,6 +38,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
       iterationLimit: undefined,
       toolSets: undefined,
     },
+    resolveModel: undefined,
     model: {
       client: {
         create: jest.fn(() => textReplyStream(`${threadId} done`)),
@@ -66,7 +67,6 @@ describe('orchestration: MCP auth continuation', () => {
     const first = makeAuthBlockedThread('first');
     const second = makeAuthBlockedThread('second');
     const orchestrator = new AgentThreadOrchestrator({
-      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [first.threadId, first],
         [second.threadId, second],

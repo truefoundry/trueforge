@@ -29,6 +29,7 @@ import {
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
+  type ThreadSwitchModelEvent,
   type ToolApprovalPolicy,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -474,6 +475,7 @@ export class AgentThread {
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
   private currentModel: AgentModel | undefined;
+  private readonly resolveModel: AgentThreadConstructorInput['resolveModel'];
   readonly agentInfo?: AgentInfo | undefined;
   private readonly title: string;
 
@@ -514,6 +516,7 @@ export class AgentThread {
     this.threadId = input.threadId;
     this.definition = input.definition;
     this.currentModel = input.model;
+    this.resolveModel = input.resolveModel;
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
@@ -931,7 +934,28 @@ export class AgentThread {
     return this.currentModel;
   }
 
-  setModel(model: AgentModel): void {
+  /** Resolves a model the thread was built without, and records it when model routing chose it. */
+  private async *ensureModel(): AsyncGenerator<ThreadSwitchModelEvent, void, unknown> {
+    if (this.currentModel !== undefined) {
+      return;
+    }
+    if (this.resolveModel === undefined) {
+      throw new Error(`Unreachable: thread ${this.threadId} has no model and no way to resolve one`);
+    }
+    const { model, routed } = await this.resolveModel();
+    if (routed) {
+      const effort = model.params?.reasoning_effort;
+      if (effort === undefined) {
+        throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
+      }
+      yield {
+        type: EventType.THREAD_SWITCH_MODEL,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        thread_id: this.threadId,
+        model: { name: model.name, params: { reasoning_effort: effort } },
+      };
+    }
     this.currentModel = model;
   }
 
@@ -1605,6 +1629,8 @@ export class AgentThread {
         yield this.buildReplayEvent(this.preComputedCompletion);
         return;
       }
+
+      yield* this.ensureModel();
 
       if (!this.convertedTools) {
         const { initializationInfo, authRequirementInfo, convertedTools, tfyManagedServerNames } =

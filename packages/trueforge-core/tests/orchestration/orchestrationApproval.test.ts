@@ -11,7 +11,6 @@ import { makeMockIMCPServer, makeSilentLogger, TEST_MODEL_NAME } from '../core/h
 import {
   driveUntilPauseOrDone,
   llmCreateInputs,
-  rejectModelSelection,
   textReplyStream,
   threadModelClient,
   WRITE_NOTE_ARGUMENTS,
@@ -673,6 +672,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
         iterationLimit: undefined,
         toolSets: [toolSet],
       },
+      resolveModel: undefined,
       model: {
         client: {
           create: jest.fn(),
@@ -694,7 +694,6 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
       logger: makeSilentLogger(),
     });
     orchestrator = new AgentThreadOrchestrator({
-      resolveModel: rejectModelSelection,
       agentThreads: new Map([[thread.threadId, thread]]),
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in policy test')),
       tracing: NOOP_AGENT_TRACING,
@@ -835,6 +834,7 @@ function makeApprovalHarness(
       iterationLimit: undefined,
       toolSets: undefined,
     },
+    resolveModel: undefined,
     model: {
       client: {
         create: jest
@@ -872,7 +872,6 @@ function makeApprovalHarness(
 
   const thread = new AgentThread(agentThreadInput);
   const orchestrator = new AgentThreadOrchestrator({
-    resolveModel: rejectModelSelection,
     agentThreads: new Map([[thread.threadId, thread]]),
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval test')),
     tracing: NOOP_AGENT_TRACING,
@@ -901,6 +900,7 @@ function makeApprovalHarnessWithUserToolSet(
       iterationLimit: undefined,
       toolSets: [toolSet],
     },
+    resolveModel: undefined,
     model: {
       client: {
         create: jest
@@ -927,7 +927,6 @@ function makeApprovalHarnessWithUserToolSet(
 
   const thread = new AgentThread(agentThreadInput);
   const orchestrator = new AgentThreadOrchestrator({
-    resolveModel: rejectModelSelection,
     agentThreads: new Map([[thread.threadId, thread]]),
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval policy test')),
     tracing: NOOP_AGENT_TRACING,

@@ -112,6 +112,7 @@ async function registeredToolNames(input: {
     definition: {
       toolSets: input.toolSets ?? [],
     },
+    resolveModel: undefined,
     model: {
       client: { create, createNonStream: jest.fn() },
       name: TEST_MODEL_NAME,

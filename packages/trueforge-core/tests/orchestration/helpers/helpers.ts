@@ -186,8 +186,3 @@ export function threadModelClient(thread: AgentThread): ILLM {
   }
   return thread.model.client;
 }
-
-/** For orchestrators whose threads are built with their models, so none is ever selected. */
-export function rejectModelSelection(): Promise<never> {
-  return Promise.reject(new Error('unexpected model selection'));
-}

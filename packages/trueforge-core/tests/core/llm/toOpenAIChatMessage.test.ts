@@ -178,6 +178,7 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
           json_schema: { name: 'out', nested_ext: 'keep' },
         }),
       },
+      resolveModel: undefined,
       model: {
         client: modelClient,
         name: TEST_MODEL_NAME,

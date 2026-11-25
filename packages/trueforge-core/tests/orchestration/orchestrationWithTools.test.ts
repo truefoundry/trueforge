@@ -14,7 +14,6 @@ import {
   createSubAgentStream,
   driveUntilPauseOrDone,
   llmCreateInputs,
-  rejectModelSelection,
   textReplyStream,
   threadModelClient,
 } from './helpers/helpers';
@@ -25,7 +24,7 @@ const CHILD_REPLY = 'hello from the child';
 const ROOT_FINAL = 'How are you?';
 const INSTRUCTION = 'You are running in a test setup.';
 const CHILD_TASK = 'do the delegated task';
-/** Selected by the orchestrator's resolveModel, not the parent's request, as when the subagent's model is routed. */
+/** Resolved by the subagent thread itself, not the parent's request, as when the subagent's model is routed. */
 const CHILD_MODEL = 'provider/child-model';
 
 const CREATE_SUB_AGENT_ARGS = JSON.stringify({ name: 'worker', input: CHILD_TASK });
@@ -128,6 +127,7 @@ describe('orchestration: dynamic sub-agent', () => {
         iterationLimit: undefined,
         toolSets: undefined,
       },
+      resolveModel: undefined,
       model: {
         // This is an instance if ILLM
         client: {
@@ -164,10 +164,11 @@ describe('orchestration: dynamic sub-agent', () => {
       threadId,
       parent,
     }) => {
-      childLLM = {
+      const client: ILLM = {
         create: jest.fn().mockImplementation(() => textReplyStream(CHILD_REPLY)),
         createNonStream: jest.fn().mockImplementation(() => textReplyStream(CHILD_REPLY)),
       };
+      childLLM = client;
 
       const agentDefinition: AgentDefinition = {
         instruction: undefined,
@@ -179,6 +180,11 @@ describe('orchestration: dynamic sub-agent', () => {
       return new AgentThread({
         definition: agentDefinition,
         model: undefined,
+        resolveModel: () =>
+          Promise.resolve({
+            model: { client, name: CHILD_MODEL, params: { reasoning_effort: 'low' } },
+            routed: true,
+          }),
         threadId,
         title: request.name,
         parent,
@@ -197,13 +203,6 @@ describe('orchestration: dynamic sub-agent', () => {
     let orchestratorInput: AgentThreadOrchestratorInput = {
       agentThreads: new Map([[thread_1.threadId, thread_1]]),
       createDynamicSubAgentThread: createSubAgentThread,
-      resolveModel: thread =>
-        thread.threadId === ROOT_ID || childLLM === undefined
-          ? rejectModelSelection()
-          : Promise.resolve({
-              model: { client: childLLM, name: CHILD_MODEL, params: { reasoning_effort: 'low' } },
-              routed: true,
-            }),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
       pendingTurnEvents: [],
