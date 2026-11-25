@@ -94,12 +94,12 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
 
   const hint =
     selected.length === 0
-      ? `Pick ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)} models; with none, Auto stays unavailable.`
+      ? ` Pick ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)} models; with none, Auto stays unavailable.`
       : belowMinimum && dirty
-        ? `Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
+        ? ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
         : atLimit
-          ? 'Remove one to add another.'
-          : 'Users are only routed to models they can access.';
+          ? ' Remove one to add another.'
+          : '';
 
   const toggle = (name: string) =>
     setSelected(current => (current.includes(name) ? current.filter(item => item !== name) : [...current, name]));
@@ -241,7 +241,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
       {modelsQuery.isError ? (
         <p className="mt-2 text-xs text-failure-bg">{getErrorMessage(modelsQuery.error, 'Failed to load models')}</p>
       ) : null}
-      <p className="mt-2 text-xs text-text-secondary">{`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected. ${hint}`}</p>
+      <p className="mt-2 text-xs text-text-secondary">{`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected.${hint}`}</p>
 
       {dirty ? (
         <div className="mt-3 flex justify-end gap-2">

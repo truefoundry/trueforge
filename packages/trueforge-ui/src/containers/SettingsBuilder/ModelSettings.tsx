@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
-import { cn } from '@/atoms/lib/cn.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import ConfirmDeleteDialog from '@/atoms/primitives/ConfirmDeleteDialog.js';
@@ -349,301 +348,295 @@ const ModelSettings = () => {
         </p>
       ) : null}
 
-      {/* One scroll region, so the wheel works over the Auto card as well as the provider list. */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        {showAutoMode ? <AutoModeSetting /> : null}
+      {/* The pane doesn't scroll, so a tall Auto card (with its model list open) scrolls on its own. */}
+      {showAutoMode ? (
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <AutoModeSetting />
+        </div>
+      ) : null}
 
-        {canManageProviders ? (
-          <div className={cn('min-w-0', showAutoMode ? 'mt-8' : 'mt-4')}>
-            {showAutoMode ? (
-              <div className="mb-3">
-                <h4 className="text-sm font-medium text-text-primary">Model providers</h4>
-                <p className="mt-0.5 text-xs text-text-secondary">
-                  Connect providers and choose which of their models are available.
-                </p>
+      {canManageProviders ? (
+        <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-hidden">
+          <div className="flex h-full min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 flex-1">
+                <SearchInput query={query} setQuery={setQuery} placeholder="Search providers and models" />
               </div>
-            ) : null}
-            <div className="flex min-w-0 flex-col gap-3">
-              <div className="sticky top-0 z-10 flex min-w-0 flex-col gap-2 bg-card-bg pb-1 sm:flex-row">
-                <div className="min-w-0 flex-1">
-                  <SearchInput query={query} setQuery={setQuery} placeholder="Search providers and models" />
-                </div>
-                <Button.Secondary
-                  type="button"
-                  className="shrink-0 sm:self-auto"
-                  onClick={() => {
-                    setFormError(null);
-                    setCustomProviderToEdit(null);
-                    setCustomProviderOpen(true);
-                  }}
-                >
-                  <Icon name="plus" size="1rem" className="mr-1" />
-                  Add Custom Provider
-                </Button.Secondary>
-              </div>
+              <Button.Secondary
+                type="button"
+                className="shrink-0 sm:self-auto"
+                onClick={() => {
+                  setFormError(null);
+                  setCustomProviderToEdit(null);
+                  setCustomProviderOpen(true);
+                }}
+              >
+                <Icon name="plus" size="1rem" className="mr-1" />
+                Add Custom Provider
+              </Button.Secondary>
+            </div>
 
-              <div className="flex flex-col gap-2">
-                {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
+            <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+              {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
-                {!loading && matchingConfigured.length > 0 ? (
-                  <section aria-labelledby="configured-providers-heading">
-                    <div
-                      id="configured-providers-heading"
-                      className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
-                    >
-                      Configured
-                    </div>
+              {!loading && matchingConfigured.length > 0 ? (
+                <section aria-labelledby="configured-providers-heading">
+                  <div
+                    id="configured-providers-heading"
+                    className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
+                  >
+                    Configured
+                  </div>
 
-                    <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
-                      {matchingConfigured.map(provider => {
-                        const catalogModels = catalogModelsByType.get(provider.type) ?? [];
-                        const configuredIds = new Set(provider.models.map(model => model.id));
-                        const availableModels = catalogModels.filter(model => !configuredIds.has(model.id));
-                        const logoSrc = modelProviderIconMap[provider.name];
+                  <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
+                    {matchingConfigured.map(provider => {
+                      const catalogModels = catalogModelsByType.get(provider.type) ?? [];
+                      const configuredIds = new Set(provider.models.map(model => model.id));
+                      const availableModels = catalogModels.filter(model => !configuredIds.has(model.id));
+                      const logoSrc = modelProviderIconMap[provider.name];
 
-                        return (
-                          <article key={provider.id} className="border-b border-border p-3 last:border-b-0">
-                            <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <div
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
-                                  aria-hidden
-                                >
-                                  {logoSrc ? (
-                                    <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
-                                  ) : (
-                                    <Icon name="cpu" className="size-4.5" />
-                                  )}
-                                </div>
-                                <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
+                      return (
+                        <article key={provider.id} className="border-b border-border p-3 last:border-b-0">
+                          <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <div
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
+                                aria-hidden
+                              >
+                                {logoSrc ? (
+                                  <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
+                                ) : (
+                                  <Icon name="cpu" className="size-4.5" />
+                                )}
                               </div>
-
-                              <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                                <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-success-bg">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
-                                  Connected
-                                </span>
-                                <Button.Secondary
-                                  size="small"
-                                  className="text-[0.8125rem]"
-                                  type="button"
-                                  aria-label={`Edit ${provider.name}`}
-                                  title={`Edit ${provider.name}`}
-                                  disabled={busy}
-                                  onClick={() => {
-                                    if (provider.type === 'custom') {
-                                      closeKeyEditor();
-                                      setFormError(null);
-                                      setCustomProviderToEdit(provider);
-                                      setCustomProviderOpen(true);
-                                    } else {
-                                      setKeyError(null);
-                                      setEditingCatalogType(null);
-                                      setEditingProviderId(provider.id);
-                                    }
-                                  }}
-                                >
-                                  <Icon name="pencil" className="size-3.5" />
-                                  Edit
-                                </Button.Secondary>
-                                {modelCatalog.deleteModelProvider ? (
-                                  <Button.Secondary
-                                    size="small"
-                                    className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => {
-                                      setRemoveError(null);
-                                      setPendingRemoval({ kind: 'provider', provider });
-                                    }}
-                                  >
-                                    Remove
-                                  </Button.Secondary>
-                                ) : null}
-                              </div>
-                            </header>
-
-                            <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary-bg/30">
-                              {provider.models.map(model => (
-                                <div
-                                  key={model.id}
-                                  className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
-                                >
-                                  <span className="min-w-0 flex-1 truncate">{model.name}</span>
-                                  {/* The last model can only go by removing the provider with it. */}
-                                  {provider.models.length > 1 || modelCatalog.deleteModelProvider ? (
-                                    <button
-                                      type="button"
-                                      aria-label={`Remove ${model.name}`}
-                                      disabled={busy}
-                                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
-                                      onClick={() => {
-                                        setRemoveError(null);
-                                        setPendingRemoval({ kind: 'model', provider, model });
-                                      }}
-                                    >
-                                      <Icon name="trash" className="size-3.5" />
-                                    </button>
-                                  ) : null}
-                                </div>
-                              ))}
-
-                              {availableModels.length > 0 ? (
-                                <section>
-                                  <div className="border-b border-border bg-secondary-bg/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                                    Available to add · {availableModels.length}
-                                  </div>
-                                  {availableModels.map(model => (
-                                    <div
-                                      key={model.id}
-                                      className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
-                                    >
-                                      <span className="min-w-0 flex-1 truncate">{model.name}</span>
-                                      <Button.Secondary
-                                        size="small"
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() => {
-                                          void updateModels({ provider, models: [...provider.models, model] }).catch(
-                                            () => {},
-                                          );
-                                        }}
-                                      >
-                                        Add
-                                      </Button.Secondary>
-                                    </div>
-                                  ))}
-                                </section>
-                              ) : null}
+                              <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
                             </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : null}
 
-                {!loading && matchingAvailable.length > 0 ? (
-                  <section aria-labelledby="available-providers-heading" className="mt-2">
-                    <div
-                      id="available-providers-heading"
-                      className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
-                    >
-                      Available
-                    </div>
-
-                    <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
-                      {matchingAvailable.map(provider => {
-                        const logoSrc = modelProviderIconMap[provider.name];
-                        return (
-                          <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
-                            <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <span
-                                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
-                                  aria-hidden
-                                >
-                                  {logoSrc ? (
-                                    <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
-                                  ) : (
-                                    <Icon name="cpu" className="size-4.5" />
-                                  )}
-                                </span>
-                                <div className="min-w-0 flex-1 overflow-hidden">
-                                  <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
-                                  <p className="truncate text-sm text-text-secondary">
-                                    {provider.models.map(model => model.name).join(' · ')}
-                                  </p>
-                                </div>
-                              </div>
+                            <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+                              <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-success-bg">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
+                                Connected
+                              </span>
                               <Button.Secondary
+                                size="small"
+                                className="text-[0.8125rem]"
                                 type="button"
+                                aria-label={`Edit ${provider.name}`}
+                                title={`Edit ${provider.name}`}
                                 disabled={busy}
                                 onClick={() => {
-                                  setKeyError(null);
-                                  setEditingProviderId(null);
-                                  setEditingCatalogType(provider.type);
+                                  if (provider.type === 'custom') {
+                                    closeKeyEditor();
+                                    setFormError(null);
+                                    setCustomProviderToEdit(provider);
+                                    setCustomProviderOpen(true);
+                                  } else {
+                                    setKeyError(null);
+                                    setEditingCatalogType(null);
+                                    setEditingProviderId(provider.id);
+                                  }
                                 }}
                               >
-                                <Icon name="wrench" className="size-4" />
-                                Configure
+                                <Icon name="pencil" className="size-3.5" />
+                                Edit
                               </Button.Secondary>
-                            </header>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : null}
+                              {modelCatalog.deleteModelProvider ? (
+                                <Button.Secondary
+                                  size="small"
+                                  className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setRemoveError(null);
+                                    setPendingRemoval({ kind: 'provider', provider });
+                                  }}
+                                >
+                                  Remove
+                                </Button.Secondary>
+                              ) : null}
+                            </div>
+                          </header>
 
-                {!loading && matchingConfigured.length === 0 && matchingAvailable.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
-                    {normalizedQuery ? `No providers match “${query.trim()}”.` : 'No model providers yet.'}
+                          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary-bg/30">
+                            {provider.models.map(model => (
+                              <div
+                                key={model.id}
+                                className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
+                              >
+                                <span className="min-w-0 flex-1 truncate">{model.name}</span>
+                                {/* The last model can only go by removing the provider with it. */}
+                                {provider.models.length > 1 || modelCatalog.deleteModelProvider ? (
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${model.name}`}
+                                    disabled={busy}
+                                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
+                                    onClick={() => {
+                                      setRemoveError(null);
+                                      setPendingRemoval({ kind: 'model', provider, model });
+                                    }}
+                                  >
+                                    <Icon name="trash" className="size-3.5" />
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
+
+                            {availableModels.length > 0 ? (
+                              <section>
+                                <div className="border-b border-border bg-secondary-bg/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                                  Available to add · {availableModels.length}
+                                </div>
+                                {availableModels.map(model => (
+                                  <div
+                                    key={model.id}
+                                    className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
+                                  >
+                                    <span className="min-w-0 flex-1 truncate">{model.name}</span>
+                                    <Button.Secondary
+                                      size="small"
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        void updateModels({ provider, models: [...provider.models, model] }).catch(
+                                          () => {},
+                                        );
+                                      }}
+                                    >
+                                      Add
+                                    </Button.Secondary>
+                                  </div>
+                                ))}
+                              </section>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
-                ) : null}
-              </div>
-
-              {pendingRemoval ? (
-                <ConfirmDeleteDialog
-                  title={
-                    pendingRemoval.kind === 'model' && !removesLastModel(pendingRemoval)
-                      ? 'Remove model?'
-                      : 'Remove provider?'
-                  }
-                  description={removalDescription(pendingRemoval)}
-                  busy={busy}
-                  error={removeError}
-                  onCancel={closeRemoveDialog}
-                  onConfirm={() => {
-                    handleConfirmRemoval(pendingRemoval);
-                  }}
-                />
+                </section>
               ) : null}
 
-              <ConfigureModelProviderForm
-                open={keyModalOpen}
-                onOpenChange={open => {
-                  if (!open) closeKeyEditor();
-                }}
-                onSave={draft => {
-                  if (editingProvider) return handleReplaceKey(editingProvider, draft);
-                  if (editingCatalogEntry) return handleCreateFromCatalog(editingCatalogEntry, draft);
-                }}
-                title={editingProvider ? 'Edit Provider Details' : 'Configure Provider Details'}
-                initialBaseUrl={
-                  editingProvider
-                    ? (editingProvider.baseUrl ?? '')
-                    : editingCatalogEntry
-                      ? catalogBaseUrl(editingCatalogEntry)
-                      : ''
-                }
-                requireApiKey={editingProvider == null}
-                submitLabel={editingProvider ? 'Save' : 'Create'}
-                busy={busy}
-                error={keyError}
-              />
+              {!loading && matchingAvailable.length > 0 ? (
+                <section aria-labelledby="available-providers-heading" className="mt-2">
+                  <div
+                    id="available-providers-heading"
+                    className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
+                  >
+                    Available
+                  </div>
 
-              <CustomModelProviderForm
-                key={customProviderToEdit?.id ?? 'add-custom-provider'}
-                open={customProviderOpen}
-                onOpenChange={open => {
-                  setCustomProviderOpen(open);
-                  if (!open) {
-                    setFormError(null);
-                    setCustomProviderToEdit(null);
-                  }
-                }}
-                isEditMode={customProviderToEdit !== null}
-                initialValues={customProviderInitialValues}
-                onSubmit={customProviderToEdit ? handleUpdateCustomProvider : handleAddCustomProvider}
-                reasoningEffortOptions={supportedReasoningEfforts}
-                busy={busy}
-                error={formError}
-              />
+                  <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
+                    {matchingAvailable.map(provider => {
+                      const logoSrc = modelProviderIconMap[provider.name];
+                      return (
+                        <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
+                          <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <span
+                                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
+                                aria-hidden
+                              >
+                                {logoSrc ? (
+                                  <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
+                                ) : (
+                                  <Icon name="cpu" className="size-4.5" />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
+                                <p className="truncate text-sm text-text-secondary">
+                                  {provider.models.map(model => model.name).join(' · ')}
+                                </p>
+                              </div>
+                            </div>
+                            <Button.Secondary
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                setKeyError(null);
+                                setEditingProviderId(null);
+                                setEditingCatalogType(provider.type);
+                              }}
+                            >
+                              <Icon name="wrench" className="size-4" />
+                              Configure
+                            </Button.Secondary>
+                          </header>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {!loading && matchingConfigured.length === 0 && matchingAvailable.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
+                  {normalizedQuery ? `No providers match “${query.trim()}”.` : 'No model providers yet.'}
+                </div>
+              ) : null}
             </div>
+
+            {pendingRemoval ? (
+              <ConfirmDeleteDialog
+                title={
+                  pendingRemoval.kind === 'model' && !removesLastModel(pendingRemoval)
+                    ? 'Remove model?'
+                    : 'Remove provider?'
+                }
+                description={removalDescription(pendingRemoval)}
+                busy={busy}
+                error={removeError}
+                onCancel={closeRemoveDialog}
+                onConfirm={() => {
+                  handleConfirmRemoval(pendingRemoval);
+                }}
+              />
+            ) : null}
+
+            <ConfigureModelProviderForm
+              open={keyModalOpen}
+              onOpenChange={open => {
+                if (!open) closeKeyEditor();
+              }}
+              onSave={draft => {
+                if (editingProvider) return handleReplaceKey(editingProvider, draft);
+                if (editingCatalogEntry) return handleCreateFromCatalog(editingCatalogEntry, draft);
+              }}
+              title={editingProvider ? 'Edit Provider Details' : 'Configure Provider Details'}
+              initialBaseUrl={
+                editingProvider
+                  ? (editingProvider.baseUrl ?? '')
+                  : editingCatalogEntry
+                    ? catalogBaseUrl(editingCatalogEntry)
+                    : ''
+              }
+              requireApiKey={editingProvider == null}
+              submitLabel={editingProvider ? 'Save' : 'Create'}
+              busy={busy}
+              error={keyError}
+            />
+
+            <CustomModelProviderForm
+              key={customProviderToEdit?.id ?? 'add-custom-provider'}
+              open={customProviderOpen}
+              onOpenChange={open => {
+                setCustomProviderOpen(open);
+                if (!open) {
+                  setFormError(null);
+                  setCustomProviderToEdit(null);
+                }
+              }}
+              isEditMode={customProviderToEdit !== null}
+              initialValues={customProviderInitialValues}
+              onSubmit={customProviderToEdit ? handleUpdateCustomProvider : handleAddCustomProvider}
+              reasoningEffortOptions={supportedReasoningEfforts}
+              busy={busy}
+              error={formError}
+            />
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </>
   );
 };
