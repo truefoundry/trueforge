@@ -7,9 +7,8 @@ export type RoutingClusters = Record<RoutingCategory, Partial<Record<ReasoningEf
 /**
  * The router picks the cheapest pair the tenant has, by its gateway cost per token, and the thread runs at that effort.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
- * `frontier` is min 56, above every `adaptive` pair, so the clusters don't overlap (Gemini 4 Carbon 58.3 and Fable 5.2
- * 56.4 at medium, Fable 5.2 61.8 at high, Opus 5.5 57.4 and Fable 5.2 62.2 at xhigh, GPT-6 Sol 68.7 at max). Only the
- * root thread routes to it; subagents are never offered the category.
+ * `frontier` is min 56, above every `adaptive` pair, so the clusters don't overlap. Only the root thread routes to it;
+ * subagents are never offered the category.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {
   direct: {
