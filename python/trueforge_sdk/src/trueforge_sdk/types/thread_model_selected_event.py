@@ -24,11 +24,7 @@ class ThreadModelSelectedEvent(UncheckedBaseModel):
     Name of the chosen model, `provider/model`.
     """
 
-    params: ThreadModelSelectedEventParams = pydantic.Field()
-    """
-    Model parameters chosen with the model.
-    """
-
+    params: ThreadModelSelectedEventParams
     thread_id: str = pydantic.Field()
     """
     Thread the model was selected for.

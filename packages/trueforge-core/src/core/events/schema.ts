@@ -315,6 +315,12 @@ export const ThreadCreatedEventSchema = z
   })
   .openapi('ThreadCreatedEvent');
 
+export const ThreadModelSelectedEventParamsSchema = z
+  .object({
+    reasoning_effort: z.string().describe('Reasoning effort chosen for the model.'),
+  })
+  .openapi('ThreadModelSelectedEventParams');
+
 export const ThreadModelSelectedEventSchema = z
   .object({
     type: z
@@ -324,11 +330,7 @@ export const ThreadModelSelectedEventSchema = z
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().describe('Thread the model was selected for.'),
     model_name: z.string().describe('Name of the chosen model, `provider/model`.'),
-    params: z
-      .object({
-        reasoning_effort: z.string().describe('Reasoning effort chosen for the model.'),
-      })
-      .describe('Model parameters chosen with the model.'),
+    params: ThreadModelSelectedEventParamsSchema.describe('Model parameters chosen with the model.'),
   })
   .openapi('ThreadModelSelectedEvent');
 

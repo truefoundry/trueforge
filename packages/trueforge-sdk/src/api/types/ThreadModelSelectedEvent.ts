@@ -9,7 +9,6 @@ export interface ThreadModelSelectedEvent {
     id: string;
     /** Name of the chosen model, `provider/model`. */
     modelName: string;
-    /** Model parameters chosen with the model. */
     params: TrueForge.ThreadModelSelectedEventParams;
     /** Thread the model was selected for. */
     threadId: string;

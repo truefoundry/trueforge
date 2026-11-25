@@ -5416,17 +5416,7 @@
             "type": "string"
           },
           "params": {
-            "description": "Model parameters chosen with the model.",
-            "properties": {
-              "reasoning_effort": {
-                "description": "Reasoning effort chosen for the model.",
-                "type": "string"
-              }
-            },
-            "required": [
-              "reasoning_effort"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ThreadModelSelectedEventParams"
           },
           "thread_id": {
             "description": "Thread the model was selected for.",
@@ -5447,6 +5437,19 @@
           "thread_id",
           "model_name",
           "params"
+        ],
+        "type": "object"
+      },
+      "ThreadModelSelectedEventParams": {
+        "description": "Model parameters chosen with the model.",
+        "properties": {
+          "reasoning_effort": {
+            "description": "Reasoning effort chosen for the model.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reasoning_effort"
         ],
         "type": "object"
       },
