@@ -23,10 +23,10 @@ describe('AppearanceSettings', () => {
 
     expect(screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Visual style' })).toBeInTheDocument();
-    expect(DEFAULT_TYPEFACE_ID).toBe('geist');
+    expect(DEFAULT_TYPEFACE_ID).toBe('ibm-plex-sans');
 
     const trigger = screen.getByRole('button', { name: 'Typeface' });
-    expect(trigger).toHaveTextContent('Geist (Default)');
+    expect(trigger).toHaveTextContent('IBM Plex Sans (Default)');
     expect(screen.queryByRole('button', { name: 'Reset typeface to default' })).not.toBeInTheDocument();
 
     fireEvent.click(trigger);
@@ -37,7 +37,10 @@ describe('AppearanceSettings', () => {
     expect(optionLabels).toEqual(
       [...optionLabels].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
     );
-    expect(within(menu).getByRole('menuitem', { name: 'Geist (Default)' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(menu).getByRole('menuitem', { name: 'IBM Plex Sans (Default)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Inter' }));
     expect(trigger).toHaveTextContent('Inter');
@@ -48,7 +51,7 @@ describe('AppearanceSettings', () => {
     fireEvent.click(reset);
     expect(localStorage.getItem('aui-typeface')).toBeNull();
     expect(container.querySelector('.aui-theme-root')).not.toHaveAttribute('data-typeface');
-    expect(trigger).toHaveTextContent('Geist (Default)');
+    expect(trigger).toHaveTextContent('IBM Plex Sans (Default)');
     expect(screen.queryByRole('button', { name: 'Reset typeface to default' })).not.toBeInTheDocument();
   });
 });

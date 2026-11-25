@@ -17,6 +17,7 @@ jobs:
   upload-grype:
     name: Upload Grype results
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     permissions:
       actions: read
       contents: read

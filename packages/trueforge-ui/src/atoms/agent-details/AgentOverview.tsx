@@ -157,7 +157,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
           </AgentOverviewCard>
           <AgentOverviewMcpServers mcpServers={spec.mcpServers} />
 
-          <AgentOverviewCard title="Attached Skills" icon="lightbulb" count={skills.length}>
+          <AgentOverviewCard title="Attached Skills" icon="scroll-text" count={skills.length}>
             {skills.length === 0 ? (
               <p className="text-xs text-text-secondary">No skills attached.</p>
             ) : (

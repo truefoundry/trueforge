@@ -7,7 +7,7 @@ import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip, type TooltipSide } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_LABEL, AUTO_MODEL_UNAVAILABLE_HINT } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_LABEL } from './autoModel.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
@@ -55,6 +55,8 @@ export function ProviderMark({ logo, label, className }: { logo?: string; label:
 
 export type DraftAutoModelOption = {
   enabled: boolean;
+  /** Shown under the option while it is disabled. */
+  unavailableHint: string;
   onSelect: () => void;
 };
 
@@ -214,7 +216,7 @@ export function DraftModelCatalogPanel({
                 <span className="min-w-0">
                   <span className="block truncate font-normal">{AUTO_MODEL_LABEL}</span>
                   {autoOption.enabled ? null : (
-                    <span className="text-text-secondary mt-0.5 block text-[10px]">{AUTO_MODEL_UNAVAILABLE_HINT}</span>
+                    <span className="text-text-secondary mt-0.5 block text-[10px]">{autoOption.unavailableHint}</span>
                   )}
                 </span>
               </button>

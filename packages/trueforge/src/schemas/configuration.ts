@@ -16,10 +16,20 @@ const MemoryConfigurationSchema = z
   .strict()
   .openapi('MemoryConfiguration');
 
+const AutoModelRoutingConfigurationSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.'),
+  })
+  .strict()
+  .openapi('AutoModelRoutingConfiguration');
+
 const ConfigurationManifestSchema = z
   .object({
     web_search: WebSearchConfigurationSchema,
     memory: MemoryConfigurationSchema,
+    auto_model_routing: AutoModelRoutingConfigurationSchema,
   })
   .strict()
   .openapi('ConfigurationManifest');
@@ -62,6 +72,7 @@ export type ConfigurationFeature = keyof ConfigurationManifest;
 export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
   web_search: { enabled: true },
   memory: { enabled: true },
+  auto_model_routing: { enabled: true },
 };
 
 /**
