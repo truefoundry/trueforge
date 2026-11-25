@@ -44,11 +44,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     await sql`DROP TABLE artifact_version`.execute(trx);
     await sql`ALTER TABLE artifact_version_new RENAME TO artifact_version`.execute(trx);
+    await sql`CREATE INDEX artifact_version_session_idx ON artifact_version (created_by_session_id)`.execute(trx);
   });
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
+    await sql`DROP INDEX IF EXISTS artifact_version_session_idx`.execute(trx);
     await sql`ALTER TABLE artifact_version DROP COLUMN created_by_agent_id`.execute(trx);
     await sql`ALTER TABLE artifact_version DROP COLUMN created_by_session_id`.execute(trx);
   });
