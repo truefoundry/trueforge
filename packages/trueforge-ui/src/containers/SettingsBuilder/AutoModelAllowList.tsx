@@ -1,11 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { displayModelLabel, groupModelsByProvider, ProviderMark } from '../../atoms/draft/DraftModelCatalogPanel.js';
+import { modelMatchesQuery, normalizeModelSearchText } from '../../atoms/draft/modelSearch.js';
+import { cn } from '../../atoms/lib/cn.js';
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Checkbox } from '../../atoms/primitives/Checkbox.js';
 import { Skeleton } from '../../atoms/primitives/Skeleton.js';
+import { Icon } from '../../icons/Icon.js';
 import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../../server/ServerContext.js';
@@ -26,15 +31,20 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
 }
 
 /**
- * Which models Auto may choose from. The draft stays local until saved, so each tick does not refresh capabilities.
- * Remount with a new `key` when the saved list changes to restart the draft from it.
+ * Which models Auto may choose from: a searchable dropdown of the models this admin can use, grouped by provider like
+ * the chat model picker, with the picks shown as removable chips. The draft stays local until saved, so each pick does
+ * not refresh capabilities. Remount with a new `key` when the saved list changes to restart the draft from it.
  */
 const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowListProps) => {
   const server = useOptionalServer();
   const capabilities = useServerCapabilities();
   const queryClient = useServerQueryClient();
+  const listboxId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const [selected, setSelected] = useState<string[]>(allowedModels);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
   const modelsQuery = useQuery(
     {
@@ -45,18 +55,33 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
     queryClient,
   );
 
+  const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data]);
+  const needle = normalizeModelSearchText(query);
+  const sections = useMemo(
+    () => groupModelsByProvider(needle ? models.filter(model => modelMatchesQuery({ model, needle })) : models),
+    [models, needle],
+  );
+
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
+      setOpen(false);
+      setQuery('');
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
   // Saved names this admin can't see stay listed, so saving never drops them silently. Nothing is flagged until the
   // listing has loaded, and a failed listing still shows what is saved.
-  const rows = useMemo(() => {
-    if (modelsQuery.isPending) return [];
-    const listed = new Set((modelsQuery.data ?? []).map(model => model.name));
-    const saved = allowedModels.filter(name => !listed.has(name));
-    const isListingKnown = modelsQuery.isSuccess;
-    return [
-      ...[...listed].sort((a, b) => a.localeCompare(b)).map(name => ({ name, visible: true })),
-      ...saved.sort((a, b) => a.localeCompare(b)).map(name => ({ name, visible: !isListingKnown })),
-    ];
-  }, [modelsQuery.isPending, modelsQuery.isSuccess, modelsQuery.data, allowedModels]);
+  const listed = new Set(models.map(model => model.name));
+  const isListingKnown = modelsQuery.isSuccess;
 
   const dirty = !sameSelection({ left: selected, right: allowedModels });
   const atLimit = selected.length >= MAX_ALLOWED_MODELS;
@@ -78,51 +103,140 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
         </p>
       ) : null}
 
-      <div className="mt-3">
+      <div ref={rootRef} className="relative mt-3">
         {modelsQuery.isPending ? (
-          <Skeleton data-testid="auto-model-allow-list-skeleton" className="h-24 w-full rounded-lg" />
-        ) : null}
-        {modelsQuery.isError ? (
-          <p className="text-xs text-failure-bg">{getErrorMessage(modelsQuery.error, 'Failed to load models')}</p>
-        ) : null}
-        {rows.length > 0 ? (
+          <Skeleton data-testid="auto-model-allow-list-skeleton" className="h-8 w-full rounded-md" />
+        ) : (
           <div
-            role="group"
-            aria-label="Models Auto can choose from"
-            className="max-h-64 overflow-y-auto rounded-lg border border-border bg-secondary-bg/30"
+            className={auiInputClass(
+              'flex min-h-8 flex-wrap items-center gap-1 px-1.5 py-1 focus-within:ring-2 focus-within:ring-focus-ring/40',
+            )}
           >
-            {rows.map(row => {
-              const checked = selected.includes(row.name);
-              return (
+            {selected.map(name => (
+              <span
+                key={name}
+                className="flex max-w-full items-center gap-1 rounded border border-border bg-dropdown-selected-item-bg py-0.5 pl-1.5 pr-0.5 text-xs text-text-primary"
+              >
+                <span className="truncate">{name}</span>
+                {!isListingKnown || listed.has(name) ? null : (
+                  <span className="shrink-0 text-text-secondary">Not visible to you</span>
+                )}
                 <button
-                  key={row.name}
                   type="button"
-                  role="checkbox"
-                  aria-checked={checked}
-                  aria-label={row.name}
-                  disabled={saving || (atLimit && !checked)}
-                  className="flex min-h-10 w-full items-center gap-3 border-b border-border px-3 py-2 text-left text-sm text-text-primary last:border-b-0 hover:bg-ghost-button-hover disabled:opacity-50"
-                  onClick={() => toggle(row.name)}
+                  aria-label={`Remove ${name}`}
+                  disabled={saving}
+                  className="inline-flex size-4 shrink-0 items-center justify-center rounded hover:bg-secondary-button-hover disabled:opacity-50"
+                  onClick={() => toggle(name)}
                 >
-                  <Checkbox checked={checked} />
-                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                  {row.visible ? null : (
-                    <span className="shrink-0 text-xs text-text-secondary">Not visible to you</span>
-                  )}
+                  <Icon name="xmark" size="0.625rem" />
                 </button>
-              );
-            })}
+              </span>
+            ))}
+            <button
+              type="button"
+              role="combobox"
+              aria-label="Select models"
+              aria-haspopup="listbox"
+              aria-expanded={open}
+              aria-controls={open ? listboxId : undefined}
+              disabled={saving}
+              className="flex h-6 min-w-24 flex-1 items-center justify-between gap-2 px-1.5 text-left text-[0.8125rem] text-text-secondary outline-none disabled:cursor-not-allowed"
+              onClick={() => (open ? close() : setOpen(true))}
+            >
+              <span className="truncate">{selected.length === 0 ? 'Select models' : 'Add models'}</span>
+              <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
+            </button>
+          </div>
+        )}
+
+        {open ? (
+          <div
+            className="aui-popup-enter absolute left-0 top-full z-50 mt-1 flex max-h-[22rem] w-full flex-col overflow-hidden rounded-lg border border-border bg-card-bg text-text-primary shadow-lg"
+            onKeyDown={event => {
+              if (event.key !== 'Escape') return;
+              event.stopPropagation();
+              close();
+            }}
+          >
+            <div className="border-b border-border px-3 py-2">
+              <label className="relative block">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-text-secondary"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  placeholder="Search models"
+                  aria-label="Search models"
+                  className={auiInputClass('h-8 py-1 pl-7 pr-2')}
+                  autoFocus
+                />
+              </label>
+            </div>
+            <div
+              id={listboxId}
+              role="listbox"
+              aria-multiselectable
+              aria-label="Models Auto can choose from"
+              className="flex min-h-0 flex-col overflow-y-auto p-1"
+            >
+              {sections.map((section, sectionIndex) => {
+                const headingId = `${listboxId}-provider-${String(sectionIndex)}`;
+                return (
+                  <div
+                    key={section.name}
+                    role="group"
+                    aria-labelledby={headingId}
+                    className={cn(sectionIndex > 0 && 'mt-2')}
+                  >
+                    <div
+                      id={headingId}
+                      className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-text-secondary"
+                    >
+                      <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
+                      <span className="truncate">{section.name}</span>
+                    </div>
+                    {section.models.map(model => {
+                      const checked = selected.includes(model.name);
+                      return (
+                        <button
+                          key={model.name}
+                          type="button"
+                          role="option"
+                          aria-selected={checked}
+                          aria-label={model.name}
+                          disabled={atLimit && !checked}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-ghost-button-hover disabled:pointer-events-none disabled:opacity-50"
+                          onClick={() => toggle(model.name)}
+                        >
+                          <Checkbox checked={checked} />
+                          <span className="min-w-0 flex-1 truncate font-normal">{displayModelLabel(model.name)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {sections.length === 0 ? (
+                <p className="px-2 py-3 text-center text-xs text-text-secondary">
+                  {models.length === 0 ? 'No models are available to select.' : 'No models match your search.'}
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
-        {!modelsQuery.isPending && !modelsQuery.isError && rows.length === 0 ? (
-          <p className="text-xs text-text-secondary">No models are available to select.</p>
-        ) : null}
-        <p className="mt-2 text-xs text-text-secondary">
-          {`${String(selected.length)} of ${String(MAX_ALLOWED_MODELS)} selected.`}
-          {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
-          {atLimit ? ' Deselect a model to choose another.' : ''}
-        </p>
       </div>
+
+      {modelsQuery.isError ? (
+        <p className="mt-2 text-xs text-failure-bg">{getErrorMessage(modelsQuery.error, 'Failed to load models')}</p>
+      ) : null}
+      <p className="mt-2 text-xs text-text-secondary">
+        {`${String(selected.length)} of ${String(MAX_ALLOWED_MODELS)} selected.`}
+        {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
+        {atLimit ? ' Remove a model to choose another.' : ''}
+      </p>
 
       {dirty ? (
         <div className="mt-3 flex justify-end gap-2">

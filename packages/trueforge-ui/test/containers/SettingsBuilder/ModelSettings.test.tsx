@@ -285,21 +285,43 @@ describe('ModelSettings Auto mode switch', () => {
       ...autoOn,
       autoModelRouting: { enabled: true, allowedModels },
     });
+    const openPicker = async () => {
+      fireEvent.click(await screen.findByRole('combobox', { name: 'Select models' }));
+      return screen.findByRole('listbox', { name: 'Models Auto can choose from' });
+    };
+    const option = (name: string) => screen.getByRole('option', { name });
 
-    it('lists the admin models with none selected when nothing is allowed yet', async () => {
+    it('offers the admin models in a dropdown with none selected when nothing is allowed yet', async () => {
       renderAutoSettings({
         auto: { status: 'enabled' },
         modelNames,
         configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
       });
 
-      const haiku = await screen.findByRole('checkbox', { name: 'acct/haiku' });
-      expect(haiku).toHaveAttribute('aria-checked', 'false');
-      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'false');
+      expect(screen.queryByRole('listbox')).toBeNull();
+      await openPicker();
+      expect(option('acct/haiku')).toHaveAttribute('aria-selected', 'false');
+      expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'false');
       expect(
         screen.getByText(/0 of 10 selected\. With none selected, Auto has no model to pick\./),
       ).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('narrows the dropdown with search', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search models' }), { target: { value: 'son' } });
+      expect(screen.queryByRole('option', { name: 'acct/haiku' })).toBeNull();
+      expect(option('acct/sonnet')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search models' }), { target: { value: 'nothing' } });
+      expect(screen.getByText('No models match your search.')).toBeInTheDocument();
     });
 
     it('saves the chosen full model names and refreshes capabilities', async () => {
@@ -310,7 +332,11 @@ describe('ModelSettings Auto mode switch', () => {
         configuration: { getConfiguration: async () => autoOn, updateConfiguration },
       });
 
-      fireEvent.click(await screen.findByRole('checkbox', { name: 'acct/sonnet' }));
+      await openPicker();
+      fireEvent.click(option('acct/sonnet'));
+      // The dropdown stays open for more picks, and the pick shows as a chip.
+      expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
       await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
       const callsBeforeSave = getCapabilities.mock.calls.length;
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -320,10 +346,10 @@ describe('ModelSettings Auto mode switch', () => {
       );
       await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
-      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
     });
 
-    it('stops at ten models and frees a slot when one is deselected', async () => {
+    it('stops at ten models and frees a slot when one is removed', async () => {
       const many = Array.from({ length: 12 }, (_, index) => `acct/model-${String(index).padStart(2, '0')}`);
       renderAutoSettings({
         auto: { status: 'enabled' },
@@ -331,17 +357,18 @@ describe('ModelSettings Auto mode switch', () => {
         configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
       });
 
+      await openPicker();
       for (const name of many.slice(0, 10)) {
-        fireEvent.click(await screen.findByRole('checkbox', { name }));
+        fireEvent.click(option(name));
       }
 
-      expect(screen.getByRole('checkbox', { name: 'acct/model-10' })).toBeDisabled();
-      expect(screen.getByRole('checkbox', { name: 'acct/model-11' })).toBeDisabled();
-      expect(screen.getByRole('checkbox', { name: 'acct/model-00' })).toBeEnabled();
+      expect(option('acct/model-10')).toBeDisabled();
+      expect(option('acct/model-11')).toBeDisabled();
+      expect(option('acct/model-00')).toBeEnabled();
       expect(screen.getByText(/10 of 10 selected\./)).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('checkbox', { name: 'acct/model-00' }));
-      expect(screen.getByRole('checkbox', { name: 'acct/model-10' })).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Remove acct/model-00' }));
+      expect(option('acct/model-10')).toBeEnabled();
     });
 
     it('saves an empty list to take every model away', async () => {
@@ -352,9 +379,7 @@ describe('ModelSettings Auto mode switch', () => {
         configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration },
       });
 
-      const haiku = await screen.findByRole('checkbox', { name: 'acct/haiku' });
-      expect(haiku).toHaveAttribute('aria-checked', 'true');
-      fireEvent.click(haiku);
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove acct/haiku' }));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
@@ -373,11 +398,14 @@ describe('ModelSettings Auto mode switch', () => {
         },
       });
 
-      const hidden = await screen.findByRole('checkbox', { name: 'acct/hidden' });
-      expect(hidden).toHaveAttribute('aria-checked', 'true');
-      expect(within(hidden).getByText('Not visible to you')).toBeInTheDocument();
-      expect(within(screen.getByRole('checkbox', { name: 'acct/haiku' })).queryByText('Not visible to you')).toBeNull();
-      fireEvent.click(screen.getByRole('checkbox', { name: 'acct/sonnet' }));
+      const hiddenChip = (await screen.findByRole('button', { name: 'Remove acct/hidden' })).parentElement;
+      expect(hiddenChip).not.toBeNull();
+      expect(within(hiddenChip as HTMLElement).getByText('Not visible to you')).toBeInTheDocument();
+      const haikuChip = screen.getByRole('button', { name: 'Remove acct/haiku' }).parentElement;
+      expect(within(haikuChip as HTMLElement).queryByText('Not visible to you')).toBeNull();
+
+      await openPicker();
+      fireEvent.click(option('acct/sonnet'));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
@@ -394,11 +422,25 @@ describe('ModelSettings Auto mode switch', () => {
         configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration: vi.fn() },
       });
 
-      fireEvent.click(await screen.findByRole('checkbox', { name: 'acct/sonnet' }));
+      await openPicker();
+      fireEvent.click(option('acct/sonnet'));
       fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 
-      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'false');
+      expect(screen.queryByRole('button', { name: 'Remove acct/sonnet' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Remove acct/haiku' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('closes the dropdown on Escape', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      fireEvent.keyDown(screen.getByRole('searchbox', { name: 'Search models' }), { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).toBeNull();
     });
 
     it('shows the server reason when the allowed models cannot route', async () => {
@@ -422,7 +464,7 @@ describe('ModelSettings Auto mode switch', () => {
       });
 
       await screen.findByRole('switch', { name: 'Allow Auto mode' });
-      expect(screen.queryByRole('group', { name: 'Models Auto can choose from' })).toBeNull();
+      expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
     });
   });
 
