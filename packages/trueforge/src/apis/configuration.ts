@@ -86,7 +86,11 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
       const inaccessible = [...new Set(candidateModels)].filter(name => !accessible.has(name));
       if (inaccessible.length > 0) {
         return c.json(
-          { error: { message: `You don't have access to these models: ${inaccessible.join(', ')}.` } },
+          {
+            error: {
+              message: `Auto can only use models you have access to. Remove ${inaccessible.join(', ')} from the list and save again.`,
+            },
+          },
           400,
         );
       }
