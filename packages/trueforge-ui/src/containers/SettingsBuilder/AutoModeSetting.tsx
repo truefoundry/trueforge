@@ -86,7 +86,7 @@ const AutoModeSetting = () => {
         <div className="mt-4 rounded-xl border border-border bg-card-bg p-3">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h4 className="text-sm font-medium text-text-primary">Enable Auto Model Routing</h4>
+              <h4 className="text-sm font-medium text-text-primary">Auto</h4>
               <p className="mt-0.5 text-xs text-text-secondary">Selects the most capable model for each task.</p>
               <p className="mt-2 text-xs text-text-secondary">
                 Auto is an intelligent model router that balances intelligence and cost.
@@ -102,7 +102,7 @@ const AutoModeSetting = () => {
               disabled={saveMutation.isPending}
               // Held while saving without dimming, so the switch doesn't flash.
               className="disabled:opacity-100"
-              aria-label="Enable Auto Model Routing"
+              aria-label="Auto model routing"
               onCheckedChange={next => {
                 saveMutation.mutate({ enabled: next });
               }}
