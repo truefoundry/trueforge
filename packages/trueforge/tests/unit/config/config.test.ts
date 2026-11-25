@@ -1,3 +1,4 @@
+import { DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
 import type { ServerConfiguration } from '../../../src/config';
 import { buildRedisStandaloneUrl, getPublicUiBasePath, parseTrueFoundryModelRouting } from '../../../src/config';
 import {
@@ -226,6 +227,34 @@ describe('parseTrueFoundryModelRouting', () => {
       api_key: 'test-routing-key',
     });
     expect(parsed?.tenants['internal']).toEqual({ enabled: 'on' });
+  });
+
+  describe('categories', () => {
+    const routing = (categories?: Record<string, string>) =>
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { internal: { enabled: 'on' } },
+        ...(categories === undefined ? {} : { categories }),
+      });
+    const three = { direct: 'd', fixed_steps: 'f', adaptive: 'a' };
+
+    it('defaults to the tested four when unset', () => {
+      expect(parseTrueFoundryModelRouting(routing())?.categories).toEqual(DEFAULT_ROUTING_QUESTION.categories);
+    });
+
+    it('keeps the default frontier meaning when only the original three are overridden', () => {
+      expect(parseTrueFoundryModelRouting(routing(three))?.categories).toEqual({
+        ...three,
+        frontier: DEFAULT_ROUTING_QUESTION.categories.frontier,
+      });
+    });
+
+    it('overrides the frontier meaning, and rejects unknown categories', () => {
+      expect(parseTrueFoundryModelRouting(routing({ ...three, frontier: 'f!' }))?.categories.frontier).toBe('f!');
+      expect(() => parseTrueFoundryModelRouting(routing({ ...three, extra: 'x' }))).toThrow(
+        'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object',
+      );
+    });
   });
 
   it('rejects a decision model without its api_key', () => {
