@@ -154,6 +154,7 @@ export {
   ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  ThreadSwitchModelEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,

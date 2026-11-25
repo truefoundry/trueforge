@@ -11,6 +11,7 @@ import { ThreadContextCompactionFinishedEvent } from "./ThreadContextCompactionF
 import { ThreadContextCompactionStartedEvent } from "./ThreadContextCompactionStartedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
+import { ThreadSwitchModelEvent } from "./ThreadSwitchModelEvent.js";
 import { ToolApprovalRequiredEvent } from "./ToolApprovalRequiredEvent.js";
 import { ToolResponseEvent } from "./ToolResponseEvent.js";
 import { ToolResponseRequiredEvent } from "./ToolResponseRequiredEvent.js";
@@ -32,6 +33,7 @@ export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Ra
         ThreadContextCompactionStartedEvent,
         ThreadCreatedEvent,
         ThreadDoneEvent,
+        ThreadSwitchModelEvent,
         ToolApprovalRequiredEvent,
         ToolResponseEvent,
         ToolResponseRequiredEvent,
@@ -54,6 +56,7 @@ export declare namespace SessionEvent {
         | ThreadContextCompactionStartedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw
+        | ThreadSwitchModelEvent.Raw
         | ToolApprovalRequiredEvent.Raw
         | ToolResponseEvent.Raw
         | ToolResponseRequiredEvent.Raw

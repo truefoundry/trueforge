@@ -5,22 +5,20 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .thread_switch_model_event_params import ThreadSwitchModelEventParams
 
 
-class ModelSnapshot(UncheckedBaseModel):
+class ThreadSwitchModelEventModel(UncheckedBaseModel):
     """
-    Model and effort the new thread runs on.
-    """
-
-    effort: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Reasoning effort for that model. Null when none was resolved.
+    The chosen model and its parameters.
     """
 
     name: str = pydantic.Field()
     """
-    Resolved model name, `provider/model`.
+    Name of the chosen model, `provider/model`.
     """
+
+    params: ThreadSwitchModelEventParams
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

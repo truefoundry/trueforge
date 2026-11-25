@@ -7,7 +7,7 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { llmCreateInputs, runExecute, textReplyStream } from './helpers/helpers';
+import { llmCreateInputs, runExecute, textReplyStream, threadModelClient } from './helpers/helpers';
 
 const MAIN_ID = 'main';
 const CHILD_ID = 'child';
@@ -66,13 +66,17 @@ function baseThreadInput(
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    model: {
-      client: {
-        create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
-        createNonStream: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
+            createNonStream: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     parent: undefined,
     agentInfo: undefined,
     context: undefined,
@@ -114,15 +118,7 @@ describe('orchestration: user-message reset', () => {
           iterationLimit: undefined,
           toolSets: undefined,
         },
-        model: {
-          client: {
-            create: jest.fn().mockImplementation(() => {
-              throw new Error('cancelled child must not call the model');
-            }),
-            createNonStream: jest.fn(),
-          },
-          name: TEST_MODEL_NAME,
-        },
+        resolveModel: () => Promise.reject(new Error('cancelled child must not resolve a model')),
       }),
     );
 
@@ -181,7 +177,7 @@ describe('orchestration: user-message reset', () => {
       ]),
     );
     expect(result.output?.content).toBe(ROOT_REPLY);
-    expect(llmCreateInputs(main.model.client)).toHaveLength(1);
+    expect(llmCreateInputs(threadModelClient(main))).toHaveLength(1);
   });
 
   it('delivers a finished child send_to_parent instead of the cancel string', async () => {

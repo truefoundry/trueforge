@@ -7,6 +7,7 @@ import { AgentHarnessError } from '../../src/core/errors';
 import type { LLMCreateParamsStreaming } from '../../src/core/llm/ILLM';
 import { DEFAULT_ROUTING_QUESTION } from '../../src/core/modelRouting/question';
 import type { ModelRouterDeps, RoutableModel } from '../../src/core/modelRouting/router';
+import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import { createSubAgentStream, textReplyStream } from '../orchestration/helpers/helpers';
 import {
@@ -198,11 +199,12 @@ describe('auto model selection', () => {
     });
     for await (const event of first.stream()) void event;
 
-    await session.createTurn({
+    const next = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'second question'),
       previous_turn_id: 'auto',
       resolver: resolver(),
     });
+    for await (const event of next.stream()) void event;
 
     const second = route.calls[1]?.input;
     if (!Array.isArray(second)) {
@@ -212,21 +214,69 @@ describe('auto model selection', () => {
     expect(userText(second.at(-1))).toBe('second question');
   });
 
-  // Updated in the fallback PR: a failed choice routes again instead of rejecting the turn.
-  it('rejects a new auto turn when routing chooses nothing, and closes the resolver', async () => {
-    const { session } = await createSession(autoSpec);
+  it('ends a new auto turn with an error when routing chooses nothing, and closes the resolver', async () => {
+    const { store, session } = await createSession(autoSpec);
     const close = jest.fn(() => Promise.resolve());
     const route = routing(() => undefined);
-    await expect(
-      session.createTurn({
-        ...turnInput(mintTestTurnId(), 'hello'),
-        resolver: makeTestResolver({ modelRouting: route.deps, close }),
-      }),
-    ).rejects.toMatchObject({
-      code: 'auto_model_unavailable',
-      message: 'Auto model selection could not choose a model',
-    } satisfies Partial<AgentHarnessError>);
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: route.deps, close }),
+    });
+    const types: string[] = [];
+    for await (const event of turn.stream()) types.push(event.type);
+
+    const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(stored?.state).toMatchObject({ status: 'error', message: 'Auto model selection could not choose a model' });
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects the root model once a new turn runs, and records it', async () => {
+    const { store, session } = await createSession(autoSpec);
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: routing().deps, llmCreate: () => textReplyStream('ok') }),
+    });
+    const created = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(created?.snapshot.threads[MAIN_THREAD_ID]?.model).toBeNull();
+
+    const events = [];
+    for await (const event of turn.stream()) events.push(event);
+
+    const selected = events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL);
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toMatchObject({
+      thread_id: MAIN_THREAD_ID,
+      model: { name: HAIKU, params: { reasoning_effort: 'low' } },
+    });
+    const types = events.map(event => event.type);
+    expect(types.indexOf(EventType.THREAD_SWITCH_MODEL)).toBeLessThan(types.indexOf(EventType.MODEL_MESSAGE));
+    const persisted = await store.listTurnEvents({
+      session_id: 's1',
+      turn_id: turn.id,
+      limit: 100,
+      page_token: undefined,
+      order: 'asc',
+    });
+    expect(persisted.data.map(row => row.type)).toContain(EventType.THREAD_SWITCH_MODEL);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
+  });
+
+  it('runs a named model without routing, recording or saving it', async () => {
+    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const route = routing();
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: route.deps, llmCreate: () => textReplyStream('ok') }),
+    });
+    const types: string[] = [];
+    for await (const event of turn.stream()) types.push(event.type);
+
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
+    expect(route.calls).toHaveLength(0);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toBeNull();
   });
 
   it('rejects a new auto turn when routing is off', async () => {
@@ -249,6 +299,14 @@ describe('auto model selection', () => {
       ...turnInput(turnId, 'hello'),
       resolver: makeTestResolver({ modelRouting: routing().deps }),
     });
+    // What the orchestrator records when it selects the root's model, before the turn pauses.
+    await store.patchThreadModel({
+      session_id: 's1',
+      turn_id: turnId,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      thread_id: MAIN_THREAD_ID,
+      model: { name: HAIKU, effort: 'low' },
+    });
     await pause(store, turnId);
 
     const route = routing();
@@ -268,8 +326,10 @@ describe('auto model selection', () => {
         },
       }),
     });
-    for await (const event of rebuilt.stream()) void event;
+    const types: string[] = [];
+    for await (const event of rebuilt.stream()) types.push(event.type);
 
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(route.calls).toHaveLength(0);
     expect(names).toEqual([HAIKU]);
     expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
@@ -293,6 +353,67 @@ describe('auto model selection', () => {
     expect(bodies[0]).toMatchObject({ reasoning_effort: 'low' });
     expect(bodies[1]).toMatchObject({ max_tokens: 128, reasoning_effort: 'high' });
     expect(bodies[1]).not.toHaveProperty('temperature');
+  });
+
+  it("records a subagent's model after it is created, before its first model call", async () => {
+    const { session } = await createSession(autoSpec, true);
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: routing().deps, llmCreate: subAgentReplies([]) }),
+    });
+    const events = [];
+    for await (const event of turn.stream()) events.push(event);
+
+    const createdAt = events.findIndex(event => event.type === EventType.THREAD_CREATED);
+    const created = events[createdAt];
+    expect(created).not.toHaveProperty('model');
+    const childId = created !== undefined && 'thread_id' in created ? created.thread_id : undefined;
+    const selectedAt = events.findIndex(
+      event => event.type === EventType.THREAD_SWITCH_MODEL && event.thread_id === childId,
+    );
+    const firstCallAt = events.findIndex(
+      event => event.type === EventType.MODEL_MESSAGE && event.thread_id === childId,
+    );
+    expect(events[selectedAt]).toMatchObject({ model: { params: { reasoning_effort: 'high' } } });
+    expect(selectedAt).toBeGreaterThan(createdAt);
+    expect(selectedAt).toBeLessThan(firstCallAt);
+  });
+
+  it('does not route a carried subagent that has no saved model', async () => {
+    const { store, session } = await createSession({ name: SPEC_MODEL }, true);
+    const route = routing();
+    const resolver = () => makeTestResolver({ modelRouting: route.deps, llmCreate: () => textReplyStream('ok') });
+    const turn1 = await session.createTurn({ ...turnInput(mintTestTurnId(), 'hello'), resolver: resolver() });
+    await store.addThreads({
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      session_id: 's1',
+      turn_id: turn1.id,
+      threads: [
+        {
+          thread_id: 'child',
+          context: [],
+          current_context_usage: getEmptyCurrentContextUsage(),
+          parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+          agent_info: { type: 'dynamic', name: 'child', input: 'task' },
+          model: null,
+          completion: null,
+          pending_mcp_auth: false,
+          capability_state: null,
+        },
+      ],
+    });
+    for await (const event of turn1.stream()) void event;
+
+    const turn2 = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: resolver(),
+    });
+    const types: string[] = [];
+    for await (const event of turn2.stream()) types.push(event.type);
+
+    expect(route.calls).toHaveLength(0);
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
   });
 
   it('runs an unplaced subagent of an auto root on the root model and effort', async () => {
