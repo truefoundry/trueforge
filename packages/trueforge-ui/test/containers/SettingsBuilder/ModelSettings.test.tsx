@@ -428,9 +428,9 @@ describe('ModelSettings Auto mode switch', () => {
       );
     });
 
-    it('keeps a saved model the admin cannot see, so saving does not drop it', async () => {
+    it('flags a saved model the admin cannot see and holds Save until it is removed', async () => {
       const saved = ['acct/haiku', 'acct/hidden'];
-      const next = [...saved, 'acct/sonnet', 'acct/opus', 'acct/gemini'];
+      const next = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
       const updateConfiguration = vi.fn(async () => withModels(next));
       renderAutoSettings({
         auto: { status: 'enabled' },
@@ -446,6 +446,11 @@ describe('ModelSettings Auto mode switch', () => {
 
       await openPicker();
       for (const name of ['acct/sonnet', 'acct/opus', 'acct/gemini']) fireEvent.click(option(name));
+      // Five picks, but the server would refuse the one the admin cannot use.
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      expect(screen.getByText(/Remove the models marked "Not visible to you" to save\./)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove acct/hidden' }));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>

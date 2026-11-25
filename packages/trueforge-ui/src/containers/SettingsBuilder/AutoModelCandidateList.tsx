@@ -81,10 +81,12 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [open]);
 
-  // Saved names this admin can't see stay listed, so saving never drops them silently. Nothing is flagged until the
-  // listing has loaded, and a failed listing still shows what is saved.
+  // Saved names this admin can't see stay listed, flagged, so nothing is dropped silently. The server only accepts models
+  // the admin can use, so they have to be removed before saving. Nothing is flagged until the listing has loaded, and a
+  // failed listing still shows what is saved.
   const listed = new Set(models.map(model => model.name));
   const isListingKnown = modelsQuery.isSuccess;
+  const hasUnavailable = isListingKnown && selected.some(name => !listed.has(name));
 
   const dirty = !sameSelection({ left: selected, right: candidateModels });
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
@@ -95,11 +97,13 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const hint =
     selected.length === 0
       ? ` Pick ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)} models; with none, Auto stays unavailable.`
-      : belowMinimum && dirty
-        ? ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
-        : atLimit
-          ? ' Remove one to add another.'
-          : '';
+      : hasUnavailable && dirty
+        ? ' Remove the models marked "Not visible to you" to save.'
+        : belowMinimum && dirty
+          ? ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
+          : atLimit
+            ? ' Remove one to add another.'
+            : '';
 
   const toggle = (name: string) =>
     setSelected(current => (current.includes(name) ? current.filter(item => item !== name) : [...current, name]));
@@ -128,7 +132,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
               >
                 <span className="truncate">{name}</span>
                 {!isListingKnown || listed.has(name) ? null : (
-                  <span className="shrink-0 text-text-secondary">Not visible to you</span>
+                  <span className="shrink-0 text-failure-bg">Not visible to you</span>
                 )}
                 <button
                   type="button"
@@ -248,7 +252,12 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
           <Button.Secondary size="small" type="button" disabled={saving} onClick={() => setSelected(candidateModels)}>
             Reset
           </Button.Secondary>
-          <Button.Primary size="small" type="button" disabled={saving || belowMinimum} onClick={() => onSave(selected)}>
+          <Button.Primary
+            size="small"
+            type="button"
+            disabled={saving || belowMinimum || hasUnavailable}
+            onClick={() => onSave(selected)}
+          >
             Save
           </Button.Primary>
         </div>
