@@ -46,6 +46,11 @@ export interface ListArtifactsInput {
   page_token: string | undefined;
 }
 
+export interface GetArtifactInput {
+  tenant_id: string;
+  id: string;
+}
+
 export interface UpdateArtifactInput {
   tenant_id: string;
   id: string;
@@ -69,6 +74,8 @@ export interface GetArtifactVersionInput {
 export interface IArtifactStore {
   /** Generates the id. */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
+  /** Undefined when the artifact is not in the tenant. */
+  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /**
    * Refreshes `updated_at`. Undefined when the artifact is missing, in another
    * tenant, or not created by `created_by_subject_id`.

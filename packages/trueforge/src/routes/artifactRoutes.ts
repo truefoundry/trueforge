@@ -74,6 +74,10 @@ export const updateArtifactRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the artifact creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Artifact not found.',

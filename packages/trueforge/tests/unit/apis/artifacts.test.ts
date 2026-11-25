@@ -121,7 +121,7 @@ describe('artifacts router', () => {
     const normalized = await update({ id: artifact.id, body: { name: '  a\u2029\u2029b  ' } });
     expect(normalized.status).toBe(200);
     expect(UpdateArtifactResponseSchema.parse(await normalized.json()).data.name).toBe('a b');
-    expect((await update({ id: notMineId, body: { name: 'Taken' } })).status).toBe(404);
+    expect((await update({ id: notMineId, body: { name: 'Taken' } })).status).toBe(403);
     expect((await update({ id: 'missing', body: { name: 'Gone' } })).status).toBe(404);
   });
 
@@ -136,8 +136,8 @@ describe('artifacts router', () => {
     };
     const otherTenant: RequestContext = { ...STANDALONE_REQUEST_CONTEXT, tenant_id: 'other-tenant' };
 
-    it('returns 404 for update by a user who is not the creator, leaving the name unchanged', async () => {
-      expect((await update({ target: appAs(otherUser), id: reportId, body: { name: 'Hijacked' } })).status).toBe(404);
+    it('returns 403 for update by a user who is not the creator, leaving the name unchanged', async () => {
+      expect((await update({ target: appAs(otherUser), id: reportId, body: { name: 'Hijacked' } })).status).toBe(403);
       expect(await listTitles('name=report')).toEqual(['Q3 Report']);
     });
 

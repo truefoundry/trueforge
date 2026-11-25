@@ -112,6 +112,14 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listNames({ name: 'missing' })).toEqual([]);
   });
 
+  it('gets an artifact only within its tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
+    expect(await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id })).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
+  });
+
   it('renames an artifact within the tenant', async () => {
     const store = getStore();
     const artifact = await createArtifact();
