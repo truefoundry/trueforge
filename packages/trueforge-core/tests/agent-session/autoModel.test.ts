@@ -29,7 +29,7 @@ const routable: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: HAIKU, canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: FRONTIER, canonicalModel: 'anthropic/claude-fable-5-2', cost: 10 },
+  { name: FRONTIER, canonicalModel: 'anthropic/claude-fable-5-2', cost: 1 },
 ];
 
 function decisionFor(category: string | undefined) {

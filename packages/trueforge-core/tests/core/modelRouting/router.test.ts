@@ -26,7 +26,7 @@ const models: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 10 },
+  { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 1 },
 ];
 const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
 
@@ -85,26 +85,45 @@ describe('selectModel', () => {
     expect(selectModel({ category: 'adaptive', models: haikuOnly })).toBeUndefined();
   });
 
-  it('picks the frontier cluster only from its own models', () => {
+  it('picks the cheapest pair in the frontier cluster', () => {
     expect(selectModel({ category: 'frontier', models })?.routed).toEqual({
       model: 'a/claude-fable-5-2',
       effort: 'medium',
     });
-    expect(selectModel({ category: 'frontier', models: models.filter(model => model.cost !== 10) })).toBeUndefined();
+  });
+
+  it('offers a model at max effort to frontier as well as adaptive when it is in both clusters', () => {
+    const sonnet = models.filter(model => model.canonicalModel === 'anthropic/claude-sonnet-5-5');
+    expect(selectModel({ category: 'frontier', models: sonnet })?.routed).toEqual({
+      model: 'a/claude-sonnet-5-5',
+      effort: 'max',
+    });
+    expect(selectModel({ category: 'adaptive', models: sonnet })?.routed).toEqual({
+      model: 'a/claude-sonnet-5-5',
+      effort: 'high',
+    });
+  });
+
+  it('returns nothing for frontier when the user has no frontier model', () => {
+    expect(selectModel({ category: 'frontier', models: haikuOnly })).toBeUndefined();
   });
 });
 
 describe('canRouteEveryCategory', () => {
+  const flash: RoutableModel = { name: 'a/gemini-3-8-flash', canonicalModel: 'google/gemini-3-8-flash', cost: 1 };
+  const argon: RoutableModel = { name: 'a/gemini-4-argon', canonicalModel: 'google/gemini-4-argon', cost: 2 };
+  const fable: RoutableModel = { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 8 };
+
   it('needs a model in every cluster, frontier included', () => {
-    const frontier: RoutableModel = {
-      name: 'a/claude-fable-5-2',
-      canonicalModel: 'anthropic/claude-fable-5-2',
-      cost: 10,
-    };
-    const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
+    // Covers direct, fixed_steps and adaptive, but nothing in frontier.
+    expect(canRouteEveryCategory([flash, argon])).toBe(false);
+    expect(canRouteEveryCategory([flash, argon, fable])).toBe(true);
+  });
+
+  it('is met by a model that sits in both adaptive and frontier clusters at different efforts', () => {
     const sol: RoutableModel = { name: 'a/gpt-6-1-sol', canonicalModel: 'openai/gpt-6-1-sol', cost: 5 };
-    expect(canRouteEveryCategory([luna, sol])).toBe(false);
-    expect(canRouteEveryCategory([luna, sol, frontier])).toBe(true);
+    const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
+    expect(canRouteEveryCategory([luna, sol])).toBe(true);
   });
 });
 
