@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.179.2
+
+### Patch Changes
+
+- Updated dependencies [fc70157]
+  - @truefoundry/trueforge-sdk@0.179.1
+
 ## 0.179.1
 
 ### Patch Changes

@@ -1,3 +1,5 @@
+## [0.179.1] - 2026-11-25
+
 ## [0.179.0] - 2026-10-14
 
 ## [0.179.0-rc.1] - 2026-10-13
@@ -17,6 +19,12 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.179.1
+
+### Patch Changes
+
+- fc70157: `GET /api/v1/mcp-servers/{name}/authorize` no longer sends a `redirectURL` to the TrueFoundry MCP gateway when `return_to` is omitted, so the gateway shows its own post-authentication page instead of redirecting to the TrueForge home. An empty `return_to` is now rejected with 400.
 
 ## 0.179.0
 

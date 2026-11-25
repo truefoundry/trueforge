@@ -1,5 +1,16 @@
 # @truefoundry/trueforge
 
+## 0.179.6
+
+### Patch Changes
+
+- fc70157: `GET /api/v1/mcp-servers/{name}/authorize` no longer sends a `redirectURL` to the TrueFoundry MCP gateway when `return_to` is omitted, so the gateway shows its own post-authentication page instead of redirecting to the TrueForge home. An empty `return_to` is now rejected with 400.
+- 4a61a1f: `x-tfg-mcp-headers` passes per-MCP-server headers. Open-source mode merges a server's entry over its registered headers, and an entry `Authorization` skips DCR. TrueFoundry mode sends the entry (flat, or a nested virtual MCP map) as `x-tfy-mcp-headers` and no longer calls authorize before connecting. On a 401: open-source fails when the entry carried `Authorization`, otherwise a DCR server restarts consent; TrueFoundry fails whenever the server had an entry, otherwise asks authorize for a consent URL and fails with 422 when authorize returns none or reports no consent is needed.
+- Updated dependencies [fc70157]
+- Updated dependencies [4a61a1f]
+  - @truefoundry/trueforge-sdk@0.179.1
+  - @truefoundry/trueforge-core@0.179.2
+
 ## 0.179.5
 
 ### Patch Changes
