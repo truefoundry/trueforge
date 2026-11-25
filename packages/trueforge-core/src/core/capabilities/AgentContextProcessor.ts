@@ -4,6 +4,7 @@ import type {
   ThreadContextCompactionStartedEvent,
   ThreadOverwriteContextEvent,
 } from '../events/schema';
+import type { AgentModel } from '../runtime/AgentModel';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
@@ -13,12 +14,18 @@ import type {
 import type { CurrentContextUsage } from '../runtime/contextUsage';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
 
-/** Ambient thread snapshot passed Readonly to every capability processor hook. */
-export interface AgentThreadExecutionContext {
+/** Ambient thread state passed Readonly to every hook. */
+export interface AgentThreadContext {
   threadId: string;
   sandbox?: HarnessSandbox | undefined;
   currentContextUsage: CurrentContextUsage;
   context: ContextMessage[];
+}
+
+/** Thread state for hooks that run while the thread executes on a model. */
+export interface AgentThreadExecutionContext extends AgentThreadContext {
+  /** The model the thread runs on. */
+  model: AgentModel;
 }
 
 export type AgentContextProcessorOverwriteContext = Omit<ThreadOverwriteContextEvent, 'thread_id'>;
@@ -41,7 +48,7 @@ export type AgentContextProcessorOutput =
   | AgentContextProcessorCapabilityState;
 
 export interface PreSendContextProcessor {
-  processPreSend(execution: Readonly<AgentThreadExecutionContext>): AsyncIterable<AgentContextProcessorAppendContext>;
+  processPreSend(execution: Readonly<AgentThreadContext>): AsyncIterable<AgentContextProcessorAppendContext>;
 }
 
 // NOTE: Saved in Redis, Saved in AgentThread in memory. Persisted accross Agent Loop.
