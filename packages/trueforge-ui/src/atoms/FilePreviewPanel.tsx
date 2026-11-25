@@ -8,6 +8,7 @@ import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { Button } from './primitives/Button.js';
 import { Spinner } from './primitives/Spinner.js';
 
 export type FilePreviewView =
@@ -24,7 +25,7 @@ export type FilePreviewPanelProps = {
   onDownload: () => void;
   onEnterFullPage?: () => void;
   onExitFullPage?: () => void;
-  onRetry?: () => void;
+  onReload?: () => void;
   downloadBusy?: boolean;
   /** Side-pane width in CSS pixels. Overlay and full-page placement ignore this. */
   widthPx?: number;
@@ -114,7 +115,7 @@ export function FilePreviewPanel({
   onDownload,
   onEnterFullPage,
   onExitFullPage,
-  onRetry,
+  onReload,
   downloadBusy = false,
   widthPx,
   onWidthChange,
@@ -217,10 +218,18 @@ export function FilePreviewPanel({
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
         <Icon name="file" size={16} className="shrink-0 text-text-secondary" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{name}</span>
-        {view.status === 'error' && onRetry != null ? (
-          <button type="button" onClick={onRetry} className={auiButtonClass({ variant: 'ghost', size: 'small' })}>
-            Retry
-          </button>
+        {onReload != null ? (
+          <Button.Ghost
+            type="button"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onReload}
+            disabled={view.status === 'loading'}
+            aria-label="Reload preview"
+            title="Reload preview"
+          >
+            <Icon name="refresh-cw" size={14} className={cn(view.status === 'loading' && 'animate-spin')} />
+          </Button.Ghost>
         ) : null}
         {placement === 'full' && onExitFullPage != null ? (
           <button
