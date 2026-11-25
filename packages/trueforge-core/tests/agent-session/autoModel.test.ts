@@ -20,6 +20,7 @@ import {
 } from './testHelpers';
 
 const HAIKU = 'b/claude-haiku-5-5';
+const FRONTIER = 'a/gpt-6-sol';
 const SPEC_MODEL = 'test-provider/test-model';
 const DEFAULTS = { max_tokens: 128 };
 
@@ -28,6 +29,7 @@ const routable: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: HAIKU, canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
+  { name: FRONTIER, canonicalModel: 'openai/gpt-6-sol', cost: 10 },
 ];
 
 function decisionFor(category: string | undefined) {
@@ -118,6 +120,12 @@ async function pause(store: InMemorySessionStore, turnId: string): Promise<void>
       metrics: createEmptyAgentThreadMetrics(),
     },
   });
+}
+
+/** The categories a classification request offers as choices. */
+function offeredCategories(body: DecisionModelCreateParams | undefined): unknown[] | undefined {
+  const question = body?.questions[0];
+  return question !== undefined && 'choices' in question ? question.choices.map(choice => choice.value) : undefined;
 }
 
 function userText(
@@ -431,6 +439,60 @@ describe('auto model selection', () => {
 
     expect(bodies[1]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[1]).not.toHaveProperty('temperature');
+  });
+
+  it('offers frontier to the root conversation but never to a subagent task', async () => {
+    const { session } = await createSession(autoSpec, true);
+    const route = routing();
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: route.deps, llmCreate: subAgentReplies([]) }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    expect(route.calls).toHaveLength(2);
+    expect(offeredCategories(route.calls[0])).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
+    expect(offeredCategories(route.calls[1])).toEqual(['direct', 'fixed_steps', 'adaptive']);
+  });
+
+  it('routes an auto root classified as frontier to the frontier cluster, and records it', async () => {
+    const { store, session } = await createSession(autoSpec);
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'migrate the production database'),
+      resolver: makeTestResolver({
+        modelRouting: routing(() => 'frontier').deps,
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    const events = [];
+    for await (const event of turn.stream()) events.push(event);
+
+    expect(events.find(event => event.type === EventType.THREAD_SWITCH_MODEL)).toMatchObject({
+      thread_id: MAIN_THREAD_ID,
+      model: { name: FRONTIER, params: { reasoning_effort: 'max' } },
+    });
+    const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: FRONTIER, effort: 'max' });
+  });
+
+  it('does not route a subagent task classified as frontier, whatever the classifier answers', async () => {
+    const { session } = await createSession(autoSpec, true);
+    const bodies: LLMCreateParamsStreaming[] = [];
+    const names: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({
+        modelRouting: routing(input => (typeof input === 'string' ? 'frontier' : 'direct')).deps,
+        defaultModelParams: DEFAULTS,
+        onModel: name => names.push(name),
+        llmCreate: subAgentReplies(bodies),
+      }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    // The rejected answer leaves the subagent unplaced, so it runs on the root's model and never on the frontier one.
+    expect(names).not.toContain(FRONTIER);
+    expect(bodies[1]).toMatchObject({ reasoning_effort: 'low' });
   });
 
   it('keeps an unplaced subagent of a named model on the spec params', async () => {

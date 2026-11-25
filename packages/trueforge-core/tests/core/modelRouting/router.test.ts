@@ -5,9 +5,16 @@ import { routingConversation } from '../../../src/core/modelRouting/conversation
 import {
   CONVERSATION_ROUTING_INSTRUCTIONS,
   DEFAULT_ROUTING_QUESTION,
+  ROOT_ROUTING_CATEGORIES,
+  SUBAGENT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
 } from '../../../src/core/modelRouting/question';
-import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
+import {
+  canRouteEveryCategory,
+  createModelRouter,
+  selectModel,
+  type RoutableModel,
+} from '../../../src/core/modelRouting/router';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { internalSystemMessage } from '../../../src/core/runtime/contextUtils';
 import { buildUploadedFilesAnnouncement } from '../../../src/core/runtime/UserInputMessage';
@@ -19,6 +26,7 @@ const models: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
+  { name: 'a/gpt-6-sol', canonicalModel: 'openai/gpt-6-sol', cost: 10 },
 ];
 const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
 
@@ -76,6 +84,21 @@ describe('selectModel', () => {
   it('returns nothing when the user has none of the cluster models', () => {
     expect(selectModel({ category: 'adaptive', models: haikuOnly })).toBeUndefined();
   });
+
+  it('picks the frontier cluster only from its own models', () => {
+    expect(selectModel({ category: 'frontier', models })?.routed).toEqual({ model: 'a/gpt-6-sol', effort: 'max' });
+    expect(selectModel({ category: 'frontier', models: models.filter(model => model.cost !== 10) })).toBeUndefined();
+  });
+});
+
+describe('canRouteEveryCategory', () => {
+  it('needs a model in every cluster, frontier included', () => {
+    const frontier: RoutableModel = { name: 'a/gpt-6-sol', canonicalModel: 'openai/gpt-6-sol', cost: 10 };
+    const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
+    const sol: RoutableModel = { name: 'a/gpt-6-1-sol', canonicalModel: 'openai/gpt-6-1-sol', cost: 5 };
+    expect(canRouteEveryCategory([luna, sol])).toBe(false);
+    expect(canRouteEveryCategory([luna, sol, frontier])).toBe(true);
+  });
 });
 
 describe('createModelRouter', () => {
@@ -83,6 +106,7 @@ describe('createModelRouter', () => {
     threadId: 'child',
     input: 'Name: research\n\nTask:\nCompare pricing of three CI tools.',
     instructions: TASK_ROUTING_INSTRUCTIONS,
+    categories: SUBAGENT_ROUTING_CATEGORIES,
   };
 
   function route(classifier: IDecisionModel, listModels = () => Promise.resolve(models)) {
@@ -98,6 +122,25 @@ describe('createModelRouter', () => {
 
   it("routes to the classified cluster's cheapest pair", async () => {
     await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
+  });
+
+  it('routes to the frontier cluster when the caller offers it', async () => {
+    const rootRoute = createModelRouter(
+      {
+        classifier: () => Promise.resolve({ client: classifiesAs('frontier'), properties: { contextLength: 16_000 } }),
+        question: DEFAULT_ROUTING_QUESTION,
+        listModels: () => Promise.resolve(models),
+      },
+      logger,
+    );
+    await expect(rootRoute({ ...routeInput, categories: ROOT_ROUTING_CATEGORIES })).resolves.toEqual({
+      model: 'a/gpt-6-sol',
+      effort: 'max',
+    });
+  });
+
+  it('picks nothing when the classifier answers a category the caller did not offer', async () => {
+    await expect(route(classifiesAs('frontier'))).resolves.toBeUndefined();
   });
 
   it('picks nothing for an unknown category', async () => {
@@ -173,6 +216,7 @@ describe('classification', () => {
       input: task,
       question: DEFAULT_ROUTING_QUESTION,
       instructions: TASK_ROUTING_INSTRUCTIONS,
+      categories: SUBAGENT_ROUTING_CATEGORIES,
       contextLength: 4_000,
     });
     expect(isTruncated).toBe(true);
@@ -186,6 +230,7 @@ describe('classification', () => {
       input: task,
       question: DEFAULT_ROUTING_QUESTION,
       instructions: TASK_ROUTING_INSTRUCTIONS,
+      categories: SUBAGENT_ROUTING_CATEGORIES,
       contextLength: 64_000,
     });
     expect(isTruncated).toBe(false);
@@ -201,12 +246,28 @@ describe('classification', () => {
       input: conversation,
       question: DEFAULT_ROUTING_QUESTION,
       instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
+      categories: SUBAGENT_ROUTING_CATEGORIES,
       contextLength: 4_000,
     });
     expect(isTruncated).toBe(true);
     expect(Array.isArray(body.input) && body.input.length < conversation.length).toBe(true);
     expect(Array.isArray(body.input) && body.input.at(-1)).toEqual(conversation.at(-1));
     expect(body.questions[0]).toEqual(expect.objectContaining({ instructions: CONVERSATION_ROUTING_INSTRUCTIONS }));
+  });
+
+  it('offers only the categories the caller allows, in the question order', () => {
+    const offered = (categories: typeof ROOT_ROUTING_CATEGORIES) => {
+      const question = classificationRequest({
+        input: 'task',
+        question: DEFAULT_ROUTING_QUESTION,
+        instructions: TASK_ROUTING_INSTRUCTIONS,
+        categories,
+        contextLength: 16_000,
+      }).body.questions[0];
+      return question !== undefined && 'choices' in question ? question.choices.map(choice => choice.value) : [];
+    };
+    expect(offered(ROOT_ROUTING_CATEGORIES)).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
+    expect(offered(SUBAGENT_ROUTING_CATEGORIES)).toEqual(['direct', 'fixed_steps', 'adaptive']);
   });
 
   it('reads the category, or nothing when the decision has none', () => {

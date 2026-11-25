@@ -4,7 +4,12 @@
 import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import { routingConversation } from '../core/modelRouting/conversation';
-import { CONVERSATION_ROUTING_INSTRUCTIONS, TASK_ROUTING_INSTRUCTIONS } from '../core/modelRouting/question';
+import {
+  CONVERSATION_ROUTING_INSTRUCTIONS,
+  ROOT_ROUTING_CATEGORIES,
+  SUBAGENT_ROUTING_CATEGORIES,
+  TASK_ROUTING_INSTRUCTIONS,
+} from '../core/modelRouting/question';
 import { AUTO_MODEL, type RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
@@ -733,6 +738,7 @@ export class SessionHandle<
             threadId: MAIN_THREAD_ID,
             input: routingConversation(previousThread?.context ?? [], input.userMessage ?? []),
             instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
+            categories: ROOT_ROUTING_CATEGORIES,
           }
         : undefined;
       const model = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
@@ -748,6 +754,7 @@ export class SessionHandle<
         threadId,
         input: `Name: ${request.name}\n\nTask:\n${request.input}`,
         instructions: TASK_ROUTING_INSTRUCTIONS,
+        categories: SUBAGENT_ROUTING_CATEGORIES,
       };
       return () => resolver.resolveModel({ spec, model: requested ?? input.rootModel, routingInput });
     }
