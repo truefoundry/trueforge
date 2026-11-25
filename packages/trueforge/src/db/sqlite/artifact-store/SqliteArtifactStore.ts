@@ -4,6 +4,7 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import { ArtifactVersionMetadataSchema, type ArtifactVersionMetadata } from '../../../schemas/artifact';
 import {
   newArtifactIdentity,
   type ArtifactRecord,
@@ -46,6 +47,24 @@ function toArtifactRecord(row: {
   updated_at: string;
 }): ArtifactRecord {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
+}
+
+/** Qualified so `getVersion`'s join with `artifact` stays unambiguous. */
+function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
+  return [
+    'artifact_version.artifact_id' as const,
+    'artifact_version.version' as const,
+    jsonText<ArtifactVersionMetadata>(eb.ref('artifact_version.artifact_version_metadata')).as(
+      'artifact_version_metadata',
+    ),
+    'artifact_version.created_by_session_id' as const,
+    'artifact_version.created_by_agent_id' as const,
+    'artifact_version.created_at' as const,
+  ];
+}
+
+function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
+  return { ...row, artifact_version_metadata: ArtifactVersionMetadataSchema.parse(row.artifact_version_metadata) };
 }
 
 export class SqliteArtifactStore implements IArtifactStore {
@@ -116,31 +135,35 @@ export class SqliteArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          entry_point: input.entry_point,
-          total_bytes: input.total_bytes,
+          artifact_version_metadata: jsonbBind(input.artifact_version_metadata),
           created_by_session_id: input.created_by_session_id,
           created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
         })
-        .returningAll()
+        .returning(versionColumns)
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: timestamp })
+        .set({
+          latest_version: version,
+          latest_entry_point: input.artifact_version_metadata.entry_point,
+          updated_at: timestamp,
+        })
         .where('id', '=', artifact.id)
         .execute();
-      return row;
+      return toVersionRecord(row);
     });
   }
 
   async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    return this.#db
+    const row = await this.#db
       .selectFrom('artifact_version')
       .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
-      .selectAll('artifact_version')
+      .select(versionColumns)
       .where('artifact.tenant_id', '=', input.tenant_id)
       .where('artifact_version.artifact_id', '=', input.artifact_id)
       .where('artifact_version.version', '=', input.version)
       .executeTakeFirst();
+    return row === undefined ? undefined : toVersionRecord(row);
   }
 }
