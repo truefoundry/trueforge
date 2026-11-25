@@ -1,5 +1,6 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
+import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
@@ -56,7 +57,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   }
 
   it('creates an artifact', async () => {
-    const created = await createArtifact({ name: 'Q3 report' });
+    const created = await createArtifact({ name: '  Q3 report  ' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
@@ -71,6 +72,13 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
     const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
+  });
+
+  it('caps the name length', async () => {
+    const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
+    expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
+    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
+    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
   it('allows artifacts with the same name', async () => {

@@ -1,4 +1,6 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { MAX_TITLE_LENGTH } from '../schemas/common';
+import { newId } from '../utils/id';
 
 export interface ArtifactRecord {
   id: string;
@@ -30,6 +32,7 @@ export interface ArtifactVersionRecord {
 
 export interface CreateArtifactInput {
   tenant_id: string;
+  /** Trimmed; 1 to `MAX_TITLE_LENGTH` characters. */
   name: string;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -66,8 +69,20 @@ export interface GetArtifactVersionInput {
   version: number;
 }
 
+/**
+ * New artifact id and trimmed name. Throws `RangeError` when the trimmed name is empty or
+ * longer than `MAX_TITLE_LENGTH`.
+ */
+export function newArtifactIdentity(rawName: string): { id: string; name: string } {
+  const name = rawName.trim();
+  if (name.length === 0 || name.length > MAX_TITLE_LENGTH) {
+    throw new RangeError(`Artifact name must be 1-${String(MAX_TITLE_LENGTH)} characters`);
+  }
+  return { id: newId(), name };
+}
+
 export interface IArtifactStore {
-  /** Generates the id. */
+  /** Generates the id and validates the name (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
   /** Undefined when the artifact is missing, in another tenant, or not created by `created_by_subject_id`. */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
