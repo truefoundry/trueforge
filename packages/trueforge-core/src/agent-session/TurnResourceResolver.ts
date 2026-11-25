@@ -1,7 +1,7 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import { AgentHarnessError } from '../core/errors';
-import type { ToolApprovalPolicy } from '../core/events/schema';
+import type { ThreadModelSelectedEvent, ToolApprovalPolicy } from '../core/events/schema';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
 import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
@@ -47,6 +47,11 @@ export type TurnSandboxFactory = (input: {
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
+}
+
+/** Routing replaces the spec's model, so its `model.params` are dropped; the thread gets the routed model's defaults. */
+function specForRoutedModel(spec: AgentSpec, routed: RoutedModel): AgentSpec {
+  return { ...spec, model: { name: routed.model, params: { reasoning_effort: routed.effort } } };
 }
 
 /** A saved effort replaces the freshly resolved one. `null` means the thread ran with none. */
@@ -106,7 +111,8 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  readonly autoModelRouterAvailable: boolean;
+  readonly #routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
 
   constructor(
     protected readonly deps: {
@@ -146,7 +152,8 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    this.routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.#routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.autoModelRouterAvailable = this.#routeModel !== undefined;
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
@@ -309,25 +316,44 @@ export class TurnResourceResolver<
     agent_info: AgentInfo | undefined;
     model: ModelSnapshot | undefined;
     route: RouteInput | undefined;
-  }): Promise<AgentModel> {
+    fallback: ModelSnapshot | undefined;
+  }): Promise<{ model: AgentModel; outcome: ThreadModelSelectedEvent['outcome'] | undefined }> {
     const { spec, agent_info } = input;
-    if (spec.model.name !== AUTO_MODEL) {
-      return this.loadModel({ spec, agent_info, model: agent_info === undefined ? undefined : input.model });
-    }
-    if (this.routeModel === undefined) {
+    const usesAutoModel = spec.model.name === AUTO_MODEL;
+    if (usesAutoModel && !this.autoModelRouterAvailable) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
     }
+    // A root that names a model always runs on it, even when resuming; a subagent resumes on whatever it ran on.
+    if (agent_info === undefined && !usesAutoModel) {
+      return {
+        model: await this.loadModel({ spec, agent_info, model: undefined }),
+        outcome: input.model === undefined ? 'explicit' : undefined,
+      };
+    }
     if (input.model !== undefined) {
-      return this.loadModel({ spec, agent_info, model: input.model });
+      return { model: await this.loadModel({ spec, agent_info, model: input.model }), outcome: undefined };
     }
-    if (input.route === undefined) {
-      throw new Error('Unreachable: an auto thread has neither a chosen model nor a conversation to route on');
+    const routed = input.route === undefined ? undefined : await this.#routeModel?.(input.route);
+    if (routed !== undefined) {
+      return {
+        model: await this.loadModel({
+          spec: specForRoutedModel(spec, routed),
+          agent_info,
+          model: { name: routed.model, effort: routed.effort },
+        }),
+        outcome: 'picked',
+      };
     }
-    const routed = await this.routeModel(input.route);
-    if (routed === undefined) {
+    if (!usesAutoModel) {
+      return { model: await this.loadModel({ spec, agent_info, model: undefined }), outcome: 'explicit' };
+    }
+    if (agent_info === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }
-    return this.loadModel({ spec, agent_info, model: { name: routed.model, effort: routed.effort } });
+    if (input.fallback === undefined) {
+      throw new Error('Unreachable: an auto subagent the router could not place has no root model to fall back on');
+    }
+    return { model: await this.loadModel({ spec, agent_info, model: input.fallback }), outcome: 'picked' };
   }
 
   private async loadModel(input: {

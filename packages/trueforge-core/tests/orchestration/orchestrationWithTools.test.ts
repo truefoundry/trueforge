@@ -25,7 +25,7 @@ const CHILD_REPLY = 'hello from the child';
 const ROOT_FINAL = 'How are you?';
 const INSTRUCTION = 'You are running in a test setup.';
 const CHILD_TASK = 'do the delegated task';
-/** Chosen by the thread factory, not the parent's request, as when the subagent's model is routed. */
+/** Selected by the orchestrator's resolveModel, not the parent's request, as when the subagent's model is routed. */
 const CHILD_MODEL = 'provider/child-model';
 
 const CREATE_SUB_AGENT_ARGS = JSON.stringify({ name: 'worker', input: CHILD_TASK });
@@ -55,9 +55,9 @@ const EXPECTED_EVENTS = [
     type: EventType.THREAD_CREATED,
     title: 'worker',
     agent_info: { name: 'worker' },
-    model: { name: CHILD_MODEL, effort: null },
     parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
   },
+  { type: EventType.THREAD_MODEL_SELECTED, model: { name: CHILD_MODEL, effort: null }, outcome: 'picked' },
   { type: EventType.MODEL_MESSAGE, thread_id: expect.any(String) },
   { type: EventType.MODEL_MESSAGE_DELTA, thread_id: expect.any(String), content: CHILD_REPLY },
   {
@@ -178,7 +178,7 @@ describe('orchestration: dynamic sub-agent', () => {
       };
       return new AgentThread({
         definition: agentDefinition,
-        model: { client: childLLM, name: CHILD_MODEL },
+        model: undefined,
         threadId,
         title: request.name,
         parent,
@@ -197,7 +197,10 @@ describe('orchestration: dynamic sub-agent', () => {
     let orchestratorInput: AgentThreadOrchestratorInput = {
       agentThreads: new Map([[thread_1.threadId, thread_1]]),
       createDynamicSubAgentThread: createSubAgentThread,
-      resolveModel: rejectModelSelection,
+      resolveModel: thread =>
+        thread.threadId === ROOT_ID || childLLM === undefined
+          ? rejectModelSelection()
+          : Promise.resolve({ model: { client: childLLM, name: CHILD_MODEL }, outcome: 'picked' }),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
       pendingTurnEvents: [],

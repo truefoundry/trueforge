@@ -152,7 +152,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
-    routeModel: base.routeModel,
+    autoModelRouterAvailable: base.autoModelRouterAvailable,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {

@@ -197,8 +197,13 @@ export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
   maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
-  /** Resolves the model of a thread that has none, before it first runs. */
-  resolveModel: (thread: AgentThread) => Promise<{ model: AgentModel; outcome: ThreadModelSelectedEvent['outcome'] }>;
+  /**
+   * Resolves the model of a thread that has none, before it first runs. `outcome` is undefined when the thread resumes
+   * on its saved model, whose selection was recorded when it was made.
+   */
+  resolveModel: (
+    thread: AgentThread,
+  ) => Promise<{ model: AgentModel; outcome: ThreadModelSelectedEvent['outcome'] | undefined }>;
   tracing: AgentTracing;
   logger: Logger;
   /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
@@ -215,8 +220,6 @@ export class AgentThreadOrchestrator {
   private readonly maxParallelSubAgents: number;
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly resolveModel: AgentThreadOrchestratorInput['resolveModel'];
-  /** Threads whose model is selected at the start of the next execute loop. */
-  private readonly threadsAwaitingModel = new Set<string>();
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
@@ -471,9 +474,6 @@ export class AgentThreadOrchestrator {
       });
 
       yield* mainThread.sendUserMessages(messages);
-      if (mainThread.model === undefined) {
-        this.threadsAwaitingModel.add(mainThread.threadId);
-      }
       return;
     }
 
@@ -591,7 +591,6 @@ export class AgentThreadOrchestrator {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
           agent_info: chunk.agent_info,
-          ...(subAgentThread.model === undefined ? {} : { model: modelSnapshotFromAgent(subAgentThread.model) }),
           created_at: new Date().toISOString(),
           parent,
           title: chunk.agent_info.name,
@@ -606,25 +605,29 @@ export class AgentThreadOrchestrator {
     }
   }
 
-  /** Selects the model of each thread awaiting one, before it first runs. */
-  private async *selectAwaitingModels(): AsyncGenerator<ThreadModelSelectedEvent, void, unknown> {
-    for (const threadId of this.threadsAwaitingModel) {
-      this.threadsAwaitingModel.delete(threadId);
-      const thread = this.agentThreads.get(threadId);
-      if (thread === undefined) {
-        continue;
+  /** Resolves the model of each thread that has none, before it first runs. */
+  private async *resolveMissingModels(): AsyncGenerator<ThreadModelSelectedEvent, void, unknown> {
+    const resolved = await Promise.all(
+      [...this.agentThreads.values()]
+        .filter(thread => thread.model === undefined)
+        .map(async thread => {
+          const startedMs = Date.now();
+          const { model, outcome } = await this.resolveModel(thread);
+          return { thread, model, outcome, durationMs: Date.now() - startedMs };
+        }),
+    );
+    for (const { thread, model, outcome, durationMs } of resolved) {
+      if (outcome !== undefined) {
+        yield {
+          type: EventType.THREAD_MODEL_SELECTED,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
+          thread_id: thread.threadId,
+          model: modelSnapshotFromAgent(model),
+          outcome,
+          duration_ms: durationMs,
+        };
       }
-      const startedMs = Date.now();
-      const { model, outcome } = await this.resolveModel(thread);
-      yield {
-        type: EventType.THREAD_MODEL_SELECTED,
-        id: newEventId(),
-        created_at: new Date().toISOString(),
-        thread_id: threadId,
-        model: modelSnapshotFromAgent(model),
-        outcome,
-        duration_ms: Date.now() - startedMs,
-      };
       thread.setModel(model);
     }
   }
@@ -676,7 +679,7 @@ export class AgentThreadOrchestrator {
           return done();
         }
 
-        yield* this.selectAwaitingModels();
+        yield* this.resolveMissingModels();
         if (isAborted()) {
           return done();
         }

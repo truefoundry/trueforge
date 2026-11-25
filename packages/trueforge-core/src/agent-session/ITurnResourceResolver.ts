@@ -1,6 +1,7 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
-import type { RouteInput, RoutedModel } from '../core/modelRouting/router';
+import type { ThreadModelSelectedEvent } from '../core/events/schema';
+import type { RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
@@ -30,6 +31,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   readonly webSearchProvider?: IWebSearchProvider | undefined;
   /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
   readonly logger: Logger;
+  /** False when the tenant has model routing off, so an auto agent can't run. */
+  readonly autoModelRouterAvailable: boolean;
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**
@@ -68,11 +71,13 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   resolveModel(input: {
     spec: AgentSpec;
     agent_info: AgentInfo | undefined;
+    /** A saved model to resume on. It skips routing, and `outcome` is undefined since the selection was recorded. */
     model: ModelSnapshot | undefined;
+    /** What to route on: the conversation for a root, the delegated task for a subagent. */
     route: RouteInput | undefined;
-  }): Promise<AgentModel>;
-  /** Picks a thread's model before it starts; undefined to not route. */
-  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+    /** The model an auto subagent runs on when the router can't place it: the root's. */
+    fallback: ModelSnapshot | undefined;
+  }): Promise<{ model: AgentModel; outcome: ThreadModelSelectedEvent['outcome'] | undefined }>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

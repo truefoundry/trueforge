@@ -353,6 +353,30 @@ describe('auto model selection', () => {
     expect(bodies[1]).not.toHaveProperty('temperature');
   });
 
+  it("records a subagent's model after it is created, before its first model call", async () => {
+    const { session } = await createSession(autoSpec, true);
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: routing().deps, llmCreate: subAgentReplies([]) }),
+    });
+    const events = [];
+    for await (const event of turn.stream()) events.push(event);
+
+    const createdAt = events.findIndex(event => event.type === EventType.THREAD_CREATED);
+    const created = events[createdAt];
+    expect(created).not.toHaveProperty('model');
+    const childId = created !== undefined && 'thread_id' in created ? created.thread_id : undefined;
+    const selectedAt = events.findIndex(
+      event => event.type === EventType.THREAD_MODEL_SELECTED && event.thread_id === childId,
+    );
+    const firstCallAt = events.findIndex(
+      event => event.type === EventType.MODEL_MESSAGE && event.thread_id === childId,
+    );
+    expect(events[selectedAt]).toMatchObject({ outcome: 'picked' });
+    expect(selectedAt).toBeGreaterThan(createdAt);
+    expect(selectedAt).toBeLessThan(firstCallAt);
+  });
+
   it('runs an unplaced subagent of an auto root on the root model and effort', async () => {
     const { session } = await createSession(autoSpec, true);
     const bodies: LLMCreateParamsStreaming[] = [];
