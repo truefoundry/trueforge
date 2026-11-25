@@ -7,7 +7,6 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .agent_info import AgentInfo
 from .agent_parent import AgentParent
-from .model_snapshot import ModelSnapshot
 
 
 class ThreadCreatedEvent(UncheckedBaseModel):
@@ -22,7 +21,6 @@ class ThreadCreatedEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    model: typing.Optional[ModelSnapshot] = None
     parent: AgentParent
     thread_id: str = pydantic.Field()
     """

@@ -140,13 +140,9 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       this.#client.listGatewayInstallations(serviceFoundryAccessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
-    // A by-name lookup also resolves decision models (the model router's Jev); listings stay chat-only.
     const models = filterEnvModels({
       tenant_id: input.tenant_id,
-      models: mapEnabledModels({
-        integrations,
-        ...(input.filter !== undefined ? { modelTypes: ['chat', 'decision'] } : {}),
-      }),
+      models: mapEnabledModels({ integrations }),
     });
     const records = toRecords({
       tenant_id: input.tenant_id,

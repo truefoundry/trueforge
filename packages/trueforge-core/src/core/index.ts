@@ -32,6 +32,7 @@ export type { UserMessage } from './runtime/UserInputMessage';
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
 export type {
   AgentContextProcessorOutput,
+  AgentThreadContext,
   AgentThreadExecutionContext,
   PostToolCallAgentContextProcessor,
   PreLLMEphemeralAgentContextProcessor,
@@ -153,6 +154,7 @@ export {
   ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  ThreadSwitchModelEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,

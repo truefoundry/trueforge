@@ -14,7 +14,7 @@
  */
 import type {
   AgentContextProcessorAppendContext,
-  AgentThreadExecutionContext,
+  AgentThreadContext,
   PreSendContextProcessor,
 } from '../capabilities/AgentContextProcessor';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage } from '../llm/LLMTypes';
@@ -69,7 +69,7 @@ export function getClosableOpenToolCallIds(context: ContextMessage[]): Set<strin
 export class OpenToolCallCloser implements PreSendContextProcessor {
   // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
   async *processPreSend(
-    execution: Readonly<AgentThreadExecutionContext>,
+    execution: Readonly<AgentThreadContext>,
   ): AsyncGenerator<AgentContextProcessorAppendContext, void, unknown> {
     const requestedIds = getClosableOpenToolCallIds(execution.context);
     if (requestedIds.size === 0) {
