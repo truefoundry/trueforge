@@ -168,6 +168,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
         extraCapabilities: [...(resolved.extraCapabilities ?? []), ...(options.extraCapabilities ?? [])],
       };
     },
+    resolveModel: input => base.resolveModel(input),
     close: async () => {
       if (options.close) {
         await options.close();

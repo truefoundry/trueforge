@@ -11,14 +11,12 @@ import { dynamicSubAgents } from '../core/capabilities/builtins/DynamicSubAgents
 import { largeToolResponse } from '../core/capabilities/builtins/LargeToolResponse';
 import { openUI } from '../core/capabilities/builtins/OpenUI';
 import { webSearch } from '../core/capabilities/builtins/WebSearch';
-import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { AgentSpec } from './schemas/agentSpec';
 
 export function builtinsFromSpec(input: {
   spec: AgentSpec;
-  model: AgentModel;
   /** Root thread only — child threads omit interactive builtins. */
   isChild: boolean;
   sandboxAvailable: boolean;
@@ -26,14 +24,13 @@ export function builtinsFromSpec(input: {
   webSearchProvider: IWebSearchProvider | undefined;
   logger: Logger;
 }): AgentCapability[] {
-  const { spec, model, isChild, sandboxAvailable, tracing, webSearchProvider, logger } = input;
+  const { spec, isChild, sandboxAvailable, tracing, webSearchProvider, logger } = input;
   const config = spec.config;
   const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
 
   if (config.context_management.compaction.enabled) {
     capabilities.push(
       contextCompaction({
-        model,
         compactionThresholdTokens: config.context_management.compaction.trigger?.value,
       }),
     );
@@ -57,7 +54,6 @@ export function builtinsFromSpec(input: {
     capabilities.push(
       largeToolResponse({
         dynamicSubAgentsPresent: !isChild && dynamicSubAgentsEnabled,
-        modelContextLength: model.properties?.contextLength,
         logger,
       }),
     );
