@@ -174,7 +174,6 @@ if typing.TYPE_CHECKING:
     from .model_properties import ModelProperties
     from .model_provider_auth import ModelProviderAuth
     from .model_provider_manifest import ModelProviderManifest
-    from .model_snapshot import ModelSnapshot
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
@@ -255,6 +254,8 @@ if typing.TYPE_CHECKING:
     from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
+    from .thread_model_selected_event import ThreadModelSelectedEvent
+    from .thread_model_selected_event_params import ThreadModelSelectedEventParams
     from .thread_state import ThreadState
     from .thread_state_done import ThreadStateDone
     from .thread_state_error import ThreadStateError
@@ -478,7 +479,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelProperties": ".model_properties",
     "ModelProviderAuth": ".model_provider_auth",
     "ModelProviderManifest": ".model_provider_manifest",
-    "ModelSnapshot": ".model_snapshot",
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
@@ -559,6 +559,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
+    "ThreadModelSelectedEvent": ".thread_model_selected_event",
+    "ThreadModelSelectedEventParams": ".thread_model_selected_event_params",
     "ThreadState": ".thread_state",
     "ThreadStateDone": ".thread_state_done",
     "ThreadStateError": ".thread_state_error",
@@ -806,7 +808,6 @@ __all__ = [
     "ModelProperties",
     "ModelProviderAuth",
     "ModelProviderManifest",
-    "ModelSnapshot",
     "MoonshotModelProvider",
     "OpenAiModelProvider",
     "ParallelWebSearchProviderAuth",
@@ -887,6 +888,8 @@ __all__ = [
     "ThreadContextCompactionStartedEvent",
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
+    "ThreadModelSelectedEvent",
+    "ThreadModelSelectedEventParams",
     "ThreadState",
     "ThreadStateDone",
     "ThreadStateError",

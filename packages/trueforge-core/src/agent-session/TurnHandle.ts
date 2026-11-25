@@ -768,7 +768,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
                     thread_id: event.thread_id,
                     parent: event.parent,
                     agent_info: event.agent_info,
-                    model: event.model ?? null,
+                    model: null,
                     context: [],
                     current_context_usage: getEmptyCurrentContextUsage(),
                     completion: null,
@@ -835,6 +835,24 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
               {
                 ...scope,
                 sandbox_info: { sandbox_id: event.sandbox_id },
+              },
+              transaction,
+            );
+            await this.store.appendToEvents({ ...scope, events: [event] }, transaction);
+          }),
+        );
+        yield event;
+        return;
+      }
+
+      case HarnessEventType.THREAD_MODEL_SELECTED: {
+        await this.writeStore('append', () =>
+          this.store.withTransaction(async transaction => {
+            await this.store.patchThreadModel(
+              {
+                ...scope,
+                thread_id: event.thread_id,
+                model: { name: event.model_name, effort: event.params.reasoning_effort },
               },
               transaction,
             );

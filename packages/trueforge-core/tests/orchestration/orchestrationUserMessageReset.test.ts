@@ -7,7 +7,13 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { llmCreateInputs, runExecute, textReplyStream } from './helpers/helpers';
+import {
+  llmCreateInputs,
+  rejectModelSelection,
+  runExecute,
+  textReplyStream,
+  threadModelClient,
+} from './helpers/helpers';
 
 const MAIN_ID = 'main';
 const CHILD_ID = 'child';
@@ -127,6 +133,7 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
+      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],
@@ -181,7 +188,7 @@ describe('orchestration: user-message reset', () => {
       ]),
     );
     expect(result.output?.content).toBe(ROOT_REPLY);
-    expect(llmCreateInputs(main.model.client)).toHaveLength(1);
+    expect(llmCreateInputs(threadModelClient(main))).toHaveLength(1);
   });
 
   it('delivers a finished child send_to_parent instead of the cancel string', async () => {
@@ -219,6 +226,7 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
+      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],
@@ -305,6 +313,7 @@ describe('orchestration: user-message reset', () => {
     );
 
     const orchestrator = new AgentThreadOrchestrator({
+      resolveModel: rejectModelSelection,
       agentThreads: new Map([
         [main.threadId, main],
         [child.threadId, child],

@@ -144,8 +144,6 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    * Authoritative for this turn; the store does not carry capability rows forward.
    */
   capability_states: ThreadCapabilityStateInit[];
-  /** Model the main thread runs on in this turn, including effort; written to its row every turn. */
-  main_thread_model: ModelSnapshot | null;
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
 }
@@ -256,6 +254,11 @@ export interface PatchThreadCapabilityStateInput extends TurnProgressKeys {
 export interface PatchThreadsMCPAuthInput extends TurnProgressKeys {
   thread_ids: string[];
   pending_mcp_auth: boolean;
+}
+
+export interface PatchThreadModelInput extends TurnProgressKeys {
+  thread_id: string;
+  model: ModelSnapshot;
 }
 
 export interface ListTurnEventsInput {
@@ -369,6 +372,9 @@ export interface ISessionStore<
    * unset/null, set it in the same atomic unit; an existing title is NEVER
    * overwritten (first write wins). The caller derives the value; the store
    * only conditionally sets it.
+   *
+   * The main thread starts each turn with no model; {@link patchThreadModel} records it once
+   * selected. Every other thread keeps the model it was created with.
    */
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
@@ -474,6 +480,9 @@ export interface ISessionStore<
 
   /** Patches the MCP-auth wait state of the supplied threads. Must still own the turn. */
   patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: TTransaction): Promise<void>;
+
+  /** Records the model a thread runs on once it is selected. Must still own the turn. */
+  patchThreadModel(input: PatchThreadModelInput, transaction?: TTransaction): Promise<void>;
 
   /** Paginated read ordered lexically by monotonic `event.id` (asc default). */
   listTurnEvents(input: ListTurnEventsInput): Promise<{

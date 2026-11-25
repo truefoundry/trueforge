@@ -24,6 +24,7 @@ export const EVENT_TYPE = {
   SANDBOX_CREATED: 'sandbox.created',
   THREAD_CREATED: 'thread.created',
   THREAD_DONE: 'thread.done',
+  THREAD_MODEL_SELECTED: 'thread.model_selected',
   TOOL_APPROVAL_REQUIRED: 'tool.approval_required',
   TOOL_RESPONSE: 'tool.response',
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
@@ -177,6 +178,15 @@ export interface ThreadCreatedEvent {
   createdAt: string;
 }
 
+export interface ThreadModelSelectedEvent {
+  type: typeof EVENT_TYPE.THREAD_MODEL_SELECTED;
+  id: string;
+  threadId: string;
+  modelName: string;
+  params: { reasoningEffort: string };
+  createdAt: string;
+}
+
 export interface ThreadDoneEvent {
   type: typeof EVENT_TYPE.THREAD_DONE;
   id: string;
@@ -300,6 +310,7 @@ export type TurnEvent =
   | ModelMessageEvent
   | ToolResponseEvent
   | ThreadCreatedEvent
+  | ThreadModelSelectedEvent
   | ThreadDoneEvent
   | ThreadContextCompactionStartedEvent
   | ThreadContextCompactionFinishedEvent

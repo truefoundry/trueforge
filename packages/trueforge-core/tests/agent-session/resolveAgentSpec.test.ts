@@ -51,11 +51,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
 
-    const model = await resolver.resolveModel({
+    const { model } = await resolver.resolveModel({
       spec: makeAgentSpec(),
       agent_info: undefined,
       model: undefined,
       routingInput: undefined,
+      fallback: undefined,
     });
 
     expect(model.properties).toBeUndefined();
@@ -96,11 +97,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       },
     });
 
-    const model = await resolver.resolveModel({
+    const { model } = await resolver.resolveModel({
       spec,
       agent_info: undefined,
       model: undefined,
       routingInput: undefined,
+      fallback: undefined,
     });
 
     expect(model.params?.['max_tokens']).toBe(expected);
@@ -137,11 +139,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       model: { name: 'provider/model', params: { max_tokens: 8192, temperature: 0.2, reasoning_effort: 'high' } },
     });
 
-    const model = await resolver.resolveModel({
+    const { model } = await resolver.resolveModel({
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/other' },
       model: undefined,
       routingInput: undefined,
+      fallback: undefined,
     });
 
     expect(model.params).toEqual(expected);
@@ -165,11 +168,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       model: { name: 'provider/model', params: { max_tokens: 8192, reasoning_effort: 'high' } },
     });
 
-    const model = await resolver.resolveModel({
+    const { model } = await resolver.resolveModel({
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/requested' },
       model: { name: 'provider/routed', effort: 'medium' },
       routingInput: undefined,
+      fallback: undefined,
     });
 
     expect(model.name).toBe('provider/routed');
@@ -194,11 +198,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       model: { name: 'provider/model', params: { reasoning_effort: 'high' } },
     });
 
-    const model = await resolver.resolveModel({
+    const { model } = await resolver.resolveModel({
       spec,
       agent_info: undefined,
       model: { name: 'provider/saved', effort: 'low' },
       routingInput: undefined,
+      fallback: undefined,
     });
 
     expect(model.name).toBe('provider/model');
@@ -313,7 +318,7 @@ describe('SessionHandle rebuild', () => {
     const resolver = makeTestResolver();
     const resolveAgentDefinition = jest.spyOn(resolver, 'resolveAgentDefinition');
     const resolveModel = jest.spyOn(resolver, 'resolveModel');
-    await session.createTurn({
+    const turn2 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'again' }],
@@ -321,6 +326,9 @@ describe('SessionHandle rebuild', () => {
       abortController: new AbortController(),
       resolver,
     });
+    for await (const event of turn2.stream()) {
+      void event;
+    }
 
     expect(resolveModel.mock.calls.map(([input]) => input)).toContainEqual(
       expect.objectContaining({

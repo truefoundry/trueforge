@@ -7,19 +7,14 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class ModelSnapshot(UncheckedBaseModel):
+class ThreadModelSelectedEventParams(UncheckedBaseModel):
     """
-    Model and effort the new thread runs on.
-    """
-
-    effort: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Reasoning effort for that model. Null when none was resolved.
+    Model parameters chosen with the model.
     """
 
-    name: str = pydantic.Field()
+    reasoning_effort: str = pydantic.Field()
     """
-    Resolved model name, `provider/model`.
+    Reasoning effort chosen for the model.
     """
 
     if IS_PYDANTIC_V2:

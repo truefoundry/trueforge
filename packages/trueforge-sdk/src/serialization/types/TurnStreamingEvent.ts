@@ -12,6 +12,7 @@ import { ThreadContextCompactionFinishedEvent } from "./ThreadContextCompactionF
 import { ThreadContextCompactionStartedEvent } from "./ThreadContextCompactionStartedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
+import { ThreadModelSelectedEvent } from "./ThreadModelSelectedEvent.js";
 import { ToolApprovalRequiredEvent } from "./ToolApprovalRequiredEvent.js";
 import { ToolResponseEvent } from "./ToolResponseEvent.js";
 import { ToolResponseRequiredEvent } from "./ToolResponseRequiredEvent.js";
@@ -36,6 +37,7 @@ export const TurnStreamingEvent: core.serialization.Schema<
     ThreadContextCompactionStartedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
+    ThreadModelSelectedEvent,
     ToolApprovalRequiredEvent,
     ToolResponseEvent,
     ToolResponseRequiredEvent,
@@ -59,6 +61,7 @@ export declare namespace TurnStreamingEvent {
         | ThreadContextCompactionStartedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw
+        | ThreadModelSelectedEvent.Raw
         | ToolApprovalRequiredEvent.Raw
         | ToolResponseEvent.Raw
         | ToolResponseRequiredEvent.Raw

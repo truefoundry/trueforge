@@ -5,7 +5,13 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
+import {
+  driveUntilPauseOrDone,
+  llmCreateInputs,
+  rejectModelSelection,
+  textReplyStream,
+  threadModelClient,
+} from './helpers/helpers';
 
 const THREAD_ID = 'main';
 const REPLY = 'hello from the mocked model';
@@ -70,6 +76,7 @@ describe('orchestration: mocked LLM and no tools', () => {
     // Orchestrator owns the thread map and fans send/execute across live threads.
     // This case has only the root thread, so sub-agent creation must never run.
     const orchestrator = new AgentThreadOrchestrator({
+      resolveModel: rejectModelSelection,
       agentThreads: new Map([[thread.threadId, thread]]),
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in no-tool test')),
       tracing: NOOP_AGENT_TRACING,
@@ -90,6 +97,6 @@ describe('orchestration: mocked LLM and no tools', () => {
     expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
     expect(outcome.result).toMatchObject(OUTPUT);
     expect(outcome.result.root_agent_error).toBeUndefined();
-    expect(llmCreateInputs(thread.model.client)).toMatchObject(EXPECTED_LLM_INPUT);
+    expect(llmCreateInputs(threadModelClient(thread))).toMatchObject(EXPECTED_LLM_INPUT);
   });
 });

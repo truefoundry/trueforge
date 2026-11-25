@@ -12,6 +12,7 @@ export type TurnStreamingEvent =
     | TrueForge.ThreadContextCompactionStartedEvent
     | TrueForge.ThreadCreatedEvent
     | TrueForge.ThreadDoneEvent
+    | TrueForge.ThreadModelSelectedEvent
     | TrueForge.ToolApprovalRequiredEvent
     | TrueForge.ToolResponseEvent
     | TrueForge.ToolResponseRequiredEvent

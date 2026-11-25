@@ -5,6 +5,7 @@ import {
   newEventId,
   type MCPServerInitInfo,
   type ModelMessageEvent,
+  type ThreadModelSelectedEvent,
   type ToolApprovalPolicy,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
@@ -20,7 +21,7 @@ import { getOperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
-import { modelSnapshotFromAgent } from './AgentModel';
+import type { AgentModel } from './AgentModel';
 import { AgentThread } from './AgentThread';
 import {
   InternalEventType,
@@ -196,6 +197,8 @@ export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
   maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
+  /** Resolves the model of a thread that has none, before it first runs. `routed` when model routing chose it. */
+  resolveModel: (thread: AgentThread) => Promise<{ model: AgentModel; routed: boolean }>;
   tracing: AgentTracing;
   logger: Logger;
   /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
@@ -211,6 +214,7 @@ export class AgentThreadOrchestrator {
   private readonly agentThreads: Map<string, AgentThread>;
   private readonly maxParallelSubAgents: number;
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
+  private readonly resolveModel: AgentThreadOrchestratorInput['resolveModel'];
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
@@ -224,6 +228,7 @@ export class AgentThreadOrchestrator {
     this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
+    this.resolveModel = params.resolveModel;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
     this.pendingTurnEvents = [...params.pendingTurnEvents];
@@ -581,7 +586,6 @@ export class AgentThreadOrchestrator {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
           agent_info: chunk.agent_info,
-          model: modelSnapshotFromAgent(subAgentThread.model),
           created_at: new Date().toISOString(),
           parent,
           title: chunk.agent_info.name,
@@ -593,6 +597,32 @@ export class AgentThreadOrchestrator {
       default:
         yield chunk;
         return;
+    }
+  }
+
+  /** Resolves the model of each thread that has none, before it first runs, and records the ones routing chose. */
+  private async *resolveMissingModels(): AsyncGenerator<ThreadModelSelectedEvent, void, unknown> {
+    const resolved = await Promise.all(
+      [...this.agentThreads.values()]
+        .filter(thread => thread.model === undefined)
+        .map(async thread => ({ thread, ...(await this.resolveModel(thread)) })),
+    );
+    for (const { thread, model, routed } of resolved) {
+      if (routed) {
+        const effort = model.params?.reasoning_effort;
+        if (effort === undefined) {
+          throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
+        }
+        yield {
+          type: EventType.THREAD_MODEL_SELECTED,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
+          thread_id: thread.threadId,
+          model_name: model.name,
+          params: { reasoning_effort: effort },
+        };
+      }
+      thread.setModel(model);
     }
   }
 
@@ -640,6 +670,11 @@ export class AgentThreadOrchestrator {
     try {
       for (;;) {
         if (isAborted() || rootSettled()) {
+          return done();
+        }
+
+        yield* this.resolveMissingModels();
+        if (isAborted()) {
           return done();
         }
 
