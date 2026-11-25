@@ -21,6 +21,7 @@ import {
   type ThreadCreatedEvent,
   type ThreadOverwriteContextEvent,
   type ThreadStateError,
+  type ThreadSwitchModelEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
@@ -162,6 +163,7 @@ export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | Use
 export type AgentThreadSendBatch = UserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
+  | ThreadSwitchModelEvent
   | ModelMessageEvent
   | ModelMessageDeltaEvent
   | ToolResponseEvent
@@ -221,7 +223,8 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
-  model: AgentModel;
+  /** Resolves the thread's model when it first runs. `routed` when model routing chose it. */
+  resolveModel: () => Promise<{ model: AgentModel; routed: boolean }>;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

@@ -106,7 +106,8 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  readonly autoModelRouterAvailable: boolean;
+  readonly #routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
 
   constructor(
     protected readonly deps: {
@@ -146,7 +147,8 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    this.routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.#routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.autoModelRouterAvailable = this.#routeModel !== undefined;
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
@@ -306,48 +308,32 @@ export class TurnResourceResolver<
 
   async resolveModel(input: {
     spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
     model: ModelSnapshot | undefined;
     routingInput: RouteInput | undefined;
-  }): Promise<AgentModel> {
-    const { spec, agent_info } = input;
-    if (spec.model.name !== AUTO_MODEL) {
-      return this.loadModel({ spec, agent_info, model: agent_info === undefined ? undefined : input.model });
-    }
-    if (this.routeModel === undefined) {
-      throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
-    }
-    if (input.model !== undefined) {
-      return this.loadModel({ spec, agent_info, model: input.model });
-    }
-    if (input.routingInput === undefined) {
-      throw new Error('Unreachable: an auto thread has neither a chosen model nor a conversation to route on');
-    }
-    const routed = await this.routeModel(input.routingInput);
-    if (routed === undefined) {
+  }): Promise<{ model: AgentModel; routed: boolean }> {
+    const { spec } = input;
+    const routed = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
+    const chosen = routed === undefined ? input.model : { name: routed.model, effort: routed.effort };
+    if (chosen === undefined && spec.model.name === AUTO_MODEL) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }
-    return this.loadModel({ spec, agent_info, model: { name: routed.model, effort: routed.effort } });
-  }
-
-  private async loadModel(input: {
-    spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
-    model: ModelSnapshot | undefined;
-  }): Promise<AgentModel> {
-    const { spec } = input;
-    const modelName = input.model?.name ?? input.agent_info?.model ?? spec.model.name;
-    const resolvedModel = await this.getModel(modelName);
+    const name = chosen?.name ?? spec.model.name;
+    const resolvedModel = await this.getModel(name);
+    // The spec's params belong to its own model, and routing drops them; any other model runs on its defaults. A chosen
+    // effort replaces either.
     const baseParams =
-      modelName === spec.model.name
+      routed === undefined && name === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
         : { ...resolvedModel.defaultModelParams };
     return {
-      client: resolvedModel.modelClient,
-      name: modelName,
-      ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
-      properties: resolvedModel.modelProperties,
-      params: applySavedEffort(baseParams, input.model?.effort),
+      model: {
+        client: resolvedModel.modelClient,
+        name,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
+        properties: resolvedModel.modelProperties,
+        params: applySavedEffort(baseParams, chosen?.effort),
+      },
+      routed: routed !== undefined,
     };
   }
 

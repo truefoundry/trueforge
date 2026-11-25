@@ -174,7 +174,6 @@ if typing.TYPE_CHECKING:
     from .model_properties import ModelProperties
     from .model_provider_auth import ModelProviderAuth
     from .model_provider_manifest import ModelProviderManifest
-    from .model_snapshot import ModelSnapshot
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
@@ -258,6 +257,9 @@ if typing.TYPE_CHECKING:
     from .thread_state import ThreadState
     from .thread_state_done import ThreadStateDone
     from .thread_state_error import ThreadStateError
+    from .thread_switch_model_event import ThreadSwitchModelEvent
+    from .thread_switch_model_event_model import ThreadSwitchModelEventModel
+    from .thread_switch_model_event_params import ThreadSwitchModelEventParams
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
@@ -478,7 +480,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelProperties": ".model_properties",
     "ModelProviderAuth": ".model_provider_auth",
     "ModelProviderManifest": ".model_provider_manifest",
-    "ModelSnapshot": ".model_snapshot",
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
@@ -562,6 +563,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThreadState": ".thread_state",
     "ThreadStateDone": ".thread_state_done",
     "ThreadStateError": ".thread_state_error",
+    "ThreadSwitchModelEvent": ".thread_switch_model_event",
+    "ThreadSwitchModelEventModel": ".thread_switch_model_event_model",
+    "ThreadSwitchModelEventParams": ".thread_switch_model_event_params",
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
@@ -806,7 +810,6 @@ __all__ = [
     "ModelProperties",
     "ModelProviderAuth",
     "ModelProviderManifest",
-    "ModelSnapshot",
     "MoonshotModelProvider",
     "OpenAiModelProvider",
     "ParallelWebSearchProviderAuth",
@@ -890,6 +893,9 @@ __all__ = [
     "ThreadState",
     "ThreadStateDone",
     "ThreadStateError",
+    "ThreadSwitchModelEvent",
+    "ThreadSwitchModelEventModel",
+    "ThreadSwitchModelEventParams",
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",

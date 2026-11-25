@@ -1,6 +1,6 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
-import type { RouteInput, RoutedModel } from '../core/modelRouting/router';
+import type { RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentModel } from '../core/runtime/AgentModel';
 import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
@@ -30,6 +30,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   readonly webSearchProvider?: IWebSearchProvider | undefined;
   /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
   readonly logger: Logger;
+  /** Whether model routing is available for this turn's tenant. A spec whose model is `auto` needs it. */
+  readonly autoModelRouterAvailable: boolean;
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**
@@ -65,14 +67,17 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
+  /**
+   * The model a thread runs on: the routed model, else `model`, else the spec's. Throws when an auto spec ends up with
+   * neither.
+   */
   resolveModel(input: {
     spec: AgentSpec;
-    agent_info: AgentInfo | undefined;
+    /** The model to run on when nothing is routed: a saved one, or the root's for a subagent. */
     model: ModelSnapshot | undefined;
+    /** What to route on; undefined to not route. */
     routingInput: RouteInput | undefined;
-  }): Promise<AgentModel>;
-  /** Picks a thread's model before it starts; undefined to not route. */
-  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  }): Promise<{ model: AgentModel; routed: boolean }>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

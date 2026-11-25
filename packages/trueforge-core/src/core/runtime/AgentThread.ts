@@ -29,6 +29,7 @@ import {
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
+  type ThreadSwitchModelEvent,
   type ToolApprovalPolicy,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -473,7 +474,9 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
-  readonly model: AgentModel;
+  /** Undefined until the thread first runs and resolves it. */
+  private currentModel: AgentModel | undefined = undefined;
+  private readonly modelResolver: AgentThreadConstructorInput['resolveModel'];
   readonly agentInfo?: AgentInfo | undefined;
   private readonly title: string;
 
@@ -513,7 +516,7 @@ export class AgentThread {
     this.logger = input.logger.child({ module: 'AgentThread' });
     this.threadId = input.threadId;
     this.definition = input.definition;
-    this.model = input.model;
+    this.modelResolver = input.resolveModel;
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
@@ -927,6 +930,36 @@ export class AgentThread {
     }
   }
 
+  get model(): AgentModel | undefined {
+    return this.currentModel;
+  }
+
+  /** Resolves the thread's model, recording it only when model routing chose it. */
+  private async *resolveModel(): AsyncGenerator<ThreadSwitchModelEvent, AgentModel, unknown> {
+    const { model, routed } = await this.modelResolver();
+    if (routed) {
+      const effort = model.params?.reasoning_effort;
+      if (effort === undefined) {
+        throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
+      }
+      yield {
+        type: EventType.THREAD_SWITCH_MODEL,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        thread_id: this.threadId,
+        model: { name: model.name, params: { reasoning_effort: effort } },
+      };
+    }
+    return model;
+  }
+
+  private requireModel(): AgentModel {
+    if (this.currentModel === undefined) {
+      throw new Error(`Unreachable: thread ${this.threadId} runs before its model is resolved`);
+    }
+    return this.currentModel;
+  }
+
   toSnapshot(): AgentThreadSnapshot {
     const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : null;
     return {
@@ -935,7 +968,7 @@ export class AgentThread {
       current_context_usage: this.currentContextUsage,
       parent: this.parent ?? null,
       agent_info: this.agentInfo ?? null,
-      model: modelSnapshotFromAgent(this.model),
+      model: this.currentModel === undefined ? null : modelSnapshotFromAgent(this.currentModel),
       completion: this.preComputedCompletion ?? null,
       pending_mcp_auth: this.pendingMCPAuth,
       capability_state,
@@ -990,8 +1023,9 @@ export class AgentThread {
         ? { response_format: toOpenAIResponseFormat(this.definition.responseFormat) }
         : {}),
     };
-    if (this.model.params) {
-      Object.assign(requestBody, this.model.params);
+    const modelParams = this.requireModel().params;
+    if (modelParams) {
+      Object.assign(requestBody, modelParams);
     }
 
     if (tools.length > 0) {
@@ -1087,12 +1121,12 @@ export class AgentThread {
         processors = this.preSendContextProcessors.map(p => () => p.processPreSend(preSend));
         break;
       case 'preLLM': {
-        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.model };
+        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.requireModel() };
         processors = this.preLLMContextProcessors.map(p => () => p.processPreLLM(execution));
         break;
       }
       case 'postToolCall': {
-        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.model };
+        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.requireModel() };
         processors = this.postToolCallContextProcessor.map(p => () => p.processPostToolCall(execution));
         break;
       }
@@ -1198,7 +1232,7 @@ export class AgentThread {
     finishReason: FinishReason | null;
   }): void {
     const metrics = getOperationMetrics();
-    const providerType = this.model.providerType;
+    const providerType = this.currentModel?.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
     }
@@ -1212,7 +1246,7 @@ export class AgentThread {
 
   private recordLlmTimeToFirstToken(startedMs: number): void {
     const metrics = getOperationMetrics();
-    const providerType = this.model.providerType;
+    const providerType = this.currentModel?.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
     }
@@ -1239,7 +1273,7 @@ export class AgentThread {
     const requestBody = this.transformToLLMRequest(tools);
     // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
     const requestStartedMs = performance.now();
-    const llmStream = this.model.client.create(requestBody, { metadata: { 'tfg.thread_id': this.threadId } });
+    const llmStream = this.requireModel().client.create(requestBody, { metadata: { 'tfg.thread_id': this.threadId } });
 
     // We start the delta stream with a model message event.
     // `model` FQN is known from the bound client before any chunk arrives.
@@ -1248,7 +1282,7 @@ export class AgentThread {
       thread_id: this.threadId,
       created_at: new Date().toISOString(),
       id: modelMessageEventId,
-      model: toEventModel(this.model),
+      model: toEventModel(this.requireModel()),
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
@@ -1337,7 +1371,7 @@ export class AgentThread {
       finishReason,
       usage: modelMessageUsage,
       id: modelMessageEventId,
-      model: toEventModel(this.model),
+      model: toEventModel(this.requireModel()),
     });
 
     const finishError = finishReasonErrorMessage({
@@ -1462,7 +1496,7 @@ export class AgentThread {
       sandbox: this.sandbox,
       currentContextUsage: this.currentContextUsage,
       context: this.context,
-      model: this.model,
+      model: this.requireModel(),
     };
     for (const processor of this.toolResponseProcessors) {
       const processorResult = await processor.process(toolCallResults, toolResponseExecution);
@@ -1618,6 +1652,8 @@ export class AgentThread {
       // A resumed turn that is still awaiting user input never reaches this loop — orchestrator
       // send() / validateSendInput rejects empty or incomplete batches before execute runs.
       let currentModelMessageEventId = '';
+
+      this.currentModel ??= yield* this.resolveModel();
 
       for (;;) {
         for (;;) {
