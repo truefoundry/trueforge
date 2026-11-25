@@ -38,11 +38,6 @@ export const ListArtifactsRequestQuerySchema = z
       .default(PAGE_LIMIT)
       .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
-    created_by_session_id: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('When set, only artifacts created in this session are returned.'),
     name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact name.'),
   })
   .openapi('ListArtifactsRequestQuery');

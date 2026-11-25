@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L83">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L73">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -561,14 +561,6 @@ client.artifacts.list()
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**created_by_session_id:** `typing.Optional[str]` — When set, only artifacts created in this session are returned.
     
 </dd>
 </dl>

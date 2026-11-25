@@ -8046,17 +8046,6 @@
             }
           },
           {
-            "description": "When set, only artifacts created in this session are returned.",
-            "in": "query",
-            "name": "created_by_session_id",
-            "required": false,
-            "schema": {
-              "description": "When set, only artifacts created in this session are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
             "description": "Case-insensitive substring match on artifact name.",
             "in": "query",
             "name": "name",

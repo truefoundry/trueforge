@@ -70,10 +70,6 @@ describe('artifacts router', () => {
     expect([...first.data, ...second.data].find(a => a.name === 'Q3 Report')?.id).toBe(reportId);
   });
 
-  it('filters by created_by_session_id', async () => {
-    expect(await listTitles('created_by_session_id=session-2')).toEqual(['Roadmap']);
-  });
-
   it('filters by name substring', async () => {
     expect(await listTitles('name=report')).toEqual(['Q3 Report']);
   });

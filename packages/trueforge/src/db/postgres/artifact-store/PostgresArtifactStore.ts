@@ -74,9 +74,6 @@ export class PostgresArtifactStore implements IArtifactStore {
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
-    if (input.created_by_session_id !== undefined) {
-      query = query.where('created_by_session_id', '=', input.created_by_session_id);
-    }
     if (input.name !== undefined) {
       // Case-insensitive name substring search.
       query = query.where(sql<boolean>`position(lower(${input.name}) in lower(name)) > 0`);

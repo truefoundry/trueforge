@@ -43,7 +43,6 @@ export interface CreateArtifactInput {
 export interface ListArtifactsInput {
   tenant_id: string;
   created_by_subject_id: string;
-  created_by_session_id: string | undefined;
   /** Case-insensitive substring match. */
   name: string | undefined;
   limit: number;
