@@ -47,11 +47,12 @@ export function resolvePreviousTurnId(
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
-  const { context, current_context_usage, completion, capability_state, ...rest } = snapshot;
+  const { context, current_context_usage, completion, capability_state, model, ...rest } = snapshot;
   void context;
   void current_context_usage;
   void completion;
   void capability_state;
+  void model;
   return rest;
 }
 

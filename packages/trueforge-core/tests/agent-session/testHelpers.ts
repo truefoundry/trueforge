@@ -203,7 +203,6 @@ export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEven
 }
 
 const defaultRootThread: NewThreadInit = {
-  model: null,
   thread_id: MAIN_THREAD_ID,
   parent: null,
   agent_info: null,

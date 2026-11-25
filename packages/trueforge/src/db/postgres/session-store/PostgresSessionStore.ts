@@ -173,7 +173,6 @@ export class PostgresSessionStore implements ISessionStore<Transaction<Database>
         thread_id: thread.thread_id,
         parent: thread.parent,
         agent_info: thread.agent_info,
-        model: thread.model,
       })),
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,

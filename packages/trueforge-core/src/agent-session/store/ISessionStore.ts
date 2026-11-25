@@ -113,7 +113,7 @@ export type TurnRecordWithoutSnapshot<TTurnCustom extends object = Record<string
 /** Thread registration; mutable per-turn data arrives through dedicated createTurn fields. */
 export type NewThreadInit = Omit<
   AgentThreadSnapshot,
-  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state'
+  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state' | 'model'
 >;
 
 /** Full post-send capability map for one thread. */
@@ -373,8 +373,8 @@ export interface ISessionStore<
    * overwritten (first write wins). The caller derives the value; the store
    * only conditionally sets it.
    *
-   * The main thread starts each turn with no model; {@link patchThreadModel} records it once
-   * selected. Every other thread keeps the model it was created with.
+   * New threads start with no model, and carried threads keep the one saved with them;
+   * {@link patchThreadModel} records a routed model.
    */
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 

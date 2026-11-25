@@ -4,11 +4,7 @@ import {
   type SessionLastTurnDetails,
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import {
-  MAIN_THREAD_ID,
-  type TurnRecord,
-  type TurnSnapshot,
-} from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import { type TurnRecord, type TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -39,7 +35,6 @@ import {
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
-import type { ModelSnapshot } from '@truefoundry/trueforge-core/core';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type {
@@ -77,7 +72,6 @@ export interface NewThreadRegistration {
   thread_id: string;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  model: ModelSnapshot | null;
 }
 
 export interface TurnKeys {
@@ -709,7 +703,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
           // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
-          model: pt.thread_id === MAIN_THREAD_ID ? null : pt.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -730,7 +723,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.thread_id === MAIN_THREAD_ID ? null : nt.model,
+          model: null,
         };
         turnThreadRows.push({
           session_id: input.session_id,

@@ -2,7 +2,7 @@ import type { TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
-import { MAIN_THREAD_ID, type TurnRecord, type TurnSnapshot } from '../models/TurnRecord';
+import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { SessionLastTurnDetailsSchema } from '../schemas/session';
@@ -113,7 +113,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     thread_id: thread.thread_id,
     parent: thread.parent ?? null,
     agent_info: thread.agent_info ?? null,
-    model: thread.model,
+    model: null,
     capability_state: null,
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
@@ -148,9 +148,8 @@ function buildSnapshotFromDelta(input: {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
     ? deepCopy(input.previousSnapshot.threads)
     : {};
-  for (const [threadId, thread] of Object.entries(threads)) {
+  for (const thread of Object.values(threads)) {
     thread.pending_mcp_auth = false;
-    thread.model = threadId === MAIN_THREAD_ID ? null : thread.model;
   }
 
   assertCreateTurnThreadDelta({
@@ -161,10 +160,7 @@ function buildSnapshotFromDelta(input: {
   });
 
   for (const nt of input.new_threads) {
-    threads[nt.thread_id] = newThreadSnapshot({
-      ...nt,
-      model: nt.thread_id === MAIN_THREAD_ID ? null : nt.model,
-    });
+    threads[nt.thread_id] = newThreadSnapshot(nt);
   }
 
   applyContextAppends(threads, input.new_context_appends);
