@@ -4,6 +4,7 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import { ArtifactVersionMetadataSchema } from '../../../schemas/artifact';
 import { newId } from '../../../utils/id';
 import {
   type ArtifactRecord,
@@ -38,8 +39,9 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   return {
     artifact_id: row.artifact_id,
     version: row.version,
-    entry_point: row.entry_point,
-    total_bytes: row.total_bytes,
+    artifact_version_metadata: ArtifactVersionMetadataSchema.parse(row.artifact_version_metadata),
+    created_by_session_id: row.created_by_session_id,
+    created_by_agent_id: row.created_by_agent_id,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -125,15 +127,20 @@ export class PostgresArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          entry_point: input.entry_point,
-          total_bytes: input.total_bytes,
+          artifact_version_metadata: json(input.artifact_version_metadata),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
           created_at: now(),
         })
         .returningAll()
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: now() })
+        .set({
+          latest_version: version,
+          latest_entry_point: input.artifact_version_metadata.entry_point,
+          updated_at: now(),
+        })
         .where('id', '=', artifact.id)
         .execute();
       return toVersionRecord(row);
