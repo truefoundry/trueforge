@@ -8,11 +8,7 @@ from ..core.request_options import RequestOptions
 from ..types.artifact import Artifact
 from ..types.get_artifact_response import GetArtifactResponse
 from ..types.list_artifacts_response import ListArtifactsResponse
-from ..types.update_artifact_response import UpdateArtifactResponse
 from .raw_client import AsyncRawArtifactsClient, RawArtifactsClient
-
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
 
 
 class ArtifactsClient:
@@ -117,44 +113,6 @@ class ArtifactsClient:
         )
         """
         _response = self._raw_client.get(artifact_id=artifact_id, request_options=request_options)
-        return _response.data
-
-    def update(
-        self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UpdateArtifactResponse:
-        """
-        Rename an artifact. Only the artifact creator may update it.
-
-        Parameters
-        ----------
-        artifact_id : str
-            Artifact identifier.
-
-        name : str
-            New artifact name. Whitespace is collapsed and trimmed; must not be blank.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UpdateArtifactResponse
-            Artifact updated.
-
-        Examples
-        --------
-        from trueforge_sdk import TrueForge
-
-        client = TrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.artifacts.update(
-            artifact_id="artifact_id",
-            name="name",
-        )
-        """
-        _response = self._raw_client.update(artifact_id=artifact_id, name=name, request_options=request_options)
         return _response.data
 
 
@@ -279,50 +237,4 @@ class AsyncArtifactsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(artifact_id=artifact_id, request_options=request_options)
-        return _response.data
-
-    async def update(
-        self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UpdateArtifactResponse:
-        """
-        Rename an artifact. Only the artifact creator may update it.
-
-        Parameters
-        ----------
-        artifact_id : str
-            Artifact identifier.
-
-        name : str
-            New artifact name. Whitespace is collapsed and trimmed; must not be blank.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UpdateArtifactResponse
-            Artifact updated.
-
-        Examples
-        --------
-        import asyncio
-
-        from trueforge_sdk import AsyncTrueForge
-
-        client = AsyncTrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.artifacts.update(
-                artifact_id="artifact_id",
-                name="name",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.update(artifact_id=artifact_id, name=name, request_options=request_options)
         return _response.data

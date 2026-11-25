@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L33-L88">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L29-L84">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -596,7 +596,7 @@ client.artifacts.list()
 </dl>
 </details>
 
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L90-L120">get</a>(...) -> GetArtifactResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L86-L116">get</a>(...) -> GetArtifactResponse</code></summary>
 <dl>
 <dd>
 
@@ -649,87 +649,6 @@ client.artifacts.get(
 <dd>
 
 **artifact_id:** `str` — Artifact identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L122-L158">update</a>(...) -> UpdateArtifactResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Rename an artifact. Only the artifact creator may update it.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from trueforge_sdk import TrueForge
-
-client = TrueForge(
-    token="<token>",
-    base_url="https://yourhost.com/path/to/api",
-)
-
-client.artifacts.update(
-    artifact_id="artifact_id",
-    name="name",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**artifact_id:** `str` — Artifact identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**name:** `str` — New artifact name. Whitespace is collapsed and trimmed; must not be blank.
     
 </dd>
 </dl>
