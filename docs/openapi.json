@@ -8106,7 +8106,7 @@
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/artifacts/update/{artifact_id}": {
+    "/api/v1/artifacts/{artifact_id}/update": {
       "post": {
         "description": "Rename an artifact. Only the artifact creator may update it.",
         "parameters": [

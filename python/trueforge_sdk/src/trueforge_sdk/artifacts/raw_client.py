@@ -145,7 +145,7 @@ class RawArtifactsClient:
             Artifact updated.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/artifacts/update/{encode_path_param(artifact_id)}",
+            f"api/v1/artifacts/{encode_path_param(artifact_id)}/update",
             method="POST",
             json={
                 "name": name,
@@ -343,7 +343,7 @@ class AsyncRawArtifactsClient:
             Artifact updated.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/artifacts/update/{encode_path_param(artifact_id)}",
+            f"api/v1/artifacts/{encode_path_param(artifact_id)}/update",
             method="POST",
             json={
                 "name": name,

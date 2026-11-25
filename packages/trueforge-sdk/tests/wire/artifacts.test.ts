@@ -108,7 +108,7 @@ describe("ArtifactsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/artifacts/update/artifact_id")
+            .post("/api/v1/artifacts/artifact_id/update")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -141,7 +141,7 @@ describe("ArtifactsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/artifacts/update/artifact_id")
+            .post("/api/v1/artifacts/artifact_id/update")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -163,7 +163,7 @@ describe("ArtifactsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/artifacts/update/artifact_id")
+            .post("/api/v1/artifacts/artifact_id/update")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(401)
@@ -185,7 +185,7 @@ describe("ArtifactsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/artifacts/update/artifact_id")
+            .post("/api/v1/artifacts/artifact_id/update")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(403)
@@ -207,7 +207,7 @@ describe("ArtifactsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/artifacts/update/artifact_id")
+            .post("/api/v1/artifacts/artifact_id/update")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
