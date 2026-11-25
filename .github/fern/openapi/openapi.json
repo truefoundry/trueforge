@@ -338,32 +338,11 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by_agent_id": {
-            "description": "Registry agent of the creating session. Null when the session used an inline agent spec.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "created_by_session_id": {
-            "type": "string"
-          },
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
-          "entry_point": {
-            "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "id": {
             "type": "string"
-          },
-          "latest_version": {
-            "description": "Latest version.",
-            "type": "integer"
           },
           "name": {
             "type": "string"
@@ -376,11 +355,7 @@
         "required": [
           "id",
           "name",
-          "latest_version",
-          "entry_point",
           "created_by_subject",
-          "created_by_session_id",
-          "created_by_agent_id",
           "created_at",
           "updated_at"
         ],
@@ -3444,27 +3419,6 @@
           }
         ]
       },
-      "ModelSnapshot": {
-        "description": "Model and effort the new thread runs on.",
-        "properties": {
-          "effort": {
-            "description": "Reasoning effort for that model. Null when none was resolved.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "name": {
-            "description": "Resolved model name, `provider/model`.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "effort"
-        ],
-        "type": "object"
-      },
       "MoonshotModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -4600,6 +4554,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -4631,6 +4586,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -5360,9 +5318,6 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
-          "model": {
-            "$ref": "#/components/schemas/ModelSnapshot"
-          },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"
           },
@@ -5491,6 +5446,70 @@
         "required": [
           "status",
           "error"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventModel"
+          },
+          "thread_id": {
+            "description": "Thread the model was selected for.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Model routing chose the model a thread runs on, before its first model call.",
+            "enum": [
+              "thread.switch_model"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "model"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventModel": {
+        "description": "The chosen model and its parameters.",
+        "properties": {
+          "name": {
+            "description": "Name of the chosen model, `provider/model`.",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventParams"
+          }
+        },
+        "required": [
+          "name",
+          "params"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventParams": {
+        "description": "Model parameters chosen with the model.",
+        "properties": {
+          "reasoning_effort": {
+            "description": "Reasoning effort chosen for the model.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reasoning_effort"
         ],
         "type": "object"
       },
@@ -6293,6 +6312,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -6318,6 +6338,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -6482,6 +6505,33 @@
         },
         "required": [
           "manifest"
+        ],
+        "type": "object"
+      },
+      "UpdateArtifactRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "New artifact name. Whitespace is collapsed and trimmed; must not be blank.",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u202A-\\u202E\\u2066-\\u2069/\\\\:*?\"<>|]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "UpdateArtifactResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -8012,17 +8062,6 @@
             }
           },
           {
-            "description": "When set, only artifacts created in this session are returned.",
-            "in": "query",
-            "name": "created_by_session_id",
-            "required": false,
-            "schema": {
-              "description": "When set, only artifacts created in this session are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
             "description": "Case-insensitive substring match on artifact name.",
             "in": "query",
             "name": "name",
@@ -8079,6 +8118,94 @@
           "artifacts"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/artifacts/update/{artifact_id}": {
+      "post": {
+        "description": "Rename an artifact. Only the artifact creator may update it.",
+        "parameters": [
+          {
+            "description": "Artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Artifact identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateArtifactResponse"
+                }
+              }
+            },
+            "description": "Artifact updated."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the artifact creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact not found."
+          }
+        },
+        "summary": "Update an artifact",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/auth/callback": {

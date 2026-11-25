@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L83">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L32-L77">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -568,7 +568,7 @@ client.artifacts.list()
 <dl>
 <dd>
 
-**created_by_session_id:** `typing.Optional[str]` — When set, only artifacts created in this session are returned.
+**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
     
 </dd>
 </dl>
@@ -576,7 +576,80 @@ client.artifacts.list()
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L79-L115">update</a>(...) -> UpdateArtifactResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Rename an artifact. Only the artifact creator may update it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.artifacts.update(
+    artifact_id="artifact_id",
+    name="name",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**artifact_id:** `str` — Artifact identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**name:** `str` — New artifact name. Whitespace is collapsed and trimmed; must not be blank.
     
 </dd>
 </dl>

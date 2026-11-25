@@ -174,7 +174,10 @@ describe('validateAgentSpec', () => {
   it('accepts auto when model routing is on for the tenant, without a catalog lookup', async () => {
     const stores = await setup();
     const modelRouting = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
     await expect(
       validateAgentSpec({
@@ -193,7 +196,10 @@ describe('validateAgentSpec', () => {
   it('rejects params on an auto model', async () => {
     const stores = await setup();
     const modelRouting = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
     await expect(
       validateAgentSpec({
@@ -219,7 +225,10 @@ describe('validateAgentSpec', () => {
       manifest: { web_search: { enabled: true }, memory: { enabled: true }, auto_model_routing: { enabled: false } },
     });
     const modelRouting = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
     await expect(
       validateAgentSpec({

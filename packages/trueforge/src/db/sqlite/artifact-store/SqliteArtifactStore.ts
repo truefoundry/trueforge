@@ -5,16 +5,18 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import { ArtifactVersionMetadataSchema, type ArtifactVersionMetadata } from '../../../schemas/artifact';
+import { newId } from '../../../utils/id';
 import {
-  newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
   type ListSessionArtifactsInput,
+  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -80,7 +82,8 @@ export class SqliteArtifactStore implements IArtifactStore {
     const row = await this.#db
       .insertInto('artifact')
       .values({
-        ...newArtifactIdentity(input.name),
+        id: newId(),
+        name: input.name,
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: jsonbBind(input.created_by_subject),
@@ -94,6 +97,28 @@ export class SqliteArtifactStore implements IArtifactStore {
     return toArtifactRecord(row);
   }
 
+  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('artifact')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
+  }
+
+  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .updateTable('artifact')
+      .set({ name: input.name, updated_at: nowIso() })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .returning(recordColumns)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
+  }
+
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     let query = this.#db
@@ -101,9 +126,6 @@ export class SqliteArtifactStore implements IArtifactStore {
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
-    if (input.created_by_session_id !== undefined) {
-      query = query.where('created_by_session_id', '=', input.created_by_session_id);
-    }
     if (input.name !== undefined) {
       // Case-insensitive name substring search.
       query = query.where(sql<boolean>`instr(lower(name), lower(${input.name})) > 0`);

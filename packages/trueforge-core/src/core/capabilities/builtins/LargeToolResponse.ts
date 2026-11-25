@@ -84,7 +84,6 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private individualTokenThreshold: number;
   private totalTokenThreshold: number;
   private previewNumberOfCharacters: number;
-  private modelContextLength: number | undefined;
   private readonly logger: Logger;
 
   constructor(param: {
@@ -92,7 +91,6 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     individualTokenThreshold: number;
     totalTokenThreshold: number;
     previewNumberOfCharacters: number;
-    modelContextLength: number | undefined;
     logger: Logger;
   }) {
     if (param.individualTokenThreshold > param.totalTokenThreshold) {
@@ -104,7 +102,6 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     this.individualTokenThreshold = param.individualTokenThreshold;
     this.totalTokenThreshold = param.totalTokenThreshold;
     this.previewNumberOfCharacters = param.previewNumberOfCharacters;
-    this.modelContextLength = param.modelContextLength;
     this.logger = param.logger.child({ module: 'LargeToolResponse' });
   }
 
@@ -272,7 +269,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const sandbox = execution.sandbox;
     const elevatedLimit = elevatedCharacterLimit(
       remainingContextCharacters({
-        modelContextLength: this.modelContextLength,
+        modelContextLength: execution.model.properties?.contextLength,
         currentContextUsage: execution.currentContextUsage,
       }),
     );
@@ -315,7 +312,6 @@ export interface LargeToolResponseSettings {
 
 export function largeToolResponse(options: {
   dynamicSubAgentsPresent: boolean;
-  modelContextLength?: number | undefined;
   settings?: LargeToolResponseSettings | undefined;
   logger: Logger;
 }): AgentCapability {
@@ -326,7 +322,6 @@ export function largeToolResponse(options: {
         individualTokenThreshold: options.settings?.individualTokenThreshold ?? DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD,
         totalTokenThreshold: options.settings?.totalTokenThreshold ?? DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
         previewNumberOfCharacters: options.settings?.previewNumberOfCharacters ?? DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
-        modelContextLength: options.modelContextLength,
         logger: options.logger,
       }),
     ],
