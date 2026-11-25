@@ -338,8 +338,6 @@ export class TurnResourceResolver<
     const { spec } = input;
     const modelName = input.model?.name ?? input.agent_info?.model ?? spec.model.name;
     const resolvedModel = await this.getModel(modelName);
-    // The spec's params belong to its own model; another model runs on its defaults.
-    // A routed or saved snapshot replaces that effort, including an explicit none.
     const baseParams =
       modelName === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }

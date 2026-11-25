@@ -65,13 +65,10 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
-  /** Resolves the model a thread runs on. An Auto root routes on `route` unless `model` is set. */
   resolveModel(input: {
     spec: AgentSpec;
     agent_info: AgentInfo | undefined;
-    /** Saved model for a resumed thread, or routed model for a sub-agent. */
     model: ModelSnapshot | undefined;
-    /** Conversation an Auto root routes on when no model is chosen. */
     route: RouteInput | undefined;
   }): Promise<AgentModel>;
   /** Picks a thread's model before it starts; undefined to not route. */

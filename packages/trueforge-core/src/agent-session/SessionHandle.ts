@@ -546,12 +546,10 @@ export class SessionHandle<
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
         const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
-        // A new turn chooses the root's model afresh; a resumed root and every subagent keep their saved one.
         const choosesRootModel = threadId === MAIN_THREAD_ID && !input.resuming;
         const [resolved, model] = await Promise.all([
           input.resolver.resolveAgentDefinition({
             spec: input.spec,
-            // agent_info is the original request.
             agent_info: agentInfo,
             previousTurn: input.previous,
             signal: input.signal,
@@ -652,7 +650,6 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
-    /** An auto root's model is the fallback for a subagent the router can't place. */
     rootThread: AgentThread;
     sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
@@ -676,7 +673,6 @@ export class SessionHandle<
           signal: params.signal,
           tracing: input.tracing,
         }),
-        // The routed model, else an auto root's model, else the request's model override, else the spec's.
         input.resolver.resolveModel({
           spec: specForRoutedModel(input.spec, routed),
           agent_info: params.request,

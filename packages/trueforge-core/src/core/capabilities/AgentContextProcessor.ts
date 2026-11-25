@@ -24,7 +24,6 @@ export interface AgentThreadContext {
 
 /** Thread state for hooks that run while the thread executes on a model. */
 export interface AgentThreadExecutionContext extends AgentThreadContext {
-  /** The model the thread runs on. */
   model: AgentModel;
 }
 
