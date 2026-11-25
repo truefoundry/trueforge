@@ -63,9 +63,13 @@ describe('artifacts router', () => {
     const second = ListArtifactsResponseSchema.parse(
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
-    expect([...first.data, ...second.data].map(a => [a.name, a.entry_point, a.created_by_agent_id]).sort()).toEqual([
-      ['Q3 Report', 'report/index.html', 'agent-1'],
-      ['Roadmap', null, null],
+    expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(['Q3 Report', 'Roadmap']);
+    expect(Object.keys(first.data[0] ?? {}).sort()).toEqual([
+      'created_at',
+      'created_by_subject',
+      'id',
+      'name',
+      'updated_at',
     ]);
     expect([...first.data, ...second.data].find(a => a.name === 'Q3 Report')?.id).toBe(reportId);
   });
