@@ -4,8 +4,8 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import { newId } from '../../../utils/id';
 import {
-  newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
@@ -13,6 +13,7 @@ import {
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
+  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -60,7 +61,8 @@ export class SqliteArtifactStore implements IArtifactStore {
     const row = await this.#db
       .insertInto('artifact')
       .values({
-        ...newArtifactIdentity(input.name),
+        id: newId(),
+        name: input.name,
         tenant_id: input.tenant_id,
         latest_version: 0,
         created_by_subject: jsonbBind(input.created_by_subject),
@@ -72,6 +74,18 @@ export class SqliteArtifactStore implements IArtifactStore {
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
     return toArtifactRecord(row);
+  }
+
+  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .updateTable('artifact')
+      .set({ name: input.name, updated_at: nowIso() })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .returning(recordColumns)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {
