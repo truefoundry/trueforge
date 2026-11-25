@@ -34,12 +34,12 @@ export const ROUTING_CLUSTERS: RoutingClusters = {
     medium: ['openai/gpt-6-1-sol'],
     high: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5', 'google/gemini-4-argon'],
     xhigh: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5'],
-    max: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5'],
+    max: ['openai/gpt-6-1-sol', 'openai/gpt-6-sol', 'anthropic/claude-sonnet-5-5'],
   },
   frontier: {
     medium: ['google/gemini-4-carbon', 'anthropic/claude-fable-5-2'],
     high: ['anthropic/claude-fable-5-2'],
     xhigh: ['anthropic/claude-opus-5-5', 'anthropic/claude-fable-5-2'],
-    max: ['openai/gpt-6-sol'],
+    max: ['anthropic/claude-fable-5-2', 'google/gemini-4-carbon', 'anthropic/claude-opus-5-5'],
   },
 };

@@ -26,7 +26,7 @@ const models: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: 'a/gpt-6-sol', canonicalModel: 'openai/gpt-6-sol', cost: 10 },
+  { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 10 },
 ];
 const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
 
@@ -86,14 +86,21 @@ describe('selectModel', () => {
   });
 
   it('picks the frontier cluster only from its own models', () => {
-    expect(selectModel({ category: 'frontier', models })?.routed).toEqual({ model: 'a/gpt-6-sol', effort: 'max' });
+    expect(selectModel({ category: 'frontier', models })?.routed).toEqual({
+      model: 'a/claude-fable-5-2',
+      effort: 'medium',
+    });
     expect(selectModel({ category: 'frontier', models: models.filter(model => model.cost !== 10) })).toBeUndefined();
   });
 });
 
 describe('canRouteEveryCategory', () => {
   it('needs a model in every cluster, frontier included', () => {
-    const frontier: RoutableModel = { name: 'a/gpt-6-sol', canonicalModel: 'openai/gpt-6-sol', cost: 10 };
+    const frontier: RoutableModel = {
+      name: 'a/claude-fable-5-2',
+      canonicalModel: 'anthropic/claude-fable-5-2',
+      cost: 10,
+    };
     const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
     const sol: RoutableModel = { name: 'a/gpt-6-1-sol', canonicalModel: 'openai/gpt-6-1-sol', cost: 5 };
     expect(canRouteEveryCategory([luna, sol])).toBe(false);
@@ -134,8 +141,8 @@ describe('createModelRouter', () => {
       logger,
     );
     await expect(rootRoute({ ...routeInput, categories: ROOT_ROUTING_CATEGORIES })).resolves.toEqual({
-      model: 'a/gpt-6-sol',
-      effort: 'max',
+      model: 'a/claude-fable-5-2',
+      effort: 'medium',
     });
   });
 

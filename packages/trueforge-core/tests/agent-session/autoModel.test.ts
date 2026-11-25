@@ -20,7 +20,7 @@ import {
 } from './testHelpers';
 
 const HAIKU = 'b/claude-haiku-5-5';
-const FRONTIER = 'a/gpt-6-sol';
+const FRONTIER = 'a/claude-fable-5-2';
 const SPEC_MODEL = 'test-provider/test-model';
 const DEFAULTS = { max_tokens: 128 };
 
@@ -29,7 +29,7 @@ const routable: RoutableModel[] = [
   { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
   { name: HAIKU, canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
   { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: FRONTIER, canonicalModel: 'openai/gpt-6-sol', cost: 10 },
+  { name: FRONTIER, canonicalModel: 'anthropic/claude-fable-5-2', cost: 10 },
 ];
 
 function decisionFor(category: string | undefined) {
@@ -469,10 +469,10 @@ describe('auto model selection', () => {
 
     expect(events.find(event => event.type === EventType.THREAD_SWITCH_MODEL)).toMatchObject({
       thread_id: MAIN_THREAD_ID,
-      model: { name: FRONTIER, params: { reasoning_effort: 'max' } },
+      model: { name: FRONTIER, params: { reasoning_effort: 'medium' } },
     });
     const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
-    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: FRONTIER, effort: 'max' });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: FRONTIER, effort: 'medium' });
   });
 
   it('does not route a subagent task classified as frontier, whatever the classifier answers', async () => {
