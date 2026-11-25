@@ -1,4 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { ArtifactVersionMetadata } from '../schemas/artifact';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { newId } from '../utils/id';
 
@@ -8,7 +9,7 @@ export interface ArtifactRecord {
   name: string;
   /** Highest version; 0 until the first version. */
   latest_version: number;
-  /** Latest version's `entry_point`; null until the first version. */
+  /** Latest version's `artifact_version_metadata.entry_point`; null until the first version. */
   latest_entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
@@ -23,9 +24,7 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  /** Path of the default file to render, relative to the version's files. */
-  entry_point: string;
-  total_bytes: number;
+  artifact_version_metadata: ArtifactVersionMetadata;
   created_by_session_id: string;
   /** Creating session's registry agent; null for inline-spec sessions. */
   created_by_agent_id: string | null;
@@ -56,8 +55,7 @@ export interface ListArtifactsInput {
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
-  entry_point: string;
-  total_bytes: number;
+  artifact_version_metadata: ArtifactVersionMetadata;
   created_by_session_id: string;
   /** The session's registry agent; null for inline-spec sessions. */
   created_by_agent_id: string | null;

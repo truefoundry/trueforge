@@ -51,8 +51,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      entry_point: entryPoint,
-      total_bytes: 100,
+      artifact_version_metadata: { entry_point: entryPoint, total_bytes: 100, storage_prefix: `uploads/${entryPoint}` },
       created_by_session_id: sessionId,
       created_by_agent_id: agentId,
     });
@@ -164,8 +163,11 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
-        entry_point: 'index.html',
-        total_bytes: 100,
+        artifact_version_metadata: {
+          entry_point: 'index.html',
+          total_bytes: 100,
+          storage_prefix: 'uploads/index.html',
+        },
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),
@@ -184,8 +186,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
-        entry_point: 'index.html',
-        total_bytes: 1,
+        artifact_version_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),
