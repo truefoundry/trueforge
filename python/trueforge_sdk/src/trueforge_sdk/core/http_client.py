@@ -57,6 +57,75 @@ def get_keepalive_socket_options(
     return opts
 
 
+def _get_environment_proxies() -> typing.Dict[str, typing.Optional[str]]:
+    # httpx skips HTTP(S)_PROXY / ALL_PROXY / NO_PROXY whenever a custom transport is
+    # passed, so the keepalive default rebuilds those env-derived mounts itself, using
+    # httpx's own resolver to keep identical semantics (incl. NO_PROXY bypass rules).
+    try:
+        from httpx._utils import get_environment_proxies
+    except (ImportError, AttributeError):
+        return {}
+    return get_environment_proxies()
+
+
+def get_keepalive_proxy_mounts(
+    idle: int = 60,
+    intvl: int = 30,
+    cnt: int = 5,
+) -> typing.Dict[str, typing.Optional[httpx.BaseTransport]]:
+    """
+    Build ``httpx.Client(mounts=...)`` entries for the proxies configured in the environment,
+    each carrying the TCP keepalive socket options. ``None`` entries are NO_PROXY bypasses
+    that fall back to the client's default transport.
+    """
+    socket_options = get_keepalive_socket_options(idle=idle, intvl=intvl, cnt=cnt)
+    return {
+        pattern: None if url is None else httpx.HTTPTransport(proxy=httpx.Proxy(url=url), socket_options=socket_options)
+        for pattern, url in _get_environment_proxies().items()
+    }
+
+
+def get_async_keepalive_proxy_mounts(
+    idle: int = 60,
+    intvl: int = 30,
+    cnt: int = 5,
+) -> typing.Dict[str, typing.Optional[httpx.AsyncBaseTransport]]:
+    """Async counterpart of ``get_keepalive_proxy_mounts`` for ``httpx.AsyncClient(mounts=...)``."""
+    socket_options = get_keepalive_socket_options(idle=idle, intvl=intvl, cnt=cnt)
+    return {
+        pattern: None
+        if url is None
+        else httpx.AsyncHTTPTransport(proxy=httpx.Proxy(url=url), socket_options=socket_options)
+        for pattern, url in _get_environment_proxies().items()
+    }
+
+
+# The Retry-After date parsing in _parse_retry_after is adapted from urllib3 1.26
+# (https://github.com/urllib3/urllib3/blob/1.26.x/src/urllib3/util/retry.py), used under the following license:
+#
+# MIT License
+#
+# Copyright (c) 2008-2020 Andrey Petrov and contributors (see CONTRIBUTORS.txt)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
 def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float]:
     """
     This function parses the `Retry-After` header in a HTTP response and returns the number of seconds to wait.
@@ -66,9 +135,12 @@ def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float
     retry_after_ms = response_headers.get("retry-after-ms")
     if retry_after_ms is not None:
         try:
-            return int(retry_after_ms) / 1000 if retry_after_ms > 0 else 0
-        except Exception:
+            retry_after_ms_value = float(retry_after_ms)
+        except ValueError:
             pass
+        else:
+            if 0 < retry_after_ms_value < float("inf"):
+                return retry_after_ms_value / 1000
 
     retry_after = response_headers.get("retry-after")
     if retry_after is None:
@@ -184,8 +256,33 @@ _SENSITIVE_HEADERS = frozenset(
 )
 
 
+_AUTH_HEADERS: typing.FrozenSet[str] = frozenset()
+
+
 def _redact_headers(headers: typing.Dict[str, str]) -> typing.Dict[str, str]:
-    return {k: ("[REDACTED]" if k.lower() in _SENSITIVE_HEADERS else v) for k, v in headers.items()}
+    return {
+        k: ("[REDACTED]" if k.lower() in _SENSITIVE_HEADERS or k.lower() in _AUTH_HEADERS else v)
+        for k, v in headers.items()
+    }
+
+
+def _merge_headers(*header_dicts: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Dict[str, typing.Any]:
+    """
+    Merge header dicts left to right. Header names are case-insensitive, so a later
+    `x-api-key` replaces an earlier `X-API-Key` instead of producing two headers.
+    """
+    merged: typing.Dict[str, typing.Any] = {}
+    keys_by_lower: typing.Dict[str, str] = {}
+    for header_dict in header_dicts:
+        if not header_dict:
+            continue
+        for key, value in header_dict.items():
+            existing_key = keys_by_lower.get(key.lower())
+            if existing_key is not None:
+                del merged[existing_key]
+            keys_by_lower[key.lower()] = key
+            merged[key] = value
+    return merged
 
 
 def _build_url(base_url: str, path: typing.Optional[str]) -> str:
@@ -425,11 +522,11 @@ class HttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **self.base_headers(),
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) or {} if request_options is not None else {}),
-                }
+                _merge_headers(
+                    self.base_headers(),
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -463,7 +560,12 @@ class HttpClient:
                 files=request_files,
                 timeout=timeout,
             )
-        except (httpx.ConnectError, httpx.RemoteProtocolError):
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as error:
+            # A protocol error may occur after the server applied the request, even while reading a 200 body.
+            if isinstance(error, httpx.RemoteProtocolError) and not (
+                request_options is not None and request_options.get("retry_remote_protocol_errors", False)
+            ):
+                raise
             if retries < max_retries:
                 time.sleep(_retry_timeout_from_retries(retries=retries))
                 return self.request(
@@ -594,11 +696,11 @@ class HttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **self.base_headers(),
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) if request_options is not None else {}),
-                }
+                _merge_headers(
+                    self.base_headers(),
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -735,11 +837,11 @@ class AsyncHttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **_headers,
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) or {} if request_options is not None else {}),
-                }
+                _merge_headers(
+                    _headers,
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -773,7 +875,12 @@ class AsyncHttpClient:
                 files=request_files,
                 timeout=timeout,
             )
-        except (httpx.ConnectError, httpx.RemoteProtocolError):
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as error:
+            # A protocol error may occur after the server applied the request, even while reading a 200 body.
+            if isinstance(error, httpx.RemoteProtocolError) and not (
+                request_options is not None and request_options.get("retry_remote_protocol_errors", False)
+            ):
+                raise
             if retries < max_retries:
                 await asyncio.sleep(_retry_timeout_from_retries(retries=retries))
                 return await self.request(
@@ -907,11 +1014,11 @@ class AsyncHttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **_headers,
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) if request_options is not None else {}),
-                }
+                _merge_headers(
+                    _headers,
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(

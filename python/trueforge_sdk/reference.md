@@ -1,6 +1,6 @@
 # Reference
 ## Internal
-<details><summary><code>client.internal.<a href="src/trueforge_sdk/internal/client.py">list_permissions</a>(...) -> ListPermissionsResponse</code></summary>
+<details><summary><code>client.internal.<a href="src/trueforge_sdk/internal/client.py#L44-L85">list_permissions</a>(...) -> ListPermissionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -84,7 +84,7 @@ client.internal.list_permissions(
 </details>
 
 ## Agents
-<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">list</a>(...) -> ListAgentsResponse</code></summary>
+<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py#L35-L82">list</a>(...) -> ListAgentsResponse</code></summary>
 <dl>
 <dd>
 
@@ -170,7 +170,7 @@ client.agents.list()
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">create</a>(...) -> GetAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py#L84-L132">create</a>(...) -> GetAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -264,7 +264,7 @@ client.agents.create(
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">get</a>(...) -> GetAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py#L134-L164">get</a>(...) -> GetAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -336,7 +336,7 @@ client.agents.get(
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">update</a>(...) -> GetAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py#L166-L214">update</a>(...) -> GetAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -429,7 +429,7 @@ client.agents.update(
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">delete</a>(...) -> DeleteAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py#L216-L246">delete</a>(...) -> DeleteAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Auth
-<details><summary><code>client.auth.<a href="src/trueforge_sdk/auth/client.py">me</a>() -> GetMeResponse</code></summary>
+<details><summary><code>client.auth.<a href="src/trueforge_sdk/auth/client.py#L26-L51">me</a>() -> GetMeResponse</code></summary>
 <dl>
 <dd>
 
@@ -565,7 +565,7 @@ client.auth.me()
 </details>
 
 ## Server
-<details><summary><code>client.server.<a href="src/trueforge_sdk/server/client.py">get_capabilities</a>() -> GetCapabilitiesResponse</code></summary>
+<details><summary><code>client.server.<a href="src/trueforge_sdk/server/client.py#L26-L51">get_capabilities</a>() -> GetCapabilitiesResponse</code></summary>
 <dl>
 <dd>
 
@@ -628,7 +628,7 @@ client.server.get_capabilities()
 </details>
 
 ## MCP Servers
-<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">list</a>() -> ListAvailableMcpServersResponse</code></summary>
+<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py#L30-L55">list</a>() -> ListAvailableMcpServersResponse</code></summary>
 <dl>
 <dd>
 
@@ -690,7 +690,7 @@ client.mcp_servers.list()
 </dl>
 </details>
 
-<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">get</a>(...) -> GetAvailableMcpServerResponse</code></summary>
+<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py#L57-L89">get</a>(...) -> GetAvailableMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -762,7 +762,7 @@ client.mcp_servers.get(
 </dl>
 </details>
 
-<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">authorize</a>(...) -> McpAuthStatus</code></summary>
+<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py#L91-L130">authorize</a>(...) -> McpAuthStatus</code></summary>
 <dl>
 <dd>
 
@@ -842,7 +842,7 @@ client.mcp_servers.authorize(
 </dl>
 </details>
 
-<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">delete_authorization</a>(...) -> GetMcpServerResponse</code></summary>
+<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py#L132-L164">delete_authorization</a>(...) -> GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -914,7 +914,7 @@ client.mcp_servers.delete_authorization(
 </dl>
 </details>
 
-<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">list_tools</a>(...) -> ListMcpServerToolsResponse</code></summary>
+<details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py#L166-L198">list_tools</a>(...) -> ListMcpServerToolsResponse</code></summary>
 <dl>
 <dd>
 
@@ -987,7 +987,7 @@ client.mcp_servers.list_tools(
 </details>
 
 ## Models
-<details><summary><code>client.models.<a href="src/trueforge_sdk/models/client.py">list</a>() -> ListAvailableModelsResponse</code></summary>
+<details><summary><code>client.models.<a href="src/trueforge_sdk/models/client.py#L26-L51">list</a>() -> ListAvailableModelsResponse</code></summary>
 <dl>
 <dd>
 
@@ -1050,7 +1050,7 @@ client.models.list()
 </details>
 
 ## SandboxEnvironments
-<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">list</a>(...) -> ListSandboxEnvironmentsResponse</code></summary>
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py#L34-L75">list</a>(...) -> ListSandboxEnvironmentsResponse</code></summary>
 <dl>
 <dd>
 
@@ -1128,7 +1128,7 @@ client.sandbox_environments.list()
 </dl>
 </details>
 
-<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">create</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py#L77-L110">create</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
 <dl>
 <dd>
 
@@ -1202,7 +1202,7 @@ client.sandbox_environments.create(
 </dl>
 </details>
 
-<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">create_or_update</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py#L112-L145">create_or_update</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
 <dl>
 <dd>
 
@@ -1276,7 +1276,7 @@ client.sandbox_environments.create_or_update(
 </dl>
 </details>
 
-<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">get</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py#L147-L177">get</a>(...) -> GetSandboxEnvironmentResponse</code></summary>
 <dl>
 <dd>
 
@@ -1334,7 +1334,7 @@ client.sandbox_environments.get(
 </dl>
 </details>
 
-<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py">delete</a>(...) -> DeleteSandboxEnvironmentResponse</code></summary>
+<details><summary><code>client.sandbox_environments.<a href="src/trueforge_sdk/sandbox_environments/client.py#L179-L211">delete</a>(...) -> DeleteSandboxEnvironmentResponse</code></summary>
 <dl>
 <dd>
 
@@ -1407,7 +1407,7 @@ client.sandbox_environments.delete(
 </details>
 
 ## Schedules
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">list</a>(...) -> ListSchedulesResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L38-L93">list</a>(...) -> ListSchedulesResponse</code></summary>
 <dl>
 <dd>
 
@@ -1501,7 +1501,7 @@ client.schedules.list()
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">create</a>(...) -> GetScheduleResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L95-L142">create</a>(...) -> GetScheduleResponse</code></summary>
 <dl>
 <dd>
 
@@ -1594,7 +1594,7 @@ client.schedules.create(
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">create_run</a>(...) -> CreateScheduleRunResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L144-L176">create_run</a>(...) -> CreateScheduleRunResponse</code></summary>
 <dl>
 <dd>
 
@@ -1666,7 +1666,7 @@ client.schedules.create_run(
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">get</a>(...) -> GetScheduleResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L178-L208">get</a>(...) -> GetScheduleResponse</code></summary>
 <dl>
 <dd>
 
@@ -1738,7 +1738,7 @@ client.schedules.get(
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">update</a>(...) -> GetScheduleResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L210-L258">update</a>(...) -> GetScheduleResponse</code></summary>
 <dl>
 <dd>
 
@@ -1831,7 +1831,7 @@ client.schedules.update(
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">delete</a>(...) -> DeleteScheduleResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L260-L292">delete</a>(...) -> DeleteScheduleResponse</code></summary>
 <dl>
 <dd>
 
@@ -1903,7 +1903,7 @@ client.schedules.delete(
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">list_runs</a>(...) -> ListScheduleRunsResponse</code></summary>
+<details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py#L294-L343">list_runs</a>(...) -> ListScheduleRunsResponse</code></summary>
 <dl>
 <dd>
 
@@ -1992,7 +1992,7 @@ client.schedules.list_runs(
 </details>
 
 ## Sessions
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list</a>(...) -> ListSessionsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L53-L138">list</a>(...) -> ListSessionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2134,7 +2134,7 @@ client.sessions.list()
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L140-L179">create</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2216,7 +2216,7 @@ client.sessions.create(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">get</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L181-L211">get</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2288,7 +2288,7 @@ client.sessions.get(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">delete</a>(...)</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L213-L242">delete</a>(...)</code></summary>
 <dl>
 <dd>
 
@@ -2360,7 +2360,7 @@ client.sessions.delete(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">update</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L244-L300">update</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2464,7 +2464,7 @@ client.sessions.update(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">cancel</a>(...) -> CancelSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L302-L334">cancel</a>(...) -> CancelSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2536,7 +2536,7 @@ client.sessions.cancel(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list_events</a>(...) -> ListSessionEventsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L336-L393">list_events</a>(...) -> ListSessionEventsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2632,7 +2632,7 @@ client.sessions.list_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list_turns</a>(...) -> ListTurnsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L395-L444">list_turns</a>(...) -> ListTurnsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2720,7 +2720,7 @@ client.sessions.list_turns(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_stream</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L446-L500">create_turn_stream</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 
@@ -2820,7 +2820,7 @@ client.sessions.create_turn_stream(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn</a>(...) -> GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L502-L550">create_turn</a>(...) -> GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -2920,7 +2920,7 @@ client.sessions.create_turn_stream(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">get_turn</a>(...) -> GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L552-L588">get_turn</a>(...) -> GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -3001,7 +3001,7 @@ client.sessions.get_turn(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">download_sandbox_file</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L590-L632">download_sandbox_file</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 
@@ -3091,7 +3091,7 @@ client.sessions.download_sandbox_file(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list_turn_events</a>(...) -> ListTurnEventsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L634-L697">list_turn_events</a>(...) -> ListTurnEventsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3196,7 +3196,7 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L699-L746">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -3290,7 +3290,7 @@ client.sessions.create_turn_event(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">subscribe_to_turn</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L748-L803">subscribe_to_turn</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 
@@ -3380,7 +3380,7 @@ client.sessions.subscribe_to_turn(
 </details>
 
 ## Skills
-<details><summary><code>client.skills.<a href="src/trueforge_sdk/skills/client.py">list</a>() -> ListAvailableSkillsResponse</code></summary>
+<details><summary><code>client.skills.<a href="src/trueforge_sdk/skills/client.py#L27-L52">list</a>() -> ListAvailableSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3442,7 +3442,7 @@ client.skills.list()
 </dl>
 </details>
 
-<details><summary><code>client.skills.<a href="src/trueforge_sdk/skills/client.py">list_versions</a>(...) -> ListSkillVersionsResponse</code></summary>
+<details><summary><code>client.skills.<a href="src/trueforge_sdk/skills/client.py#L54-L86">list_versions</a>(...) -> ListSkillVersionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3515,7 +3515,7 @@ client.skills.list_versions(
 </details>
 
 ## Catalogs McpServers
-<details><summary><code>client.catalogs.mcp_servers.<a href="src/trueforge_sdk/catalogs/mcp_servers/client.py">list</a>() -> GetMcpServerCatalogResponse</code></summary>
+<details><summary><code>client.catalogs.mcp_servers.<a href="src/trueforge_sdk/catalogs/mcp_servers/client.py#L26-L51">list</a>() -> GetMcpServerCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -3578,7 +3578,7 @@ client.catalogs.mcp_servers.list()
 </details>
 
 ## Catalogs ModelProviders
-<details><summary><code>client.catalogs.model_providers.<a href="src/trueforge_sdk/catalogs/model_providers/client.py">list</a>() -> GetModelProviderCatalogResponse</code></summary>
+<details><summary><code>client.catalogs.model_providers.<a href="src/trueforge_sdk/catalogs/model_providers/client.py#L26-L51">list</a>() -> GetModelProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -3641,7 +3641,7 @@ client.catalogs.model_providers.list()
 </details>
 
 ## Catalogs SandboxProviders
-<details><summary><code>client.catalogs.sandbox_providers.<a href="src/trueforge_sdk/catalogs/sandbox_providers/client.py">list</a>() -> GetSandboxProviderCatalogResponse</code></summary>
+<details><summary><code>client.catalogs.sandbox_providers.<a href="src/trueforge_sdk/catalogs/sandbox_providers/client.py#L26-L51">list</a>() -> GetSandboxProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -3704,7 +3704,7 @@ client.catalogs.sandbox_providers.list()
 </details>
 
 ## Catalogs Skills
-<details><summary><code>client.catalogs.skills.<a href="src/trueforge_sdk/catalogs/skills/client.py">list</a>() -> GetSkillCatalogResponse</code></summary>
+<details><summary><code>client.catalogs.skills.<a href="src/trueforge_sdk/catalogs/skills/client.py#L26-L51">list</a>() -> GetSkillCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -3767,7 +3767,7 @@ client.catalogs.skills.list()
 </details>
 
 ## Catalogs WebSearchProviders
-<details><summary><code>client.catalogs.web_search_providers.<a href="src/trueforge_sdk/catalogs/web_search_providers/client.py">list</a>() -> GetWebSearchProviderCatalogResponse</code></summary>
+<details><summary><code>client.catalogs.web_search_providers.<a href="src/trueforge_sdk/catalogs/web_search_providers/client.py#L26-L51">list</a>() -> GetWebSearchProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -3830,7 +3830,7 @@ client.catalogs.web_search_providers.list()
 </details>
 
 ## Internal Metrics
-<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py">list_charts</a>() -> GetSessionMetricsChartResponse</code></summary>
+<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py#L30-L55">list_charts</a>() -> GetSessionMetricsChartResponse</code></summary>
 <dl>
 <dd>
 
@@ -3892,7 +3892,7 @@ client.internal.metrics.list_charts()
 </dl>
 </details>
 
-<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py">get_chart_data</a>(...) -> GetSessionMetricsChartDataResponse</code></summary>
+<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py#L57-L119">get_chart_data</a>(...) -> GetSessionMetricsChartDataResponse</code></summary>
 <dl>
 <dd>
 
@@ -3992,7 +3992,7 @@ client.internal.metrics.get_chart_data(
 </dl>
 </details>
 
-<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py">get_meters</a>(...) -> GetSessionMetricsMeterResponse</code></summary>
+<details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py#L121-L177">get_meters</a>(...) -> GetSessionMetricsMeterResponse</code></summary>
 <dl>
 <dd>
 
@@ -4084,7 +4084,7 @@ client.internal.metrics.get_meters(
 </details>
 
 ## Internal SandboxEnvironments
-<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">list_pending</a>() -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py#L29-L56">list_pending</a>() -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -4146,7 +4146,7 @@ client.internal.sandbox_environments.list_pending()
 </dl>
 </details>
 
-<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">progress</a>(...)</code></summary>
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py#L58-L89">progress</a>(...)</code></summary>
 <dl>
 <dd>
 
@@ -4219,7 +4219,7 @@ client.internal.sandbox_environments.progress(
 </details>
 
 ## Internal Schedules
-<details><summary><code>client.internal.schedules.<a href="src/trueforge_sdk/internal/schedules/client.py">execute_run</a>(...)</code></summary>
+<details><summary><code>client.internal.schedules.<a href="src/trueforge_sdk/internal/schedules/client.py#L28-L57">execute_run</a>(...)</code></summary>
 <dl>
 <dd>
 
@@ -4292,7 +4292,7 @@ client.internal.schedules.execute_run(
 </details>
 
 ## Internal Sessions
-<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py#L31-L77">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -4384,7 +4384,7 @@ client.internal.sessions.get_or_create_by_external_id(
 </details>
 
 ## Internal Agents
-<details><summary><code>client.internal.agents.<a href="src/trueforge_sdk/internal/agents/client.py">get_code_snippets</a>(...) -> GetAgentCodeSnippetsResponse</code></summary>
+<details><summary><code>client.internal.agents.<a href="src/trueforge_sdk/internal/agents/client.py#L26-L67">get_code_snippets</a>(...) -> GetAgentCodeSnippetsResponse</code></summary>
 <dl>
 <dd>
 
@@ -4465,7 +4465,7 @@ client.internal.agents.get_code_snippets(
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">list</a>() -> ListMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py#L32-L57">list</a>() -> ListMcpServersResponse</code></summary>
 <dl>
 <dd>
 
@@ -4527,7 +4527,7 @@ client.settings.mcp_servers.list()
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">create</a>(...) -> GetMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py#L59-L94">create</a>(...) -> GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -4604,7 +4604,7 @@ client.settings.mcp_servers.create(
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">create_or_update</a>(...) -> GetMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py#L96-L131">create_or_update</a>(...) -> GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -4681,7 +4681,7 @@ client.settings.mcp_servers.create_or_update(
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">get</a>(...) -> GetMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py#L133-L163">get</a>(...) -> GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -4753,7 +4753,7 @@ client.settings.mcp_servers.get(
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">delete</a>(...) -> DeleteMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py#L165-L195">delete</a>(...) -> DeleteMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -4826,7 +4826,7 @@ client.settings.mcp_servers.delete(
 </details>
 
 ## Settings ModelProviders
-<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py">list</a>() -> ListModelProvidersResponse</code></summary>
+<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py#L32-L57">list</a>() -> ListModelProvidersResponse</code></summary>
 <dl>
 <dd>
 
@@ -4888,7 +4888,7 @@ client.settings.model_providers.list()
 </dl>
 </details>
 
-<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py">create</a>(...) -> GetModelProviderResponse</code></summary>
+<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py#L59-L107">create</a>(...) -> GetModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -4972,7 +4972,7 @@ client.settings.model_providers.create(
 </dl>
 </details>
 
-<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py">create_or_update</a>(...) -> GetModelProviderResponse</code></summary>
+<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py#L109-L157">create_or_update</a>(...) -> GetModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -5056,7 +5056,7 @@ client.settings.model_providers.create_or_update(
 </dl>
 </details>
 
-<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py">delete</a>(...) -> DeleteModelProviderResponse</code></summary>
+<details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py#L159-L191">delete</a>(...) -> DeleteModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -5129,7 +5129,7 @@ client.settings.model_providers.delete(
 </details>
 
 ## Settings SandboxProviders
-<details><summary><code>client.settings.sandbox_providers.<a href="src/trueforge_sdk/settings/sandbox_providers/client.py">get</a>() -> GetSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandbox_providers.<a href="src/trueforge_sdk/settings/sandbox_providers/client.py#L30-L55">get</a>() -> GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -5191,7 +5191,7 @@ client.settings.sandbox_providers.get()
 </dl>
 </details>
 
-<details><summary><code>client.settings.sandbox_providers.<a href="src/trueforge_sdk/settings/sandbox_providers/client.py">create_or_update</a>(...) -> GetSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandbox_providers.<a href="src/trueforge_sdk/settings/sandbox_providers/client.py#L57-L100">create_or_update</a>(...) -> GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -5273,7 +5273,7 @@ client.settings.sandbox_providers.create_or_update(
 </details>
 
 ## Settings Skills
-<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py">list</a>() -> ListSkillsResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py#L32-L57">list</a>() -> ListSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -5335,7 +5335,7 @@ client.settings.skills.list()
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py">create</a>(...) -> GetSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py#L59-L95">create</a>(...) -> GetSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -5413,7 +5413,7 @@ client.settings.skills.create(
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py">create_or_update</a>(...) -> GetSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py#L97-L133">create_or_update</a>(...) -> GetSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -5491,7 +5491,7 @@ client.settings.skills.create_or_update(
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py">delete</a>(...) -> DeleteSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py#L135-L165">delete</a>(...) -> DeleteSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -5564,7 +5564,7 @@ client.settings.skills.delete(
 </details>
 
 ## Settings WebSearchProviders
-<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">get</a>() -> GetWebSearchProviderResponse</code></summary>
+<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py#L30-L55">get</a>() -> GetWebSearchProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -5626,7 +5626,7 @@ client.settings.web_search_providers.get()
 </dl>
 </details>
 
-<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">create_or_update</a>(...) -> GetWebSearchProviderResponse</code></summary>
+<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py#L57-L96">create_or_update</a>(...) -> GetWebSearchProviderResponse</code></summary>
 <dl>
 <dd>
 

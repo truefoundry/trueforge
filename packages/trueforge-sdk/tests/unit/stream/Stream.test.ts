@@ -267,6 +267,27 @@ describe("Stream", () => {
             ]);
         });
 
+        it("should wrap data in an envelope for envelope events", async () => {
+            const mockStream = createReadableStream([
+                'event: entity\ndata: {"id": "1"}\n\nevent: error\ndata: {"code": 3, "message": "bad input"}\n\n',
+            ]);
+            const stream = new Stream({
+                stream: mockStream,
+                parse: async (val: unknown) => val,
+                eventShape: { type: "sse", eventDiscriminator: "event", envelopeEvents: ["entity"] },
+            });
+
+            const messages: unknown[] = [];
+            for await (const message of stream) {
+                messages.push(message);
+            }
+
+            expect(messages).toEqual([
+                { event: "entity", data: { id: "1" } },
+                { event: "error", code: 3, message: "bad input" },
+            ]);
+        });
+
         it("should not inject if data already contains discriminator key", async () => {
             const mockStream = createReadableStream([
                 'event: completion\ndata: {"type": "existing", "content": "hello"}\n\n',
@@ -1523,7 +1544,7 @@ describe("Stream", () => {
     describe("SSE stream reconnection - null reconnect body", () => {
         it("should treat null reconnect body as a failed attempt", async () => {
             let reconnectCallCount = 0;
-            const reconnect = async (_lastEventId: string) => {
+            const reconnect = async (_lastEventId: string): Promise<ReadableStream> => {
                 reconnectCallCount++;
                 // @ts-expect-error Intentionally returning null to test null-body handling
                 return null;

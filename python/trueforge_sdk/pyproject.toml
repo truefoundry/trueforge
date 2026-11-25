@@ -1,9 +1,9 @@
 [project]
-name = "trueforge_sdk"
+name = "trueforge-sdk"
 dynamic = ["version"]
 
 [tool.poetry]
-name = "trueforge_sdk"
+name = "trueforge-sdk"
 version = "0.179.0"
 description = ""
 readme = "README.md"
@@ -33,9 +33,9 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.10"
-aiohttp = { version = ">=3.14.1,<4", optional = true, python = ">=3.10"}
+aiohttp = { version = ">=3.14.1,<4", optional = true}
 httpx = ">=0.21.2"
-httpx-aiohttp = { version = "^0.1.8", optional = true, python = ">=3.10"}
+httpx-aiohttp = { version = "^0.1.8", optional = true}
 pydantic = ">= 1.9.2"
 pydantic-core = ">=2.18.2,<3.0.0"
 typing_extensions = ">= 4.0.0"

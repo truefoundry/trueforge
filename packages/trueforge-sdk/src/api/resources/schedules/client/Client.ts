@@ -442,7 +442,7 @@ export class SchedulesClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/schedules/${core.url.encodePathParam(schedule_id)}`,
+                `api/v1/schedules/${core.url.encodePathParam(schedule_id, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -553,7 +553,7 @@ export class SchedulesClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/schedules/${core.url.encodePathParam(schedule_id)}`,
+                `api/v1/schedules/${core.url.encodePathParam(schedule_id, errors.TrueForgeError)}`,
             ),
             method: "PUT",
             headers: _headers,
@@ -686,7 +686,7 @@ export class SchedulesClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/schedules/${core.url.encodePathParam(schedule_id)}`,
+                `api/v1/schedules/${core.url.encodePathParam(schedule_id, errors.TrueForgeError)}`,
             ),
             method: "DELETE",
             headers: _headers,
@@ -791,7 +791,7 @@ export class SchedulesClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/schedules/${core.url.encodePathParam(schedule_id)}/runs`,
+                        `api/v1/schedules/${core.url.encodePathParam(schedule_id, errors.TrueForgeError)}/runs`,
                     ),
                     method: "GET",
                     headers: _headers,

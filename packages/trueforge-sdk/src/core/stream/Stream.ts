@@ -46,6 +46,8 @@ export declare namespace Stream {
         type: "sse";
         streamTerminator?: string;
         eventDiscriminator?: string;
+        /** Event names whose union variant wraps the `data:` payload as `{ <eventDiscriminator>, data }`. */
+        envelopeEvents?: string[];
         resumable?: boolean;
     }
 }
@@ -78,6 +80,7 @@ export class Stream<T> implements AsyncIterable<T> {
     private messageTerminator: string;
     private streamTerminator: string | undefined;
     private eventDiscriminator: string | undefined;
+    private envelopeEvents: Set<string> | undefined;
     private resumable: boolean;
     private reconnectionEnabled: boolean;
     private maxReconnectionAttempts: number;
@@ -105,6 +108,7 @@ export class Stream<T> implements AsyncIterable<T> {
             this.messageTerminator = "\n";
             this.streamTerminator = eventShape.streamTerminator;
             this.eventDiscriminator = eventShape.eventDiscriminator;
+            this.envelopeEvents = eventShape.envelopeEvents != null ? new Set(eventShape.envelopeEvents) : undefined;
             this.resumable = eventShape.resumable ?? false;
         } else {
             this.messageTerminator = eventShape.messageTerminator;
@@ -447,6 +451,9 @@ export class Stream<T> implements AsyncIterable<T> {
     private injectDiscriminator(parsed: unknown, eventType: string | undefined): unknown {
         if (this.eventDiscriminator == null || eventType == null) {
             return parsed;
+        }
+        if (this.envelopeEvents?.has(eventType)) {
+            return { [this.eventDiscriminator]: eventType, data: parsed };
         }
         if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
             return parsed;

@@ -316,7 +316,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -407,7 +407,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "DELETE",
             headers: _headers,
@@ -492,7 +492,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}`,
             ),
             method: "PATCH",
             headers: _headers,
@@ -629,7 +629,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/cancel`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/cancel`,
             ),
             method: "POST",
             headers: _headers,
@@ -757,7 +757,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -889,7 +889,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1011,7 +1011,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -1202,7 +1202,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -1374,7 +1374,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -1483,7 +1483,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/download-sandbox-file`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/download-sandbox-file`,
             ),
             method: "GET",
             headers: _headers,
@@ -1650,7 +1650,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1791,7 +1791,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/events`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/events`,
             ),
             method: "POST",
             headers: _headers,
@@ -1923,7 +1923,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/subscribe`,
             ),
             method: "GET",
             headers: _headers,
@@ -1944,7 +1944,7 @@ export class SessionsClient {
                 url: core.url.join(
                     (await core.Supplier.get(this._options.baseUrl)) ??
                         (await core.Supplier.get(this._options.environment)),
-                    `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
+                    `api/v1/sessions/${core.url.encodePathParam(session_id, errors.TrueForgeError)}/turns/${core.url.encodePathParam(turn_id, errors.TrueForgeError)}/subscribe`,
                 ),
                 method: "GET",
                 headers: { ..._headers, "Last-Event-ID": lastEventId },

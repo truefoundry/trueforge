@@ -8,6 +8,31 @@ Taken from FastAPI, and made a bit simpler
 https://github.com/tiangolo/fastapi/blob/master/fastapi/encoders.py
 """
 
+# jsonable_encoder is adapted from FastAPI
+# (https://github.com/fastapi/fastapi/blob/master/fastapi/encoders.py), used under the following license:
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2018 Sebastián Ramírez
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 import base64
 import dataclasses
 import datetime as dt
@@ -15,7 +40,7 @@ from enum import Enum
 from pathlib import PurePath
 from types import GeneratorType
 from typing import Any, Callable, Dict, List, Optional, Set, Union
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import pydantic
 from .datetime_utils import serialize_datetime
@@ -118,7 +143,11 @@ def encode_path_param(obj: Any) -> str:
     """
     if isinstance(obj, bool):
         return "true" if obj else "false"
-    return str(jsonable_encoder(obj))
+    value = str(jsonable_encoder(obj))
+    # The value is not percent-encoded here, so check every segment it would add to the path.
+    for segment in unquote(value).split("/"):
+        _reject_dot_segment(segment)
+    return value
 
 
 def quote_path_param(obj: Any) -> str:
@@ -130,4 +159,12 @@ def quote_path_param(obj: Any) -> str:
     """
     if isinstance(obj, bool):
         return "true" if obj else "false"
-    return quote(str(jsonable_encoder(obj)), safe="")
+    value = str(jsonable_encoder(obj))
+    _reject_dot_segment(value)
+    return quote(value, safe="")
+
+
+def _reject_dot_segment(value: str) -> None:
+    # "." and ".." are dot-segments that HTTP clients resolve, which would change the request path.
+    if value in (".", ".."):
+        raise ValueError(f'Invalid path parameter value "{value}": "." and ".." are not allowed.')

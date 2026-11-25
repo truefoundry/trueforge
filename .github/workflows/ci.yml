@@ -20,20 +20,26 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       packages: ${{ steps.packages.outputs.list }}
       chart: ${{ steps.filter.outputs.chart }}
       store: ${{ steps.filter.outputs.store }}
+      openapi: ${{ steps.filter.outputs.openapi }}
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v7
+        with:
+          # Full history so paths-filter can git-diff against the PR/merge-group base
+          # without calling the GitHub API (org IP allowlists block api.github.com).
+          fetch-depth: 0
 
       - name: Detect path changes
         uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          # Empty token forces local git diff instead of pulls.listFiles.
+          token: ''
           # Shared roots on every package filter so path-gated tests still run when:
           # - package.json: root test:* entrypoints change
           # - pnpm-workspace.yaml: workspace membership/graph changes
@@ -95,6 +101,13 @@ jobs:
               - 'charts/trueforge/**'
               - 'Dockerfile'
               - 'package.json'
+              - '.github/workflows/ci.yml'
+            openapi:
+              - 'packages/trueforge/src/**'
+              - 'packages/trueforge/scripts/**'
+              - 'packages/trueforge-core/src/**'
+              - '.github/fern/**'
+              - 'scripts/generate-sdk.sh'
               - '.github/workflows/ci.yml'
 
       - name: Build package matrix
@@ -317,6 +330,46 @@ jobs:
           SESSION_STORE_TEST_PG_URL: postgres://proto:proto@localhost:55432/proto
         run: pnpm test:store:postgres
 
+  sdk-check:
+    name: SDK check
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.openapi == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate OpenAPI document and SDKs
+        run: pnpm sdk:generate
+
+      - name: Fail if generated output drifted
+        run: |
+          set -euo pipefail
+          dirty="$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml)"
+          if [ -z "$dirty" ]; then
+            echo "OpenAPI document and SDKs are up to date."
+            exit 0
+          fi
+          echo "$dirty"
+          echo "::error::OpenAPI/SDK output is dirty. Run pnpm sdk:generate and commit the changes."
+          exit 1
+
   # https://github.com/marketplace/actions/alls-green#why
   check:
     if: always()
@@ -327,6 +380,7 @@ jobs:
       - package-checks
       - chart-checks
       - store-tests
+      - sdk-check
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -338,12 +392,14 @@ jobs:
           PACKAGE_CHECKS: ${{ needs.package-checks.result }}
           CHART_CHECKS: ${{ needs.chart-checks.result }}
           STORE_TESTS: ${{ needs.store-tests.result }}
+          SDK_CHECK: ${{ needs.sdk-check.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
-          echo "detect-changes=$DETECT_CHANGES migration-order=$MIGRATION_ORDER typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS"
+          echo "detect-changes=$DETECT_CHANGES migration-order=$MIGRATION_ORDER typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS sdk-check=$SDK_CHECK"
           [ "$DETECT_CHANGES" = success ] || exit 1
           [ "$MIGRATION_ORDER" = success ] || exit 1
           [ "$TYPECHECK_AND_BUILD" = success ] || exit 1
           ok "$PACKAGE_CHECKS" || exit 1
           ok "$CHART_CHECKS" || exit 1
           ok "$STORE_TESTS" || exit 1
+          ok "$SDK_CHECK" || exit 1

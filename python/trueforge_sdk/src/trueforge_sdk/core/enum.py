@@ -17,4 +17,5 @@ if sys.version_info >= (3, 11):
 else:
 
     class StrEnum(str, enum.Enum):
-        pass
+        def __str__(self) -> str:
+            return str(self.value)
