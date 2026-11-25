@@ -8,6 +8,7 @@ import {
   type Sessions,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { DecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -76,6 +77,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   activeTurns: ActiveTurnRegistry<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
+  decisionModel: DecisionModel | undefined;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
   /** Needed to resolve MCP servers from the agent spec. */
@@ -127,6 +129,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     userRef: prepared.userRef,
     deps: {
       activeTurns: deps.activeTurns,
+      decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,
       agentStore: deps.agentStore,
       modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: prepared.agent }),

@@ -2,7 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, type DecisionModel } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -299,6 +299,7 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  decisionModel: DecisionModel | undefined;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -516,6 +517,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const scheduleTurnExecutionRouterDeps = {
     activeTurns: deps.activeTurns,
     agentStore: deps.agentStore,
+    decisionModel: deps.decisionModel,
     eventSubscriptions: deps.eventSubscriptions,
     logger: deps.logger,
     resolveMcpServerStore: deps.resolveMcpServerStore,
@@ -657,6 +659,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       accessControlStore: deps.accessControlStore,
       activeTurns: deps.activeTurns,
       authorizer: deps.authorizer,
+      decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,
       logger: deps.logger,
       redis: deps.redis,
