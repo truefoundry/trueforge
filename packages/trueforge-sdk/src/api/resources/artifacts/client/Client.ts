@@ -260,7 +260,7 @@ export class ArtifactsClient {
         artifact_id: string,
         request: TrueForge.UpdateArtifactRequest,
         requestOptions?: ArtifactsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.GetArtifactResponse> {
+    ): core.HttpResponsePromise<TrueForge.UpdateArtifactResponse> {
         return core.HttpResponsePromise.fromPromise(this.__update(artifact_id, request, requestOptions));
     }
 
@@ -268,7 +268,7 @@ export class ArtifactsClient {
         artifact_id: string,
         request: TrueForge.UpdateArtifactRequest,
         requestOptions?: ArtifactsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.GetArtifactResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.UpdateArtifactResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -303,7 +303,7 @@ export class ArtifactsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.GetArtifactResponse.parseOrThrow(_response.body, {
+                data: serializers.UpdateArtifactResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

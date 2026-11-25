@@ -6469,6 +6469,17 @@
         ],
         "type": "object"
       },
+      "UpdateArtifactResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "UpdateConfigurationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8152,7 +8163,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetArtifactResponse"
+                  "$ref": "#/components/schemas/UpdateArtifactResponse"
                 }
               }
             },

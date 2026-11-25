@@ -8,6 +8,7 @@ from ..core.request_options import RequestOptions
 from ..types.artifact import Artifact
 from ..types.get_artifact_response import GetArtifactResponse
 from ..types.list_artifacts_response import ListArtifactsResponse
+from ..types.update_artifact_response import UpdateArtifactResponse
 from .raw_client import AsyncRawArtifactsClient, RawArtifactsClient
 
 # this is used as the default value for optional parameters
@@ -120,7 +121,7 @@ class ArtifactsClient:
 
     def update(
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetArtifactResponse:
+    ) -> UpdateArtifactResponse:
         """
         Rename an artifact. Only the artifact creator may update it.
 
@@ -137,7 +138,7 @@ class ArtifactsClient:
 
         Returns
         -------
-        GetArtifactResponse
+        UpdateArtifactResponse
             Artifact updated.
 
         Examples
@@ -282,7 +283,7 @@ class AsyncArtifactsClient:
 
     async def update(
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetArtifactResponse:
+    ) -> UpdateArtifactResponse:
         """
         Rename an artifact. Only the artifact creator may update it.
 
@@ -299,7 +300,7 @@ class AsyncArtifactsClient:
 
         Returns
         -------
-        GetArtifactResponse
+        UpdateArtifactResponse
             Artifact updated.
 
         Examples

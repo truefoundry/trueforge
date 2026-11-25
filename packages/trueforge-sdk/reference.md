@@ -555,7 +555,7 @@ await client.artifacts.get("artifact_id");
 </dl>
 </details>
 
-<details><summary><code>client.artifacts.<a href="/src/api/resources/artifacts/client/Client.ts">update</a>(artifact_id, { ...params }) -> TrueForge.GetArtifactResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="/src/api/resources/artifacts/client/Client.ts">update</a>(artifact_id, { ...params }) -> TrueForge.UpdateArtifactResponse</code></summary>
 <dl>
 <dd>
 

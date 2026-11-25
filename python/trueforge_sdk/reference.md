@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L32-L87">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L33-L88">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -596,7 +596,7 @@ client.artifacts.list()
 </dl>
 </details>
 
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L89-L119">get</a>(...) -> GetArtifactResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L90-L120">get</a>(...) -> GetArtifactResponse</code></summary>
 <dl>
 <dd>
 
@@ -668,7 +668,7 @@ client.artifacts.get(
 </dl>
 </details>
 
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L121-L157">update</a>(...) -> GetArtifactResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L122-L158">update</a>(...) -> UpdateArtifactResponse</code></summary>
 <dl>
 <dd>
 

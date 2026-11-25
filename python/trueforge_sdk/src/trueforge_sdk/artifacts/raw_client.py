@@ -18,6 +18,7 @@ from ..types.artifact import Artifact
 from ..types.get_artifact_response import GetArtifactResponse
 from ..types.list_artifacts_response import ListArtifactsResponse
 from ..types.request_error_response import RequestErrorResponse
+from ..types.update_artifact_response import UpdateArtifactResponse
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -194,7 +195,7 @@ class RawArtifactsClient:
 
     def update(
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[GetArtifactResponse]:
+    ) -> HttpResponse[UpdateArtifactResponse]:
         """
         Rename an artifact. Only the artifact creator may update it.
 
@@ -211,7 +212,7 @@ class RawArtifactsClient:
 
         Returns
         -------
-        HttpResponse[GetArtifactResponse]
+        HttpResponse[UpdateArtifactResponse]
             Artifact updated.
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -229,9 +230,9 @@ class RawArtifactsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetArtifactResponse,
+                    UpdateArtifactResponse,
                     construct_type(
-                        type_=GetArtifactResponse,  # type: ignore
+                        type_=UpdateArtifactResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -452,7 +453,7 @@ class AsyncRawArtifactsClient:
 
     async def update(
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GetArtifactResponse]:
+    ) -> AsyncHttpResponse[UpdateArtifactResponse]:
         """
         Rename an artifact. Only the artifact creator may update it.
 
@@ -469,7 +470,7 @@ class AsyncRawArtifactsClient:
 
         Returns
         -------
-        AsyncHttpResponse[GetArtifactResponse]
+        AsyncHttpResponse[UpdateArtifactResponse]
             Artifact updated.
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -487,9 +488,9 @@ class AsyncRawArtifactsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetArtifactResponse,
+                    UpdateArtifactResponse,
                     construct_type(
-                        type_=GetArtifactResponse,  # type: ignore
+                        type_=UpdateArtifactResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
