@@ -2,11 +2,16 @@
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AUTO_MODEL_PATCH } from '@/atoms/draft/autoModel.js';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge, reconcileDraftMemory } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
-import { writeDraftSpecPreferences } from '@/server/draftSpecPreferences.js';
+import {
+  chatAutoModelDefaultPending,
+  markChatAutoModelDefaulted,
+  writeDraftSpecPreferences,
+} from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer, tenantSessionSharing } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -42,13 +47,19 @@ async function expectMemoryUntouched() {
   }
 }
 
-function renderBridge({ memory }: { memory?: { enabled: boolean } } = {}) {
+function renderBridge({
+  memory,
+  auto = { status: 'not_configured' },
+}: {
+  memory?: { enabled: boolean };
+  auto?: AgentBuilderCapabilitiesResponse['data']['auto'];
+} = {}) {
   const server = createMockAgentUIServer({
     getCapabilities: async () => ({
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        auto: { status: 'not_configured' },
+        auto,
         sessionSharing: tenantSessionSharing,
         webSearch: { enabled: false },
         ...(memory === undefined ? {} : { memory }),
@@ -220,6 +231,48 @@ describe('DraftSpecPreferenceBridge memory', () => {
     renderBridge();
 
     await expectMemoryUntouched();
+  });
+});
+
+describe('DraftSpecPreferenceBridge Auto default', () => {
+  it('switches a New Chat draft to Auto the first time the capability is enabled', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+
+    renderBridge({ auto: { status: 'enabled' } });
+
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({ model: AUTO_MODEL_PATCH });
+    });
+    expect(chatAutoModelDefaultPending()).toBe(false);
+  });
+
+  it('does not switch again once the Auto default marker is stored', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+    markChatAutoModelDefaulted(agentSpec);
+    writeDraftSpecPreferences('chat', { model: { name: 'model' } });
+    updateAgentSpec.mockClear();
+
+    renderBridge({ auto: { status: 'enabled' } });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    for (const [update] of updateAgentSpec.mock.calls) {
+      expect(update.model).not.toEqual(AUTO_MODEL_PATCH);
+    }
+  });
+
+  it('leaves the Auto default pending when Auto is not configured', async () => {
+    agentSpec = { model: { name: 'model' } };
+    draftSessionId = undefined;
+
+    renderBridge({ auto: { status: 'not_configured' } });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    for (const [update] of updateAgentSpec.mock.calls) {
+      expect(update.model).not.toEqual(AUTO_MODEL_PATCH);
+    }
+    expect(chatAutoModelDefaultPending()).toBe(true);
   });
 });
 

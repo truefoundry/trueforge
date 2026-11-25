@@ -4,7 +4,9 @@ import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry
 import { useEffect, useRef } from 'react';
 
 import {
+  chatAutoModelDefaultPending,
   type DraftPreferenceKind,
+  markChatAutoModelDefaulted,
   persistedMemoryEnabled,
   persistedWebSearchEnabled,
   recoverMemoryAfterCapabilityAvailable,
@@ -16,7 +18,7 @@ import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
-import { AUTO_MODEL, keepsAutoModel } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort } from './reasoningEffort.js';
 import { skillFamilyId } from './SkillVersionSelector.js';
@@ -345,6 +347,25 @@ export function DraftSpecPreferenceBridge() {
     isPlainDraft,
     preferenceKind,
     webSearchEnabled,
+    updateAgentSpec,
+  ]);
+
+  useEffect(() => {
+    // One-time: the first time Auto is enabled for this user, switch the New Chat draft to it.
+    if (!isPlainDraft || preferenceKind !== 'chat' || editsStoredSpec) return;
+    if (!canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
+    if (capabilities?.auto.status !== 'enabled' || !chatAutoModelDefaultPending()) return;
+    markChatAutoModelDefaulted(agentSpec);
+    if (agentSpec.model.name !== AUTO_MODEL) {
+      updateAgentSpec({ model: AUTO_MODEL_PATCH });
+    }
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    capabilities?.auto.status,
+    editsStoredSpec,
+    isPlainDraft,
+    preferenceKind,
     updateAgentSpec,
   ]);
 
