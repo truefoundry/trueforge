@@ -266,6 +266,14 @@ describe('describeStreamPartError', () => {
     expect(describeStreamPartError(raw)).toBe(INTERRUPTED_RESPONSE_MESSAGE);
   });
 
+  it('keeps the adapter message for other InvalidResponseDataError causes', () => {
+    const raw = new InvalidResponseDataError({
+      data: undefined,
+      message: "Expected 'function' type.",
+    });
+    expect(describeStreamPartError(raw)).toBe("Expected 'function' type.");
+  });
+
   it('leaves every other stream error to describeStreamError', () => {
     const raw = new APICallError({
       message: 'invalid x-api-key',

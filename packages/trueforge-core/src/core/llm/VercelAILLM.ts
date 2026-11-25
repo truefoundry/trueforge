@@ -1120,12 +1120,14 @@ export const INTERRUPTED_RESPONSE_MESSAGE =
   'Response interrupted: the model provider closed the stream before the response finished. Retry the request.';
 
 /**
- * Same as `describeStreamError`, for errors that arrived as a stream `error` part. Only there is an
- * `InvalidResponseDataError` unambiguously the missing finish reason; the adapter's other one comes
- * from the non-streaming path we never call.
+ * Adapters raise `InvalidResponseDataError` for malformed deltas too, so the error type alone does
+ * not identify the missing finish reason; match the adapter's wording for that one case.
  */
+const MISSING_FINISH_REASON_PATTERN = /stream ended without a finish reason/i;
+
+/** Same as `describeStreamError`, for errors that arrived as a stream `error` part. */
 export function describeStreamPartError(raw: unknown): string {
-  if (InvalidResponseDataError.isInstance(raw)) {
+  if (InvalidResponseDataError.isInstance(raw) && MISSING_FINISH_REASON_PATTERN.test(raw.message)) {
     return INTERRUPTED_RESPONSE_MESSAGE;
   }
   return describeStreamError(raw);
