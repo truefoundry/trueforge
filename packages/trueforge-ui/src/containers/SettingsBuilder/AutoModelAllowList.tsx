@@ -16,8 +16,9 @@ import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
-/** The server rejects longer lists; kept in step with its `allowed_models` limit. */
+/** The server rejects lists outside these limits (an empty list is allowed); kept in step with its `allowed_models`. */
 const MAX_ALLOWED_MODELS = 10;
+const MIN_ALLOWED_MODELS = 4;
 
 type AutoModelAllowListProps = {
   /** The saved full model names (account/model); an empty list allows none. */
@@ -85,6 +86,8 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
 
   const dirty = !sameSelection({ left: selected, right: allowedModels });
   const atLimit = selected.length >= MAX_ALLOWED_MODELS;
+  // An empty selection is saveable (it clears the list); a partial one is not.
+  const belowMinimum = selected.length > 0 && selected.length < MIN_ALLOWED_MODELS;
   const routingUnavailableReason = capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
 
   const toggle = (name: string) =>
@@ -94,7 +97,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
     <div className="mt-2 rounded-xl border border-border bg-card-bg p-3">
       <h4 className="text-sm font-medium text-text-primary">Models Auto can choose from</h4>
       <p className="mt-0.5 text-xs text-text-secondary">
-        {`Auto only picks from the models selected here, among the models each user has access to. Choose up to ${String(MAX_ALLOWED_MODELS)}.`}
+        {`Auto only picks from the models selected here, among the models each user has access to. Choose ${String(MIN_ALLOWED_MODELS)} to ${String(MAX_ALLOWED_MODELS)}.`}
       </p>
 
       {routingUnavailableReason ? (
@@ -235,6 +238,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
       <p className="mt-2 text-xs text-text-secondary">
         {`${String(selected.length)} of ${String(MAX_ALLOWED_MODELS)} selected.`}
         {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
+        {belowMinimum ? ` Choose at least ${String(MIN_ALLOWED_MODELS)} models to save.` : ''}
         {atLimit ? ' Remove a model to choose another.' : ''}
       </p>
 
@@ -243,7 +247,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
           <Button.Secondary size="small" type="button" disabled={saving} onClick={() => setSelected(allowedModels)}>
             Reset
           </Button.Secondary>
-          <Button.Primary size="small" type="button" disabled={saving} onClick={() => onSave(selected)}>
+          <Button.Primary size="small" type="button" disabled={saving || belowMinimum} onClick={() => onSave(selected)}>
             Save
           </Button.Primary>
         </div>

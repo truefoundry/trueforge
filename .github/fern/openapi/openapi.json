@@ -424,7 +424,7 @@
         "additionalProperties": false,
         "properties": {
           "allowed_models": {
-            "description": "Full names (account/model) of up to 10 models auto routing may pick from. Empty allows none.",
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none.",
             "items": {
               "type": "string"
             },
@@ -446,7 +446,7 @@
         "additionalProperties": false,
         "properties": {
           "allowed_models": {
-            "description": "Full names (account/model) of up to 10 models auto routing may pick from. Empty allows none.",
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none.",
             "items": {
               "type": "string"
             },

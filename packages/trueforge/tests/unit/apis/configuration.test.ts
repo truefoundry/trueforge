@@ -118,9 +118,8 @@ describe('settings configuration router', () => {
 
   describe('Auto mode model allow-list', () => {
     const tenantId = STANDALONE_REQUEST_CONTEXT.tenant_id;
-    const sonnet = 'acct/sonnet';
-    const haiku = 'acct/haiku';
     const modelNames = (count: number) => Array.from({ length: count }, (_, index) => `acct/model-${String(index)}`);
+    const four = modelNames(4);
 
     it('starts empty, which allows no model', async () => {
       const { router, store } = await createRouter();
@@ -137,24 +136,24 @@ describe('settings configuration router', () => {
 
       const patched = await router.request(
         '/',
-        patchInit({ auto_model_routing: { allowed_models: [sonnet, haiku, sonnet] } }),
+        patchInit({ auto_model_routing: { allowed_models: [...four, 'acct/model-0'] } }),
       );
       expect(patched.status).toBe(200);
 
       expect(await (await router.request('/')).json()).toMatchObject({
-        data: { manifest: { auto_model_routing: { enabled: true, allowed_models: [sonnet, haiku] } } },
+        data: { manifest: { auto_model_routing: { enabled: true, allowed_models: four } } },
       });
     });
 
     it('PATCH of the switch alone keeps the saved list', async () => {
       const { router, store } = await createRouter();
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: [sonnet] } }));
+      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
 
       const patched = await router.request('/', patchInit({ auto_model_routing: { enabled: false } }));
       expect(patched.status).toBe(200);
 
       await expect(store.getConfiguration(tenantId)).resolves.toMatchObject({
-        manifest: { auto_model_routing: { enabled: false, allowed_models: [sonnet] } },
+        manifest: { auto_model_routing: { enabled: false, allowed_models: four } },
       });
     });
 
@@ -162,22 +161,51 @@ describe('settings configuration router', () => {
       const { router, store } = await createRouter();
       await router.request('/', patchInit({ auto_model_routing: { enabled: false } }));
 
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: [sonnet] } }));
+      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
 
       await expect(store.getConfiguration(tenantId)).resolves.toMatchObject({
-        manifest: { auto_model_routing: { enabled: false, allowed_models: [sonnet] } },
+        manifest: { auto_model_routing: { enabled: false, allowed_models: four } },
       });
     });
 
     it('PATCH with an empty list removes every model', async () => {
       const { router, store } = await createRouter();
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: [sonnet] } }));
+      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
 
       const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: [] } }));
       expect(patched.status).toBe(200);
 
       const record = await store.getConfiguration(tenantId);
       expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, allowed_models: [] });
+    });
+
+    it.each([1, 2, 3])('PATCH rejects a list of %i model(s), below the minimum of four', async count => {
+      const { router, store } = await createRouter();
+      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+
+      const patched = await router.request(
+        '/',
+        patchInit({ auto_model_routing: { allowed_models: modelNames(count) } }),
+      );
+      expect(patched.status).toBe(400);
+
+      const record = await store.getConfiguration(tenantId);
+      expect(record?.manifest.auto_model_routing.allowed_models).toEqual(four);
+    });
+
+    it('PATCH counts a repeated model once toward the minimum', async () => {
+      const { router } = await createRouter();
+
+      const repeated = Array.from({ length: 4 }, () => 'acct/model-0');
+      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: repeated } }));
+      expect(patched.status).toBe(400);
+    });
+
+    it('PATCH accepts exactly four models', async () => {
+      const { router } = await createRouter();
+
+      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      expect(patched.status).toBe(200);
     });
 
     it('PATCH accepts ten models and rejects eleven', async () => {

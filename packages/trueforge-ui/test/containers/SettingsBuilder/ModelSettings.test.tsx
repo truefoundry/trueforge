@@ -281,6 +281,7 @@ describe('ModelSettings Auto mode switch', () => {
 
   describe('model allow-list', () => {
     const modelNames = ['acct/haiku', 'acct/sonnet'];
+    const fiveModels = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini', 'acct/grok'];
     const withModels = (allowedModels: string[]) => ({
       ...autoOn,
       autoModelRouting: { enabled: true, allowedModels },
@@ -325,16 +326,17 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     it('saves the chosen full model names and refreshes capabilities', async () => {
-      const updateConfiguration = vi.fn(async () => withModels(['acct/sonnet']));
+      const chosen = ['acct/sonnet', 'acct/opus', 'acct/gemini', 'acct/grok'];
+      const updateConfiguration = vi.fn(async () => withModels(chosen));
       const { getCapabilities } = renderAutoSettings({
         auto: { status: 'enabled' },
-        modelNames,
+        modelNames: fiveModels,
         configuration: { getConfiguration: async () => autoOn, updateConfiguration },
       });
 
       await openPicker();
-      fireEvent.click(option('acct/sonnet'));
-      // The dropdown stays open for more picks, and the pick shows as a chip.
+      for (const name of chosen) fireEvent.click(option(name));
+      // The dropdown stays open for more picks, and each pick shows as a chip.
       expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
       await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
@@ -342,11 +344,28 @@ describe('ModelSettings Auto mode switch', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: ['acct/sonnet'] } }),
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: chosen } }),
       );
       await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
       expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
+    });
+
+    it('holds Save back until at least four models are chosen', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      for (const name of fiveModels.slice(0, 3)) fireEvent.click(option(name));
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      expect(screen.getByText(/Choose at least 4 models to save\./)).toBeInTheDocument();
+
+      fireEvent.click(option('acct/gemini'));
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+      expect(screen.queryByText(/Choose at least 4 models to save\./)).toBeNull();
     });
 
     it('stops at ten models and frees a slot when one is removed', async () => {
@@ -388,14 +407,13 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     it('keeps a saved model the admin cannot see, so saving does not drop it', async () => {
-      const updateConfiguration = vi.fn(async () => withModels(['acct/haiku', 'acct/hidden', 'acct/sonnet']));
+      const saved = ['acct/haiku', 'acct/hidden'];
+      const next = [...saved, 'acct/sonnet', 'acct/opus', 'acct/gemini'];
+      const updateConfiguration = vi.fn(async () => withModels(next));
       renderAutoSettings({
         auto: { status: 'enabled' },
-        modelNames,
-        configuration: {
-          getConfiguration: async () => withModels(['acct/haiku', 'acct/hidden']),
-          updateConfiguration,
-        },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => withModels(saved), updateConfiguration },
       });
 
       const hiddenChip = (await screen.findByRole('button', { name: 'Remove acct/hidden' })).parentElement;
@@ -405,13 +423,11 @@ describe('ModelSettings Auto mode switch', () => {
       expect(within(haikuChip as HTMLElement).queryByText('Not visible to you')).toBeNull();
 
       await openPicker();
-      fireEvent.click(option('acct/sonnet'));
+      for (const name of ['acct/sonnet', 'acct/opus', 'acct/gemini']) fireEvent.click(option(name));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({
-          autoModelRouting: { allowedModels: ['acct/haiku', 'acct/hidden', 'acct/sonnet'] },
-        }),
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: next } }),
       );
     });
 

@@ -24,11 +24,18 @@ const AutoModelRoutingEnabledSchema = z
 /** Most models an admin may allow for auto routing. */
 export const MAX_AUTO_ALLOWED_MODELS = 10;
 
+/** Fewest models an admin may allow once they choose any; an empty list stays the "none chosen" default. */
+export const MIN_AUTO_ALLOWED_MODELS = 4;
+
 const AutoModelRoutingAllowedModelsSchema = z
   .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
   .max(MAX_AUTO_ALLOWED_MODELS)
+  .refine(
+    names => names.length === 0 || new Set(names).size >= MIN_AUTO_ALLOWED_MODELS,
+    `Choose at least ${String(MIN_AUTO_ALLOWED_MODELS)} models, or none.`,
+  )
   .describe(
-    `Full names (account/model) of up to ${String(MAX_AUTO_ALLOWED_MODELS)} models auto routing may pick from. Empty allows none.`,
+    `Full names (account/model) of ${String(MIN_AUTO_ALLOWED_MODELS)} to ${String(MAX_AUTO_ALLOWED_MODELS)} models auto routing may pick from. Empty allows none.`,
   );
 
 const AutoModelRoutingConfigurationSchema = z
