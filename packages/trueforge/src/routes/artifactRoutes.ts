@@ -48,7 +48,7 @@ export const listArtifactsRoute = createRoute({
 
 export const updateArtifactRoute = createRoute({
   method: 'post',
-  path: '/update/{artifact_id}',
+  path: '/{artifact_id}/update',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'Update an artifact',
   description: 'Rename an artifact. Only the artifact creator may update it.',

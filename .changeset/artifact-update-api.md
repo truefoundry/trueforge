@@ -3,4 +3,4 @@
 "@truefoundry/trueforge-sdk": patch
 ---
 
-Add `POST /api/v1/artifacts/update/{artifact_id}` to rename the caller's artifacts. The SDK gains `artifacts.update`.
+Add `POST /api/v1/artifacts/{artifact_id}/update` to rename the caller's artifacts. The SDK gains `artifacts.update`.
