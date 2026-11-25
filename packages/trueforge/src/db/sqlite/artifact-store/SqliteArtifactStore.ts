@@ -49,7 +49,7 @@ function toArtifactRecord(row: {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
 }
 
-/** Qualified so `getVersion`'s join with `artifact` stays unambiguous. */
+/** Table-qualified because `getVersion` joins `artifact`, which has columns with the same names. */
 function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
   return [
     'artifact_version.artifact_id' as const,
