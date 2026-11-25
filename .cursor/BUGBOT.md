@@ -12,10 +12,12 @@ If the diff changes code that ships in a published package and does not add a ne
 - `packages/trueforge-sdk` → `@truefoundry/trueforge-sdk` (when regenerating the SDK, some changeset in the PR must name this patch bump — same file or a separate one via `pnpm changeset:sdk-regen`)
 - `packages/frontend` → `@truefoundry/trueforge` (UI is bundled into the server tarball)
 
+If the diff changes `packages/assistant-ui-runtime`, `packages/trueforge-ui`, `packages/frontend`, or `charts/trueforge`, some changeset in the PR must also name `"@truefoundry/trueforge": patch`. Those ship in the server image, and that package version is the chart `appVersion`. This still applies when the rest of the diff is chart-only.
+
 Skip when:
 
-- The PR already adds `.changeset/*.md`
-- Changes are docs, `AGENTS.md`, CI/workflows, charts, or docker-compose only
+- The PR already adds `.changeset/*.md` that covers the packages above, including `"@truefoundry/trueforge": patch` when assistant-ui-runtime, trueforge-ui, frontend, or `charts/trueforge` changed
+- Changes are docs, `AGENTS.md`, CI/workflows, charts other than `charts/trueforge`, or docker-compose only
 - The PR is a Version Packages / `changeset-release/*` release PR
 
 If a new or changed `.changeset/*.md` uses `minor` or `major`, flag it. Only `patch` bumps are allowed in PR changesets; minor/major version bumps are controlled by an external release process.
