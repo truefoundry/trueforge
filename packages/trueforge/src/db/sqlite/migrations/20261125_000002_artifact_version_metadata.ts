@@ -45,6 +45,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     await sql`DROP TABLE artifact_version`.execute(trx);
     await sql`ALTER TABLE artifact_version_new RENAME TO artifact_version`.execute(trx);
+    await sql`CREATE INDEX artifact_version_session_idx ON artifact_version (created_by_session_id)`.execute(trx);
   });
 }
 
@@ -87,5 +88,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
 
     await sql`DROP TABLE artifact_version`.execute(trx);
     await sql`ALTER TABLE artifact_version_old RENAME TO artifact_version`.execute(trx);
+    await sql`CREATE INDEX artifact_version_session_idx ON artifact_version (created_by_session_id)`.execute(trx);
   });
 }
