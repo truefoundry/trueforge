@@ -6,4 +6,4 @@
 '@truefoundry/trueforge-sdk': patch
 ---
 
-Let an admin choose which models auto routing may pick from, on the Models settings page. The configuration manifest's `auto_model_routing` adds `candidate_models`: 4 to 10 full model names (`account/model`), or empty. It is empty by default, and an empty list allows no model, so Auto stays unavailable until an admin chooses some. Lists of 1 to 3 models are rejected. Routing and the `auto` capability use the models a user has access to, narrowed to that list. `PATCH /api/v1/settings/configuration` now merges into `auto_model_routing`, so changing `enabled` keeps the list.
+Admins can choose which models Auto may route to (`auto_model_routing.candidate_models`: 4 to 10 `account/model` names, or empty, which is the default and leaves Auto unavailable).
