@@ -1,4 +1,5 @@
 ---
+'@truefoundry/trueforge': patch
 '@truefoundry/trueforge-ui': patch
 ---
 
