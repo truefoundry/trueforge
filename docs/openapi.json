@@ -4586,6 +4586,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.model_selected": "#/components/schemas/ThreadModelSelectedEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -4617,6 +4618,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadModelSelectedEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -5418,6 +5422,61 @@
           "thread_id",
           "title",
           "state"
+        ],
+        "type": "object"
+      },
+      "ThreadModelSelectedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "duration_ms": {
+            "description": "Time taken to select the model, including any routing decision.",
+            "type": "number"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "model": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ModelSnapshot"
+              },
+              {
+                "description": "Model and effort the thread runs on."
+              }
+            ]
+          },
+          "outcome": {
+            "description": "`explicit`: the agent spec names the model. `picked`: model routing chose it.",
+            "enum": [
+              "explicit",
+              "picked"
+            ],
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread the model was selected for.",
+            "type": "string"
+          },
+          "type": {
+            "description": "A thread was given the model it runs on, before its first model call.",
+            "enum": [
+              "thread.model_selected"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "model",
+          "outcome",
+          "duration_ms"
         ],
         "type": "object"
       },
@@ -6279,6 +6338,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.model_selected": "#/components/schemas/ThreadModelSelectedEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -6304,6 +6364,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadModelSelectedEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"

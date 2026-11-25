@@ -11,7 +11,9 @@ import { makeMockIMCPServer, makeSilentLogger, TEST_MODEL_NAME } from '../core/h
 import {
   driveUntilPauseOrDone,
   llmCreateInputs,
+  rejectModelSelection,
   textReplyStream,
+  threadModelClient,
   WRITE_NOTE_ARGUMENTS,
   WRITE_NOTE_CALL_ID,
   WRITE_NOTE_RESULT,
@@ -197,7 +199,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       const paused = await driveUntilPauseOrDone(iterator);
       expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(llmCreateInputs(thread.model.client)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
       // Resume the SAME execute(): enqueue the approval via send() (drain the generator so the
@@ -225,7 +227,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).toHaveBeenCalledTimes(1);
-      expect(llmCreateInputs(thread.model.client)).toMatchObject([...EXPECTED_TURN_1_LLM_INPUT, EXPECTED_TURN_2_INPUT]);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject([
+        ...EXPECTED_TURN_1_LLM_INPUT,
+        EXPECTED_TURN_2_INPUT,
+      ]);
     });
   });
 
@@ -330,7 +335,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).not.toHaveBeenCalled();
-      expect(llmCreateInputs(thread.model.client)).toMatchObject([...EXPECTED_TURN_1_LLM_INPUT, EXPECTED_TURN_2_INPUT]);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject([
+        ...EXPECTED_TURN_1_LLM_INPUT,
+        EXPECTED_TURN_2_INPUT,
+      ]);
     });
   });
 });
@@ -686,6 +694,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
       logger: makeSilentLogger(),
     });
     orchestrator = new AgentThreadOrchestrator({
+      resolveModel: rejectModelSelection,
       agentThreads: new Map([[thread.threadId, thread]]),
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in policy test')),
       tracing: NOOP_AGENT_TRACING,
@@ -863,6 +872,7 @@ function makeApprovalHarness(
 
   const thread = new AgentThread(agentThreadInput);
   const orchestrator = new AgentThreadOrchestrator({
+    resolveModel: rejectModelSelection,
     agentThreads: new Map([[thread.threadId, thread]]),
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval test')),
     tracing: NOOP_AGENT_TRACING,
@@ -917,6 +927,7 @@ function makeApprovalHarnessWithUserToolSet(
 
   const thread = new AgentThread(agentThreadInput);
   const orchestrator = new AgentThreadOrchestrator({
+    resolveModel: rejectModelSelection,
     agentThreads: new Map([[thread.threadId, thread]]),
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval policy test')),
     tracing: NOOP_AGENT_TRACING,

@@ -5,6 +5,7 @@ import {
   newEventId,
   type MCPServerInitInfo,
   type ModelMessageEvent,
+  type ThreadModelSelectedEvent,
   type ToolApprovalPolicy,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
@@ -20,7 +21,7 @@ import { getOperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
-import { modelSnapshotFromAgent } from './AgentModel';
+import { modelSnapshotFromAgent, type AgentModel } from './AgentModel';
 import { AgentThread } from './AgentThread';
 import {
   InternalEventType,
@@ -196,6 +197,8 @@ export interface AgentThreadOrchestratorInput {
   agentThreads: Map<string, AgentThread>;
   maxParallelSubAgents?: number;
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
+  /** Resolves the model of a thread that has none, before it first runs. */
+  resolveModel: (thread: AgentThread) => Promise<{ model: AgentModel; outcome: ThreadModelSelectedEvent['outcome'] }>;
   tracing: AgentTracing;
   logger: Logger;
   /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
@@ -211,6 +214,9 @@ export class AgentThreadOrchestrator {
   private readonly agentThreads: Map<string, AgentThread>;
   private readonly maxParallelSubAgents: number;
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
+  private readonly resolveModel: AgentThreadOrchestratorInput['resolveModel'];
+  /** Threads whose model is selected at the start of the next execute loop. */
+  private readonly threadsAwaitingModel = new Set<string>();
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
@@ -224,6 +230,7 @@ export class AgentThreadOrchestrator {
     this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
+    this.resolveModel = params.resolveModel;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
     this.pendingTurnEvents = [...params.pendingTurnEvents];
@@ -464,6 +471,9 @@ export class AgentThreadOrchestrator {
       });
 
       yield* mainThread.sendUserMessages(messages);
+      if (mainThread.model === undefined) {
+        this.threadsAwaitingModel.add(mainThread.threadId);
+      }
       return;
     }
 
@@ -581,7 +591,7 @@ export class AgentThreadOrchestrator {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
           agent_info: chunk.agent_info,
-          model: modelSnapshotFromAgent(subAgentThread.model),
+          ...(subAgentThread.model === undefined ? {} : { model: modelSnapshotFromAgent(subAgentThread.model) }),
           created_at: new Date().toISOString(),
           parent,
           title: chunk.agent_info.name,
@@ -593,6 +603,29 @@ export class AgentThreadOrchestrator {
       default:
         yield chunk;
         return;
+    }
+  }
+
+  /** Selects the model of each thread awaiting one, before it first runs. */
+  private async *selectAwaitingModels(): AsyncGenerator<ThreadModelSelectedEvent, void, unknown> {
+    for (const threadId of this.threadsAwaitingModel) {
+      this.threadsAwaitingModel.delete(threadId);
+      const thread = this.agentThreads.get(threadId);
+      if (thread === undefined) {
+        continue;
+      }
+      const startedMs = Date.now();
+      const { model, outcome } = await this.resolveModel(thread);
+      yield {
+        type: EventType.THREAD_MODEL_SELECTED,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        thread_id: threadId,
+        model: modelSnapshotFromAgent(model),
+        outcome,
+        duration_ms: Date.now() - startedMs,
+      };
+      thread.setModel(model);
     }
   }
 
@@ -640,6 +673,11 @@ export class AgentThreadOrchestrator {
     try {
       for (;;) {
         if (isAborted() || rootSettled()) {
+          return done();
+        }
+
+        yield* this.selectAwaitingModels();
+        if (isAborted()) {
           return done();
         }
 

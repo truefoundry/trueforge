@@ -38,6 +38,7 @@ export const EventType = {
   SANDBOX_CREATED: 'sandbox.created',
   THREAD_CREATED: 'thread.created',
   THREAD_DONE: 'thread.done',
+  THREAD_MODEL_SELECTED: 'thread.model_selected',
   TOOL_RESPONSE: 'tool.response',
   TOOL_APPROVAL_REQUIRED: 'tool.approval_required',
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
@@ -315,6 +316,22 @@ export const ThreadCreatedEventSchema = z
   })
   .openapi('ThreadCreatedEvent');
 
+export const ThreadModelSelectedEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.THREAD_MODEL_SELECTED)
+      .describe('A thread was given the model it runs on, before its first model call.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread the model was selected for.'),
+    model: ModelSnapshotSchema.describe('Model and effort the thread runs on.'),
+    outcome: z
+      .enum(['explicit', 'picked'])
+      .describe('`explicit`: the agent spec names the model. `picked`: model routing chose it.'),
+    duration_ms: z.number().describe('Time taken to select the model, including any routing decision.'),
+  })
+  .openapi('ThreadModelSelectedEvent');
+
 export const ThreadStateDoneSchema = z
   .object({
     status: z.literal('done').describe('Thread completed successfully.'),
@@ -508,6 +525,7 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   ModelMessageEventSchema,
   ToolResponseEventSchema,
   ThreadCreatedEventSchema,
+  ThreadModelSelectedEventSchema,
   ThreadDoneEventSchema,
   ThreadContextCompactionStartedEventSchema,
   ThreadContextCompactionFinishedEventSchema,
@@ -539,6 +557,7 @@ export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;
 export type ModelMessageDeltaEvent = z.infer<typeof ModelMessageDeltaEventSchema>;
 export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
+export type ThreadModelSelectedEvent = z.infer<typeof ThreadModelSelectedEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;

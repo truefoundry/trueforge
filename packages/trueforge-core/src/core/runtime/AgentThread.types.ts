@@ -19,6 +19,7 @@ import {
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
   type ThreadCreatedEvent,
+  type ThreadModelSelectedEvent,
   type ThreadOverwriteContextEvent,
   type ThreadStateError,
   type ToolApprovalRequiredEvent,
@@ -190,7 +191,9 @@ export interface InternalTurnStateEvent {
 }
 
 export type AgentThreadExecutionEvent =
-  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
+  | WithRegisteredPassthrough<
+      ThreadCreatedEvent | ThreadModelSelectedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
+    >
   | InternalTurnStateEvent;
 
 export interface AgentThreadExecutionResult {
@@ -221,7 +224,8 @@ export interface AgentThreadSnapshot {
 
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
-  model: AgentModel;
+  /** Undefined until the orchestrator resolves it, before the thread first runs. */
+  model: AgentModel | undefined;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

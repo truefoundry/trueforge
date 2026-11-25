@@ -845,6 +845,20 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         return;
       }
 
+      case HarnessEventType.THREAD_MODEL_SELECTED: {
+        await this.writeStore('append', () =>
+          this.store.withTransaction(async transaction => {
+            await this.store.patchThreadModel(
+              { ...scope, thread_id: event.thread_id, model: event.model },
+              transaction,
+            );
+            await this.store.appendToEvents({ ...scope, events: [event] }, transaction);
+          }),
+        );
+        yield event;
+        return;
+      }
+
       case HarnessEventType.TOOL_APPROVAL_REQUIRED:
       case HarnessEventType.TOOL_RESPONSE_REQUIRED: {
         await this.writeStore('append', () =>

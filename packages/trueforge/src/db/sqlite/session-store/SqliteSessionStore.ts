@@ -29,6 +29,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadModelInput,
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
@@ -70,6 +71,7 @@ import {
   overwriteThreadContext as overwriteThreadContextQuery,
   patchMCPServers as patchMCPServersQuery,
   patchSandboxInfo as patchSandboxInfoQuery,
+  patchThreadModel as patchThreadModelQuery,
   removeThreads as removeThreadsQuery,
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
@@ -173,7 +175,6 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
       })),
       new_context_appends: input.new_context_appends,
       capability_states: input.capability_states,
-      main_thread_model: input.main_thread_model,
       last_activity_timestamp_ms: Date.now(),
       update_session_title_if_not_exist: input.update_session_title_if_not_exist,
       mcp_servers: null,
@@ -273,6 +274,10 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
 
   patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: Transaction<Database>): Promise<void> {
     return patchThreadsMCPAuthQuery(transaction ?? this.db, input);
+  }
+
+  patchThreadModel(input: PatchThreadModelInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchThreadModelQuery(transaction ?? this.db, input);
   }
 
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {

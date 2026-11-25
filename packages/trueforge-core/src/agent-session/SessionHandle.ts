@@ -1,6 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
+import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import { routingConversation } from '../core/modelRouting/conversation';
 import { CONVERSATION_ROUTING_INSTRUCTIONS, TASK_ROUTING_INSTRUCTIONS } from '../core/modelRouting/question';
@@ -119,12 +120,12 @@ function specForRoutedModel(spec: AgentSpec, routed: RoutedModel | undefined): A
 }
 
 /**
- * The definition and model are resolved separately, and a thread is still built with both.
- * Drop once the orchestrator resolves the model after the thread is built.
+ * A thread's definition and the saved model it resumes on. `model` is undefined for a root on a new turn, whose model
+ * the orchestrator selects. Drop once the orchestrator also restores saved models, for resumed roots and subagents.
  */
 interface ThreadDefinition {
   resolved: ResolvedAgentDefinition;
-  model: AgentModel;
+  model: AgentModel | undefined;
 }
 
 export class SessionHandle<
@@ -270,7 +271,6 @@ export class SessionHandle<
         },
       };
 
-      const mainThread = agentThreads.get(MAIN_THREAD_ID);
       await this.store.createTurn({
         turn: turnInit,
         new_threads,
@@ -279,7 +279,6 @@ export class SessionHandle<
           thread_id,
           capability_state: thread.toSnapshot().capability_state,
         })),
-        main_thread_model: mainThread === undefined ? null : modelSnapshotFromAgent(mainThread.model),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
@@ -465,6 +464,9 @@ export class SessionHandle<
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
     const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
+    if (spec.model.name === AUTO_MODEL && input.resolver.routeModel === undefined) {
+      throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
+    }
     const sandbox = await input.resolver.resolveSandbox({
       spec,
       existing: input.previous?.snapshot.sandbox_info ?? undefined,
@@ -478,7 +480,6 @@ export class SessionHandle<
       resolver: input.resolver,
       spec,
       resuming: input.resuming,
-      userMessage: input.userMessage,
       tracing,
       signal: input.abortController.signal,
     });
@@ -520,6 +521,22 @@ export class SessionHandle<
       agentThreads,
       ...(maxParallelSubAgents !== undefined ? { maxParallelSubAgents } : {}),
       createDynamicSubAgentThread,
+      resolveModel: async () => ({
+        model: await input.resolver.resolveModel({
+          spec,
+          agent_info: undefined,
+          model: undefined,
+          route: {
+            threadId: MAIN_THREAD_ID,
+            input: routingConversation(
+              input.previous?.snapshot.threads[MAIN_THREAD_ID]?.context ?? [],
+              input.userMessage ?? [],
+            ),
+            instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
+          },
+        }),
+        outcome: spec.model.name === AUTO_MODEL ? 'picked' : 'explicit',
+      }),
       tracing,
       logger: input.resolver.logger,
       pendingTurnEvents: input.pendingTurnEvents,
@@ -535,7 +552,6 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
     resuming: boolean;
-    userMessage: UserMessage[] | undefined;
     tracing: AgentTracing;
     signal: AbortSignal;
   }): Promise<Map<string, ThreadDefinition>> {
@@ -546,7 +562,7 @@ export class SessionHandle<
       threadIds.map(async threadId => {
         const previousThreadSnapshot = snapshots?.[threadId];
         const agentInfo = previousThreadSnapshot?.agent_info ?? undefined;
-        const choosesRootModel = threadId === MAIN_THREAD_ID && !input.resuming;
+        const selectsRootModel = threadId === MAIN_THREAD_ID && !input.resuming;
         const [resolved, model] = await Promise.all([
           input.resolver.resolveAgentDefinition({
             spec: input.spec,
@@ -555,18 +571,14 @@ export class SessionHandle<
             signal: input.signal,
             tracing: input.tracing,
           }),
-          input.resolver.resolveModel({
-            spec: input.spec,
-            agent_info: agentInfo,
-            model: choosesRootModel ? undefined : (previousThreadSnapshot?.model ?? undefined),
-            route: choosesRootModel
-              ? {
-                  threadId: MAIN_THREAD_ID,
-                  input: routingConversation(previousThreadSnapshot?.context ?? [], input.userMessage ?? []),
-                  instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
-                }
-              : undefined,
-          }),
+          selectsRootModel
+            ? undefined
+            : input.resolver.resolveModel({
+                spec: input.spec,
+                agent_info: agentInfo,
+                model: previousThreadSnapshot?.model ?? undefined,
+                route: undefined,
+              }),
         ]);
         definitionsByThreadId.set(threadId, { resolved, model });
       }),
@@ -662,8 +674,9 @@ export class SessionHandle<
         input: task,
         instructions: TASK_ROUTING_INSTRUCTIONS,
       });
+      const rootModel = input.rootThread.model;
       const fallback =
-        input.spec.model.name === AUTO_MODEL ? modelSnapshotFromAgent(input.rootThread.model) : undefined;
+        input.spec.model.name === AUTO_MODEL && rootModel !== undefined ? modelSnapshotFromAgent(rootModel) : undefined;
 
       const [{ definition, extraCapabilities }, model] = await Promise.all([
         input.resolver.resolveAgentDefinition({

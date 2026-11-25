@@ -11,6 +11,7 @@ from .thread_context_compaction_finished_event import ThreadContextCompactionFin
 from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
 from .thread_created_event import ThreadCreatedEvent
 from .thread_done_event import ThreadDoneEvent
+from .thread_model_selected_event import ThreadModelSelectedEvent
 from .tool_approval_required_event import ToolApprovalRequiredEvent
 from .tool_response_event import ToolResponseEvent
 from .tool_response_required_event import ToolResponseRequiredEvent
@@ -32,6 +33,7 @@ TurnStreamingEvent = typing.Union[
     ThreadContextCompactionStartedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
+    ThreadModelSelectedEvent,
     ToolApprovalRequiredEvent,
     ToolResponseEvent,
     ToolResponseRequiredEvent,
