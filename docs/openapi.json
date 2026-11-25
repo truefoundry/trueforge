@@ -6494,6 +6494,33 @@
         ],
         "type": "object"
       },
+      "UpdateArtifactRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "New artifact name. Whitespace is collapsed and trimmed; must not be blank.",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u202A-\\u202E\\u2066-\\u2069/\\\\:*?\"<>|]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "UpdateArtifactResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "UpdateConfigurationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8077,6 +8104,84 @@
           "artifacts"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/artifacts/update/{artifact_id}": {
+      "post": {
+        "description": "Rename an artifact. Only the artifact creator may update it.",
+        "parameters": [
+          {
+            "description": "Artifact identifier.",
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "description": "Artifact identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateArtifactResponse"
+                }
+              }
+            },
+            "description": "Artifact updated."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact not found."
+          }
+        },
+        "summary": "Update an artifact",
+        "tags": [
+          "Artifacts"
+        ],
+        "x-fern-sdk-group-name": [
+          "artifacts"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/auth/callback": {
