@@ -87,11 +87,15 @@ const AutoModeSetting = () => {
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h4 className="text-sm font-medium text-text-primary">Enable Auto Model Routing</h4>
-              <p className="mt-0.5 text-xs text-text-secondary">
-                {enabled
-                  ? 'Intelligently chooses models based on the task, for agents and subagents.'
-                  : 'Auto is off, including in existing chats; subagents run on their parent model.'}
+              <p className="mt-0.5 text-xs text-text-secondary">Selects the most capable model for each task.</p>
+              <p className="mt-2 text-xs text-text-secondary">
+                Auto is an intelligent model router that balances intelligence and cost.
               </p>
+              {enabled ? null : (
+                <p className="mt-2 text-xs text-text-secondary">
+                  While off, Auto is unavailable in every chat, and subagents run on their parent model.
+                </p>
+              )}
             </div>
             <Switch
               checked={enabled}

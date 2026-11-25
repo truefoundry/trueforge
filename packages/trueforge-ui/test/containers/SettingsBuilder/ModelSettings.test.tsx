@@ -253,6 +253,8 @@ describe('ModelSettings Auto mode switch', () => {
 
     const toggle = await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
     await screen.findByRole('combobox', { name: 'Select models' });
+    expect(screen.getByText('Selects the most capable model for each task.')).toBeInTheDocument();
+    expect(screen.queryByText(/While off, Auto is unavailable/)).toBeNull();
     toggle.click();
 
     // The save has not returned, yet the card already shows the new state, and the switch isn't dimmed.
@@ -266,7 +268,7 @@ describe('ModelSettings Auto mode switch', () => {
     expect(screen.getByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveClass('disabled:opacity-100');
 
     finishSave({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } });
-    await waitFor(() => expect(screen.getByText(/Auto is off, including in existing chats/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/While off, Auto is unavailable in every chat/)).toBeInTheDocument());
   });
 
   it('puts the switch back when the save fails', async () => {
