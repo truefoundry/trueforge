@@ -163,16 +163,22 @@ describe('ModelSettings removal', () => {
 });
 
 describe('ModelSettings Auto mode switch', () => {
-  const autoOn = { webSearch: { enabled: true }, memory: { enabled: true }, autoModelRouting: { enabled: true } };
+  const autoOn = {
+    webSearch: { enabled: true },
+    memory: { enabled: true },
+    autoModelRouting: { enabled: true, allowedModels: [] },
+  };
 
   function renderAutoSettings({
     auto,
     manageProviders = true,
     configuration,
+    modelNames = [],
   }: {
     auto: AgentBuilderCapabilitiesResponse['data']['auto'];
     manageProviders?: boolean;
     configuration: ConfigurationServer;
+    modelNames?: string[];
   }) {
     const listModelProviders = vi.fn(async () => [builtInProvider]);
     const getCapabilities = vi.fn(async () => ({
@@ -195,6 +201,7 @@ describe('ModelSettings Auto mode switch', () => {
       }),
       configuration,
       getCapabilities,
+      getModels: async () => modelNames.map(name => ({ id: name, name, provider: { name: 'acct' }, properties: {} })),
     });
     render(
       <ServerProvider server={server}>
@@ -205,7 +212,10 @@ describe('ModelSettings Auto mode switch', () => {
   }
 
   it('saves only the Auto mode switch and refreshes capabilities so the picker updates', async () => {
-    const updateConfiguration = vi.fn(async () => ({ ...autoOn, autoModelRouting: { enabled: false } }));
+    const updateConfiguration = vi.fn(async () => ({
+      ...autoOn,
+      autoModelRouting: { enabled: false, allowedModels: [] },
+    }));
     const { getCapabilities } = renderAutoSettings({
       auto: { status: 'enabled' },
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
@@ -261,12 +271,159 @@ describe('ModelSettings Auto mode switch', () => {
     renderAutoSettings({
       auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
       configuration: {
-        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false } }),
+        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, allowedModels: [] } }),
         updateConfiguration: vi.fn(),
       },
     });
 
     expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  describe('model allow-list', () => {
+    const modelNames = ['acct/haiku', 'acct/sonnet'];
+    const withModels = (allowedModels: string[]) => ({
+      ...autoOn,
+      autoModelRouting: { enabled: true, allowedModels },
+    });
+
+    it('lists the admin models with none selected when nothing is allowed yet', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      const haiku = await screen.findByRole('checkbox', { name: 'acct/haiku' });
+      expect(haiku).toHaveAttribute('aria-checked', 'false');
+      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'false');
+      expect(
+        screen.getByText(/0 of 10 selected\. With none selected, Auto has no model to pick\./),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('saves the chosen full model names and refreshes capabilities', async () => {
+      const updateConfiguration = vi.fn(async () => withModels(['acct/sonnet']));
+      const { getCapabilities } = renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+      });
+
+      fireEvent.click(await screen.findByRole('checkbox', { name: 'acct/sonnet' }));
+      await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
+      const callsBeforeSave = getCapabilities.mock.calls.length;
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: ['acct/sonnet'] } }),
+      );
+      await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('stops at ten models and frees a slot when one is deselected', async () => {
+      const many = Array.from({ length: 12 }, (_, index) => `acct/model-${String(index).padStart(2, '0')}`);
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: many,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      for (const name of many.slice(0, 10)) {
+        fireEvent.click(await screen.findByRole('checkbox', { name }));
+      }
+
+      expect(screen.getByRole('checkbox', { name: 'acct/model-10' })).toBeDisabled();
+      expect(screen.getByRole('checkbox', { name: 'acct/model-11' })).toBeDisabled();
+      expect(screen.getByRole('checkbox', { name: 'acct/model-00' })).toBeEnabled();
+      expect(screen.getByText(/10 of 10 selected\./)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'acct/model-00' }));
+      expect(screen.getByRole('checkbox', { name: 'acct/model-10' })).toBeEnabled();
+    });
+
+    it('saves an empty list to take every model away', async () => {
+      const updateConfiguration = vi.fn(async () => autoOn);
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration },
+      });
+
+      const haiku = await screen.findByRole('checkbox', { name: 'acct/haiku' });
+      expect(haiku).toHaveAttribute('aria-checked', 'true');
+      fireEvent.click(haiku);
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: [] } }),
+      );
+    });
+
+    it('keeps a saved model the admin cannot see, so saving does not drop it', async () => {
+      const updateConfiguration = vi.fn(async () => withModels(['acct/haiku', 'acct/hidden', 'acct/sonnet']));
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: {
+          getConfiguration: async () => withModels(['acct/haiku', 'acct/hidden']),
+          updateConfiguration,
+        },
+      });
+
+      const hidden = await screen.findByRole('checkbox', { name: 'acct/hidden' });
+      expect(hidden).toHaveAttribute('aria-checked', 'true');
+      expect(within(hidden).getByText('Not visible to you')).toBeInTheDocument();
+      expect(within(screen.getByRole('checkbox', { name: 'acct/haiku' })).queryByText('Not visible to you')).toBeNull();
+      fireEvent.click(screen.getByRole('checkbox', { name: 'acct/sonnet' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(updateConfiguration).toHaveBeenCalledWith({
+          autoModelRouting: { allowedModels: ['acct/haiku', 'acct/hidden', 'acct/sonnet'] },
+        }),
+      );
+    });
+
+    it('restores the saved selection on Reset', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration: vi.fn() },
+      });
+
+      fireEvent.click(await screen.findByRole('checkbox', { name: 'acct/sonnet' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+      expect(screen.getByRole('checkbox', { name: 'acct/sonnet' })).toHaveAttribute('aria-checked', 'false');
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('shows the server reason when the allowed models cannot route', async () => {
+      renderAutoSettings({
+        auto: { status: 'disabled', reason: 'Auto mode has no usable models selected.' },
+        modelNames,
+        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration: vi.fn() },
+      });
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Auto mode has no usable models selected.');
+    });
+
+    it('hides the list while the tenant has Auto turned off', async () => {
+      renderAutoSettings({
+        auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
+        modelNames,
+        configuration: {
+          getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, allowedModels: [] } }),
+          updateConfiguration: vi.fn(),
+        },
+      });
+
+      await screen.findByRole('switch', { name: 'Allow Auto mode' });
+      expect(screen.queryByRole('group', { name: 'Models Auto can choose from' })).toBeNull();
+    });
   });
 
   it('shows no switch when the server does not set up Auto mode', async () => {

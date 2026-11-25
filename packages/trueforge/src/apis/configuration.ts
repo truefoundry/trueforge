@@ -5,6 +5,8 @@ import type { ConfigurationRecord, IConfigurationStore } from '../db/configurati
 import { getConfigurationRoute, patchConfigurationRoute } from '../routes/configurationRoutes';
 import {
   DEFAULT_CONFIGURATION_MANIFEST,
+  type AutoModelRoutingConfiguration,
+  type AutoModelRoutingConfigurationPatch,
   type Configuration,
   type ConfigurationManifest,
   type ConfigurationManifestPatch,
@@ -20,6 +22,23 @@ function toConfiguration(record: ConfigurationRecord): Configuration {
   return { manifest: record.manifest, updated_at: record.updated_at };
 }
 
+/** `enabled` and `allowed_models` change independently: an omitted field keeps its stored value. */
+function applyAutoModelRoutingPatch({
+  current,
+  patch,
+}: {
+  current: AutoModelRoutingConfiguration;
+  patch: AutoModelRoutingConfigurationPatch | undefined;
+}): AutoModelRoutingConfiguration {
+  if (patch === undefined) {
+    return current;
+  }
+  return {
+    enabled: patch.enabled ?? current.enabled,
+    allowed_models: [...new Set(patch.allowed_models ?? current.allowed_models)],
+  };
+}
+
 /** Listed per switch so a new switch cannot be silently dropped from a patch. */
 function applyPatch({
   current,
@@ -31,7 +50,10 @@ function applyPatch({
   return {
     web_search: patch.web_search ?? current.web_search,
     memory: patch.memory ?? current.memory,
-    auto_model_routing: patch.auto_model_routing ?? current.auto_model_routing,
+    auto_model_routing: applyAutoModelRoutingPatch({
+      current: current.auto_model_routing,
+      patch: patch.auto_model_routing,
+    }),
   };
 }
 

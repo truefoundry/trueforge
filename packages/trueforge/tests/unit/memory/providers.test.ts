@@ -27,7 +27,11 @@ async function setup() {
   const setSwitch = (tenant_id: string, enabled: boolean) =>
     configurationStore.upsertConfiguration({
       tenant_id,
-      manifest: { web_search: { enabled: true }, memory: { enabled }, auto_model_routing: { enabled: true } },
+      manifest: {
+        web_search: { enabled: true },
+        memory: { enabled },
+        auto_model_routing: { enabled: true, allowed_models: [] },
+      },
     });
   return { deps, memoryProviderStore, setSwitch };
 }

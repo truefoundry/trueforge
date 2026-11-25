@@ -12,7 +12,7 @@ describe("ConfigurationClient", () => {
         const rawResponseBody = {
             data: {
                 manifest: {
-                    auto_model_routing: { enabled: true },
+                    auto_model_routing: { allowed_models: ["allowed_models"], enabled: true },
                     memory: { enabled: true },
                     web_search: { enabled: true },
                 },
@@ -33,6 +33,7 @@ describe("ConfigurationClient", () => {
             data: {
                 manifest: {
                     autoModelRouting: {
+                        allowedModels: ["allowed_models"],
                         enabled: true,
                     },
                     memory: {
@@ -92,7 +93,7 @@ describe("ConfigurationClient", () => {
         const rawResponseBody = {
             data: {
                 manifest: {
-                    auto_model_routing: { enabled: true },
+                    auto_model_routing: { allowed_models: ["allowed_models"], enabled: true },
                     memory: { enabled: true },
                     web_search: { enabled: true },
                 },
@@ -116,6 +117,7 @@ describe("ConfigurationClient", () => {
             data: {
                 manifest: {
                     autoModelRouting: {
+                        allowedModels: ["allowed_models"],
                         enabled: true,
                     },
                     memory: {

@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi';
+import { parseModelFqn } from './common';
 
 const WebSearchConfigurationSchema = z
   .object({
@@ -16,14 +17,36 @@ const MemoryConfigurationSchema = z
   .strict()
   .openapi('MemoryConfiguration');
 
+const AutoModelRoutingEnabledSchema = z
+  .boolean()
+  .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.');
+
+/** Most models an admin may allow for auto routing. */
+export const MAX_AUTO_ALLOWED_MODELS = 10;
+
+const AutoModelRoutingAllowedModelsSchema = z
+  .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
+  .max(MAX_AUTO_ALLOWED_MODELS)
+  .describe(
+    `Full names (account/model) of up to ${String(MAX_AUTO_ALLOWED_MODELS)} models auto routing may pick from. Empty allows none.`,
+  );
+
 const AutoModelRoutingConfigurationSchema = z
   .object({
-    enabled: z
-      .boolean()
-      .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.'),
+    enabled: AutoModelRoutingEnabledSchema,
+    allowed_models: AutoModelRoutingAllowedModelsSchema,
   })
   .strict()
   .openapi('AutoModelRoutingConfiguration');
+
+/** Unlike the other switches, a patch merges into the stored value, so `enabled` and the list change independently. */
+const AutoModelRoutingConfigurationPatchSchema = z
+  .object({
+    enabled: AutoModelRoutingEnabledSchema.optional(),
+    allowed_models: AutoModelRoutingAllowedModelsSchema.optional(),
+  })
+  .strict()
+  .openapi('AutoModelRoutingConfigurationPatch');
 
 const ConfigurationManifestSchema = z
   .object({
@@ -35,7 +58,9 @@ const ConfigurationManifestSchema = z
   .openapi('ConfigurationManifest');
 
 /** Partial so a caller may send one switch without restating the rest. */
-const ConfigurationManifestPatchSchema = ConfigurationManifestSchema.partial().openapi('ConfigurationManifestPatch');
+const ConfigurationManifestPatchSchema = ConfigurationManifestSchema.partial()
+  .extend({ auto_model_routing: AutoModelRoutingConfigurationPatchSchema.optional() })
+  .openapi('ConfigurationManifestPatch');
 
 const ConfigurationSchema = z
   .object({
@@ -58,6 +83,8 @@ export const GetConfigurationResponseSchema = z
   })
   .openapi('GetConfigurationResponse');
 
+export type AutoModelRoutingConfiguration = z.infer<typeof AutoModelRoutingConfigurationSchema>;
+export type AutoModelRoutingConfigurationPatch = z.infer<typeof AutoModelRoutingConfigurationPatchSchema>;
 export type ConfigurationManifest = z.infer<typeof ConfigurationManifestSchema>;
 export type ConfigurationManifestPatch = z.infer<typeof ConfigurationManifestPatchSchema>;
 export type Configuration = z.infer<typeof ConfigurationSchema>;
@@ -72,7 +99,7 @@ export type ConfigurationFeature = keyof ConfigurationManifest;
 export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
   web_search: { enabled: true },
   memory: { enabled: true },
-  auto_model_routing: { enabled: true },
+  auto_model_routing: { enabled: true, allowed_models: [] },
 };
 
 /**
@@ -80,5 +107,9 @@ export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
  * still on an older version can rewrite a row without it during a deploy.
  */
 export function hasEveryConfigurationSwitch(manifest: ConfigurationManifest): boolean {
-  return Object.keys(DEFAULT_CONFIGURATION_MANIFEST).every(key => key in manifest);
+  return (
+    Object.keys(DEFAULT_CONFIGURATION_MANIFEST).every(key => key in manifest) &&
+    // Rows saved with only the Auto switch lack its model list.
+    Object.keys(DEFAULT_CONFIGURATION_MANIFEST.auto_model_routing).every(key => key in manifest.auto_model_routing)
+  );
 }

@@ -1094,18 +1094,25 @@ export interface TenantConfigurationSwitch {
   enabled: boolean;
 }
 
+/** Auto mode's switch plus the models an admin lets it pick from. */
+export interface TenantAutoModelRouting extends TenantConfigurationSwitch {
+  /** Full model names (account/model) Auto may pick from. Empty allows none. */
+  allowedModels: string[];
+}
+
 /** Tenant-wide feature switches an admin controls, independent of any provider catalog. */
 export interface TenantConfiguration {
   webSearch: TenantConfigurationSwitch;
   memory: TenantConfigurationSwitch;
-  autoModelRouting: TenantConfigurationSwitch;
+  autoModelRouting: TenantAutoModelRouting;
 }
 
 export interface UpdateTenantConfigurationRequest {
   /** Omit a switch to leave it as stored. */
   webSearch?: TenantConfigurationSwitch;
   memory?: TenantConfigurationSwitch;
-  autoModelRouting?: TenantConfigurationSwitch;
+  /** Fields left out keep their stored value. */
+  autoModelRouting?: { enabled?: boolean; allowedModels?: string[] };
 }
 
 /**

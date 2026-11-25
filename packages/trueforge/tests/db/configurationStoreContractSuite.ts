@@ -3,7 +3,7 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import {
-  isAutoEnabledForTenant,
+  getAutoModelRoutingForTenant,
   isMemoryEnabledForTenant,
   type IConfigurationStore,
 } from '../../src/db/configurationStore';
@@ -18,11 +18,19 @@ export interface ConfigurationStoreContractEnv {
 }
 
 function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }): ConfigurationManifest {
-  return { web_search: { enabled: webSearch }, memory: { enabled: memory }, auto_model_routing: { enabled: true } };
+  return {
+    web_search: { enabled: webSearch },
+    memory: { enabled: memory },
+    auto_model_routing: { enabled: true, allowed_models: [] },
+  };
 }
 
 const LEGACY_MANIFEST_JSON = '{"web_search":{"enabled":false}}';
-const SEEDED = { web_search: { enabled: false }, memory: { enabled: true }, auto_model_routing: { enabled: true } };
+const SEEDED = {
+  web_search: { enabled: false },
+  memory: { enabled: true },
+  auto_model_routing: { enabled: true, allowed_models: [] },
+};
 
 export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationStoreContractEnv): void {
   it('lists only tenants whose stored row has the given feature on', async () => {
@@ -50,7 +58,39 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
     expect((await store.getConfiguration('legacy'))?.manifest).toEqual(SEEDED);
     expect(await readRawManifest('legacy')).toEqual(SEEDED);
     await expect(isMemoryEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
-    await expect(isAutoEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
+    await expect(getAutoModelRoutingForTenant({ tenant_id: 'legacy', store })).resolves.toEqual({
+      enabled: true,
+      allowed_models: [],
+    });
+  });
+
+  it('seeds an empty model list into an Auto switch saved without one, keeping the switch as stored', async () => {
+    const { store, insertRawManifest, readRawManifest } = getEnv();
+    await insertRawManifest({
+      tenant_id: 'toggle-only',
+      manifest_json: '{"web_search":{"enabled":true},"memory":{"enabled":true},"auto_model_routing":{"enabled":false}}',
+    });
+
+    const expected = {
+      web_search: { enabled: true },
+      memory: { enabled: true },
+      auto_model_routing: { enabled: false, allowed_models: [] },
+    };
+    expect((await store.getConfiguration('toggle-only'))?.manifest).toEqual(expected);
+    expect(await readRawManifest('toggle-only')).toEqual(expected);
+  });
+
+  it('does not touch a saved model list when it seeds other fields', async () => {
+    const { store, insertRawManifest } = getEnv();
+    await insertRawManifest({
+      tenant_id: 'listed',
+      manifest_json: '{"auto_model_routing":{"enabled":true,"allowed_models":["acct/sonnet"]}}',
+    });
+
+    expect((await store.getConfiguration('listed'))?.manifest.auto_model_routing).toEqual({
+      enabled: true,
+      allowed_models: ['acct/sonnet'],
+    });
   });
 
   it('getOrCreateConfiguration seeds a missing switch without replacing the stored ones', async () => {

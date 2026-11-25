@@ -423,14 +423,41 @@
       "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
+          "allowed_models": {
+            "description": "Full names (account/model) of up to 10 models auto routing may pick from. Empty allows none.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
           "enabled": {
             "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "allowed_models"
         ],
+        "type": "object"
+      },
+      "AutoModelRoutingConfigurationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_models": {
+            "description": "Full names (account/model) of up to 10 models auto routing may pick from. Empty allows none.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "AvailableMCPServer": {
@@ -1104,7 +1131,7 @@
         "additionalProperties": false,
         "properties": {
           "auto_model_routing": {
-            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
+            "$ref": "#/components/schemas/AutoModelRoutingConfigurationPatch"
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"

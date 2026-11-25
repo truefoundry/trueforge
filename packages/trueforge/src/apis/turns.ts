@@ -49,6 +49,7 @@ import {
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
+  restrictToAllowedModels,
   SandboxError,
   VercelAILLM,
   withTimeout,
@@ -79,7 +80,7 @@ import configuration, {
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { ICapabilitiesStore } from '../db/capabilitiesStore';
-import { isAutoEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
+import { getAutoModelRoutingForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -122,6 +123,7 @@ import {
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
+import type { AutoModelRoutingConfiguration } from '../schemas/configuration';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -370,13 +372,13 @@ interface BeginTurnExecutionParams<TTransaction> {
 /** This turn's model routing inputs, or undefined when routing is off for the tenant or its Auto mode switch is off. */
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
-  isAutoAllowed: boolean;
+  autoModelRouting: AutoModelRoutingConfiguration;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   decisionModel: DecisionModel | undefined;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, decisionModel } = input;
-  if (routing === undefined || decisionModel === undefined || !input.isAutoAllowed) {
+  if (routing === undefined || decisionModel === undefined || !input.autoModelRouting.enabled) {
     return undefined;
   }
   if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
@@ -387,7 +389,12 @@ function turnModelRouting(input: {
     question: {
       categories: routing.categories,
     },
-    listModels: () => modelProviderStore.listModels({ tenant_id }),
+    // The user's models, narrowed to the admin's allow-list; the router then keeps only those in a routing cluster.
+    listModels: async () =>
+      restrictToAllowedModels({
+        models: await modelProviderStore.listModels({ tenant_id }),
+        allowedModels: input.autoModelRouting.allowed_models,
+      }),
   };
 }
 
@@ -766,7 +773,7 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const [webSearchProvider, memoryCapability, isAutoAllowed] = await Promise.all([
+  const [webSearchProvider, memoryCapability, autoModelRouting] = await Promise.all([
     resolveWebSearchProvider({
       tenant_id: input.session.tenant_id,
       store: input.deps.webSearchProviderStore,
@@ -780,7 +787,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       agentStore: input.deps.agentStore,
       logger: input.deps.logger,
     }),
-    isAutoEnabledForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
+    getAutoModelRoutingForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
   ]);
   const sessionAgent = input.session.record.agent;
 
@@ -805,7 +812,7 @@ async function prepareTurnExecution<TTransaction>(input: {
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
       routing: trueFoundryModelRouting(),
-      isAutoAllowed,
+      autoModelRouting,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
       decisionModel: input.deps.decisionModel,

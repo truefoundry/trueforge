@@ -66,7 +66,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration: unavailable,
     });
@@ -81,7 +81,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration: unavailable,
     });
@@ -98,7 +98,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration: unavailable,
     });
@@ -115,7 +115,7 @@ describe('WebSearchSettings tenant switch', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: false },
           memory: { enabled: true },
-          autoModelRouting: { enabled: true },
+          autoModelRouting: { enabled: true, allowedModels: [] },
         }),
         updateConfiguration: unavailable,
       },
@@ -130,13 +130,13 @@ describe('WebSearchSettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: false },
       memory: { enabled: true },
-      autoModelRouting: { enabled: true },
+      autoModelRouting: { enabled: true, allowedModels: [] },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration,
     });
@@ -166,7 +166,7 @@ describe('WebSearchSettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration,
     });
@@ -184,13 +184,13 @@ describe('WebSearchSettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: true },
       memory: { enabled: true },
-      autoModelRouting: { enabled: true },
+      autoModelRouting: { enabled: true, allowedModels: [] },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: false },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true },
+        autoModelRouting: { enabled: true, allowedModels: [] },
       }),
       updateConfiguration,
     });
@@ -221,7 +221,7 @@ describe('WebSearchSettings tenant switch', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: true },
           memory: { enabled: true },
-          autoModelRouting: { enabled: true },
+          autoModelRouting: { enabled: true, allowedModels: [] },
         }),
         updateConfiguration: unavailable,
       },
@@ -239,7 +239,7 @@ describe('WebSearchSettings tenant switch', () => {
     let resolveConfiguration: (value: {
       webSearch: { enabled: boolean };
       memory: { enabled: boolean };
-      autoModelRouting: { enabled: boolean };
+      autoModelRouting: { enabled: boolean; allowedModels: string[] };
     }) => void = () => undefined;
     renderSettings({
       getConfiguration: () =>
@@ -256,7 +256,7 @@ describe('WebSearchSettings tenant switch', () => {
     resolveConfiguration({
       webSearch: { enabled: true },
       memory: { enabled: true },
-      autoModelRouting: { enabled: true },
+      autoModelRouting: { enabled: true, allowedModels: [] },
     });
     expect(await screen.findByText('Parallel')).toBeInTheDocument();
   });

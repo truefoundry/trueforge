@@ -9,8 +9,12 @@ import { Switch } from '../../atoms/primitives/Switch.js';
 import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalConfigurationServer, useOptionalRefreshServerCapabilities } from '../../server/ServerContext.js';
+import type { UpdateTenantConfigurationRequest } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
+import AutoModelAllowList from './AutoModelAllowList.js';
+
+type AutoModelRoutingChange = NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>;
 
 /** The tenant's Auto mode switch. Renders nothing without a configuration port. */
 const AutoModeSetting = () => {
@@ -34,17 +38,22 @@ const AutoModeSetting = () => {
 
   const saveMutation = useMutation(
     {
-      mutationFn: (next: boolean) =>
+      mutationFn: (change: AutoModelRoutingChange) =>
         configuration == null
           ? Promise.reject(new Error('Configuration server is not configured.'))
-          : configuration.updateConfiguration({ autoModelRouting: { enabled: next } }),
-      onSuccess: saved => {
+          : configuration.updateConfiguration({ autoModelRouting: change }),
+      onSuccess: (saved, change) => {
         queryClient.setQueryData(queryKeys.settings.configuration(), saved);
-        // The model picker offers or withholds Auto with this switch.
+        // The model picker offers or withholds Auto with the switch and the allowed models.
         refreshCapabilities?.();
-        const { enabled } = saved.autoModelRouting;
-        toaster?.showSuccess({ title: enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
-        track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
+        const { enabled, allowedModels } = saved.autoModelRouting;
+        if (change.allowedModels === undefined) {
+          toaster?.showSuccess({ title: enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
+          track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
+        } else {
+          toaster?.showSuccess({ title: 'Auto models updated' });
+          track(AnalyticsEvents.Settings.AUTO_MODE_ALLOWED_MODELS_SAVED, { model_count: allowedModels.length });
+        }
       },
     },
     queryClient,
@@ -57,7 +66,8 @@ const AutoModeSetting = () => {
     : configurationQuery.isError
       ? getErrorMessage(configurationQuery.error, 'Failed to load the Auto mode setting')
       : null;
-  const enabled = configurationQuery.data?.autoModelRouting.enabled;
+  const routing = configurationQuery.data?.autoModelRouting;
+  const enabled = routing?.enabled;
 
   return (
     <>
@@ -84,10 +94,21 @@ const AutoModeSetting = () => {
             disabled={saveMutation.isPending}
             aria-label="Allow Auto mode"
             onCheckedChange={next => {
-              saveMutation.mutate(next);
+              saveMutation.mutate({ enabled: next });
             }}
           />
         </div>
+      ) : null}
+      {routing?.enabled ? (
+        <AutoModelAllowList
+          // The draft restarts from whatever is saved.
+          key={JSON.stringify(routing.allowedModels)}
+          allowedModels={routing.allowedModels}
+          saving={saveMutation.isPending}
+          onSave={next => {
+            saveMutation.mutate({ allowedModels: next });
+          }}
+        />
       ) : null}
     </>
   );

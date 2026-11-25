@@ -1,11 +1,11 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { canRouteEveryCategory } from '@truefoundry/trueforge-core/core';
+import { canRouteEveryCategory, restrictToAllowedModels } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import { enabledTenantModelRouting, trueFoundryModelRouting } from '../config';
 import {
-  isAutoEnabledForTenant,
+  getAutoModelRoutingForTenant,
   isMemoryEnabledForTenant,
   isWebSearchEnabledForTenant,
   type IConfigurationStore,
@@ -69,11 +69,14 @@ function settingsCapability({
 
 const AUTO_TURNED_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
 const AUTO_UNAVAILABLE_REASON = 'Auto mode is not available for now';
+const AUTO_MODELS_RESTRICTED_REASON =
+  'Auto mode has no usable models selected - an admin can choose models for it in settings.';
 
 /**
  * Auto needs model routing set up for the tenant, the tenant switch on, and a model the user has in every routing
- * cluster. `not_configured` when routing isn't set up, so clients hide Auto entirely. A failed listing fails the
- * request, so clients keep their last known capabilities instead of dropping a selected Auto.
+ * cluster, among the models the admin allows (none until they choose some). `not_configured` when routing isn't set up, so clients hide Auto
+ * entirely. A failed listing fails the request, so clients keep their last known capabilities instead of dropping a
+ * selected Auto.
  */
 async function autoCapability({
   tenant_id,
@@ -87,12 +90,20 @@ async function autoCapability({
   if (enabledTenantModelRouting(trueFoundryModelRouting(), tenant_id) === undefined) {
     return { status: 'not_configured' };
   }
-  if (!(await isAutoEnabledForTenant({ tenant_id, store: configurationStore }))) {
+  const autoModelRouting = await getAutoModelRoutingForTenant({ tenant_id, store: configurationStore });
+  if (!autoModelRouting.enabled) {
     return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
-  return canRouteEveryCategory(await modelProviderStore.listModels({ tenant_id }))
-    ? { status: 'enabled' }
-    : { status: 'disabled', reason: AUTO_UNAVAILABLE_REASON };
+  const userModels = await modelProviderStore.listModels({ tenant_id });
+  const allowedModels = restrictToAllowedModels({ models: userModels, allowedModels: autoModelRouting.allowed_models });
+  if (canRouteEveryCategory(allowedModels)) {
+    return { status: 'enabled' };
+  }
+  // Tells an admin-fixable restriction apart from a user who simply lacks the models.
+  return {
+    status: 'disabled',
+    reason: canRouteEveryCategory(userModels) ? AUTO_MODELS_RESTRICTED_REASON : AUTO_UNAVAILABLE_REASON,
+  };
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {

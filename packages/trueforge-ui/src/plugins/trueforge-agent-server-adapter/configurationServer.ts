@@ -3,13 +3,25 @@
  * `/api/v1/settings/configuration` (admin-only, one document per tenant).
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { ConfigurationServer, TenantConfiguration } from '../../server/types.js';
+import type { ConfigurationServer, TenantConfiguration, UpdateTenantConfigurationRequest } from '../../server/types.js';
 
 function toUiConfiguration(manifest: TrueForgeApi.ConfigurationManifest): TenantConfiguration {
   return {
     webSearch: { enabled: manifest.webSearch.enabled },
     memory: { enabled: manifest.memory.enabled },
-    autoModelRouting: { enabled: manifest.autoModelRouting.enabled },
+    autoModelRouting: {
+      enabled: manifest.autoModelRouting.enabled,
+      allowedModels: manifest.autoModelRouting.allowedModels,
+    },
+  };
+}
+
+function toWireAutoModelRouting(
+  change: NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>,
+): TrueForgeApi.AutoModelRoutingConfigurationPatch {
+  return {
+    ...(change.enabled === undefined ? {} : { enabled: change.enabled }),
+    ...(change.allowedModels === undefined ? {} : { allowedModels: change.allowedModels }),
   };
 }
 
@@ -26,7 +38,7 @@ export function createConfigurationServer(client: TrueForge): ConfigurationServe
           ...(req.memory === undefined ? {} : { memory: { enabled: req.memory.enabled } }),
           ...(req.autoModelRouting === undefined
             ? {}
-            : { autoModelRouting: { enabled: req.autoModelRouting.enabled } }),
+            : { autoModelRouting: toWireAutoModelRouting(req.autoModelRouting) }),
         },
       });
       return toUiConfiguration(body.data.manifest);
