@@ -141,52 +141,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     ).toBeUndefined();
   });
 
-  it('renames an artifact within the tenant', async () => {
-    const store = getStore();
-    const artifact = await createArtifact();
-    await tick();
-    const renamed = await store.updateArtifact({
-      tenant_id: TENANT,
-      id: artifact.id,
-      created_by_subject_id: OWNER,
-      name: 'Renamed',
-    });
-    expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
-    expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
-      renamed,
-    );
-  });
-
-  it('does not rename an artifact from another tenant', async () => {
-    const store = getStore();
-    const artifact = await createArtifact();
-    await tick();
-    expect(
-      await store.updateArtifact({ tenant_id: OTHER_TENANT, id: artifact.id, created_by_subject_id: OWNER, name: 'x' }),
-    ).toBeUndefined();
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
-      artifact,
-    );
-  });
-
-  it('does not rename an artifact created by another subject', async () => {
-    const store = getStore();
-    const artifact = await createArtifact();
-    await tick();
-    expect(
-      await store.updateArtifact({
-        tenant_id: TENANT,
-        id: artifact.id,
-        created_by_subject_id: 'someone-else',
-        name: 'x',
-      }),
-    ).toBeUndefined();
-    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
-      artifact,
-    );
-  });
-
   it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {
     const store = getStore();
     const artifact = await createArtifact();

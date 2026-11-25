@@ -52,13 +52,6 @@ export interface GetArtifactInput {
   created_by_subject_id: string;
 }
 
-export interface UpdateArtifactInput {
-  tenant_id: string;
-  id: string;
-  created_by_subject_id: string;
-  name: string;
-}
-
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
@@ -77,11 +70,6 @@ export interface IArtifactStore {
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
   /** Undefined when the artifact is missing, in another tenant, or not created by `created_by_subject_id`. */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
-  /**
-   * Refreshes `updated_at`. Undefined when the artifact is missing, in another
-   * tenant, or not created by `created_by_subject_id`.
-   */
-  updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**

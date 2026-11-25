@@ -7,12 +7,7 @@ import {
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
-import {
-  GetArtifactResponseSchema,
-  ListArtifactsResponseSchema,
-  UpdateArtifactResponseSchema,
-} from '../../../src/schemas/artifact';
-import { MAX_TITLE_LENGTH } from '../../../src/schemas/common';
+import { GetArtifactResponseSchema, ListArtifactsResponseSchema } from '../../../src/schemas/artifact';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
@@ -104,46 +99,9 @@ describe('artifacts router', () => {
     expect((await app.request('/missing')).status).toBe(404);
   });
 
-  it("renames the caller's artifact", async () => {
-    const artifact = await artifactStore.createArtifact({
-      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      name: 'Draft',
-      created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
-      created_by_session_id: 'session-3',
-      created_by_agent_id: null,
-    });
-    const patch = (id: string, body: unknown) =>
-      app.request(`/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-    const response = await patch(artifact.id, { name: '  Final  ' });
-    expect(response.status).toBe(200);
-    expect(UpdateArtifactResponseSchema.parse(await response.json()).data.name).toBe('Final');
-    expect((await patch(artifact.id, { name: '   ' })).status).toBe(400);
-    expect((await patch(artifact.id, { name: 'a|b' })).status).toBe(400);
-    expect((await patch(artifact.id, { name: ` ${'a'.repeat(MAX_TITLE_LENGTH)}` })).status).toBe(400);
-    const normalized = await patch(artifact.id, { name: '  a\u2029\u2029b  ' });
-    expect(normalized.status).toBe(200);
-    expect(UpdateArtifactResponseSchema.parse(await normalized.json()).data.name).toBe('a b');
-    expect((await patch(notMineId, { name: 'Taken' })).status).toBe(404);
-    expect((await patch('missing', { name: 'Gone' })).status).toBe(404);
-  });
-
   describe('access control', () => {
     function appAs(context: RequestContext) {
       return mountWithErrorHandler(createArtifactsRouter({ artifactStore, resolveRequestContext: () => context }));
-    }
-    const patch = (target: ReturnType<typeof appAs>, id: string, name: string) =>
-      target.request(`/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-    async function reportName(): Promise<string> {
-      return GetArtifactResponseSchema.parse(await (await app.request(`/${reportId}`)).json()).data.name;
     }
     // Standalone context carries an admin role, so this also checks that admins get no special access.
     const otherUser: RequestContext = {
@@ -152,26 +110,16 @@ describe('artifacts router', () => {
     };
     const otherTenant: RequestContext = { ...STANDALONE_REQUEST_CONTEXT, tenant_id: 'other-tenant' };
 
-    it('returns 404 for get and update by a user who is not the creator', async () => {
-      const stranger = appAs(otherUser);
-      expect((await stranger.request(`/${reportId}`)).status).toBe(404);
-      expect((await patch(stranger, reportId, 'Hijacked')).status).toBe(404);
-      expect(await reportName()).toBe('Q3 Report');
+    it('returns 404 for get by a user who is not the creator', async () => {
+      expect((await appAs(otherUser).request(`/${reportId}`)).status).toBe(404);
     });
 
-    it('lets the creator get and update the artifact', async () => {
-      const owner = appAs(STANDALONE_REQUEST_CONTEXT);
-      expect((await owner.request(`/${reportId}`)).status).toBe(200);
-      expect((await patch(owner, reportId, 'Q3 Report')).status).toBe(200);
+    it('lets the creator get the artifact', async () => {
+      expect((await appAs(STANDALONE_REQUEST_CONTEXT).request(`/${reportId}`)).status).toBe(200);
     });
 
     it('returns 404 for get when the tenant does not match', async () => {
       expect((await appAs(otherTenant).request(`/${reportId}`)).status).toBe(404);
-    });
-
-    it('returns 404 for update when the tenant does not match, leaving the name unchanged', async () => {
-      expect((await patch(appAs(otherTenant), reportId, 'Moved')).status).toBe(404);
-      expect(await reportName()).toBe('Q3 Report');
     });
   });
 });

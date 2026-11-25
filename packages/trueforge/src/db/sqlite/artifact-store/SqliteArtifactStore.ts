@@ -14,7 +14,6 @@ import {
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
-  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -84,18 +83,6 @@ export class SqliteArtifactStore implements IArtifactStore {
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toArtifactRecord(row);
-  }
-
-  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
-      .updateTable('artifact')
-      .set({ name: input.name, updated_at: nowIso() })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
-      .returning(recordColumns)
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);
   }

@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi';
 import { SubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
-import { MAX_TITLE_LENGTH, PAGE_LIMIT } from './common';
+import { PAGE_LIMIT } from './common';
 
 export const ArtifactSchema = z
   .object({
@@ -55,25 +55,3 @@ export const ListArtifactsResponseSchema = z
   .openapi('ListArtifactsResponse');
 
 export const GetArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('GetArtifactResponse');
-
-/** Excludes control characters, bidi embeddings/overrides/isolates, and characters disallowed in file names. */
-// eslint-disable-next-line no-control-regex -- rejecting control characters is the intent
-export const ARTIFACT_NAME_PATTERN = /^[^\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069/\\:*?"<>|]*$/;
-
-/** Validates the raw name, then collapses whitespace (incl. line/paragraph separators) to one space and trims. */
-export const ArtifactNameSchema = z
-  .string()
-  .min(1)
-  .max(MAX_TITLE_LENGTH)
-  .regex(ARTIFACT_NAME_PATTERN, 'Must not contain control, bidi, or / \\ : * ? " < > | characters.')
-  .transform(name => name.replace(/\s+/gu, ' ').trim())
-  .refine(name => name.length > 0, 'Must not be blank.');
-
-export const UpdateArtifactRequestSchema = z
-  .object({
-    name: ArtifactNameSchema.describe('New artifact name. Whitespace is collapsed and trimmed; must not be blank.'),
-  })
-  .strict()
-  .openapi('UpdateArtifactRequest');
-
-export const UpdateArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('UpdateArtifactResponse');

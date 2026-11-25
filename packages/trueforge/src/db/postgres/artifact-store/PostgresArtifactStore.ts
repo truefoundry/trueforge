@@ -14,7 +14,6 @@ import {
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
-  type UpdateArtifactInput,
 } from '../../artifactStore';
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
@@ -77,18 +76,6 @@ export class PostgresArtifactStore implements IArtifactStore {
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toArtifactRecord(row);
-  }
-
-  async updateArtifact(input: UpdateArtifactInput): Promise<ArtifactRecord | undefined> {
-    const row = await this.#db
-      .updateTable('artifact')
-      .set({ name: input.name, updated_at: now() })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
-      .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toArtifactRecord(row);
   }

@@ -7,8 +7,6 @@ import {
   GetArtifactResponseSchema,
   ListArtifactsRequestQuerySchema,
   ListArtifactsResponseSchema,
-  UpdateArtifactRequestSchema,
-  UpdateArtifactResponseSchema,
 } from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
@@ -62,41 +60,6 @@ export const getArtifactRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetArtifactResponseSchema } },
       description: 'The artifact.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unauthenticated.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Artifact not found.',
-    },
-  },
-});
-
-export const updateArtifactRoute = createRoute({
-  method: 'patch',
-  path: '/{artifact_id}',
-  tags: [OpenApiTag.ARTIFACTS],
-  summary: 'Update an artifact',
-  description: 'Rename an artifact. Only the artifact creator may update it.',
-  'x-fern-sdk-group-name': ['artifacts'],
-  'x-fern-sdk-method-name': 'update',
-  request: {
-    params: ArtifactIdParamsSchema,
-    body: {
-      content: { 'application/json': { schema: UpdateArtifactRequestSchema } },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: UpdateArtifactResponseSchema } },
-      description: 'Artifact updated.',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
