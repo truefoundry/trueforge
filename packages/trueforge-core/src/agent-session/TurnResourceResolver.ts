@@ -110,7 +110,7 @@ export class TurnResourceResolver<
 
   constructor(
     protected readonly deps: {
-      /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
+      /** Model name → client and defaults. Called once per model name per turn; may load provider config. */
       llm: (model: string) => Promise<ResolvedModel>;
       /**
        * MCP id → connection. Spec servers use their name as the id.
