@@ -633,7 +633,7 @@ describe('turns', () => {
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
