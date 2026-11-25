@@ -11,7 +11,7 @@ function toUiConfiguration(manifest: TrueForgeApi.ConfigurationManifest): Tenant
     memory: { enabled: manifest.memory.enabled },
     autoModelRouting: {
       enabled: manifest.autoModelRouting.enabled,
-      allowedModels: manifest.autoModelRouting.allowedModels,
+      candidateModels: manifest.autoModelRouting.candidateModels,
     },
   };
 }
@@ -21,7 +21,7 @@ function toWireAutoModelRouting(
 ): TrueForgeApi.AutoModelRoutingConfigurationPatch {
   return {
     ...(change.enabled === undefined ? {} : { enabled: change.enabled }),
-    ...(change.allowedModels === undefined ? {} : { allowedModels: change.allowedModels }),
+    ...(change.candidateModels === undefined ? {} : { candidateModels: change.candidateModels }),
   };
 }
 

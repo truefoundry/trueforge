@@ -12,7 +12,7 @@ import {
 import {
   canRouteEveryCategory,
   createModelRouter,
-  restrictToAllowedModels,
+  restrictToCandidateModels,
   selectModel,
   type RoutableModel,
 } from '../../../src/core/modelRouting/router';
@@ -128,19 +128,19 @@ describe('canRouteEveryCategory', () => {
   });
 });
 
-describe('restrictToAllowedModels', () => {
+describe('restrictToCandidateModels', () => {
   it('keeps only the allowed models the user has, ignoring names they lack', () => {
     expect(
-      restrictToAllowedModels({ models, allowedModels: ['b/claude-haiku-5-5', 'c/not-visible'] }).map(m => m.name),
+      restrictToCandidateModels({ models, candidateModels: ['b/claude-haiku-5-5', 'c/not-visible'] }).map(m => m.name),
     ).toEqual(['b/claude-haiku-5-5']);
   });
 
-  it('keeps nothing for an empty allow-list', () => {
-    expect(restrictToAllowedModels({ models, allowedModels: [] })).toEqual([]);
+  it('keeps nothing for an empty candidate list', () => {
+    expect(restrictToCandidateModels({ models, candidateModels: [] })).toEqual([]);
   });
 
   it('feeds the capability check and selection: only allowed cluster models can be picked', () => {
-    const allowed = restrictToAllowedModels({ models, allowedModels: ['a/claude-haiku-5-5', 'a/gpt-6-luna'] });
+    const allowed = restrictToCandidateModels({ models, candidateModels: ['a/claude-haiku-5-5', 'a/gpt-6-luna'] });
     expect(selectModel({ category: 'fixed_steps', models: allowed })?.routed.model).toBe('a/claude-haiku-5-5');
     expect(canRouteEveryCategory(models)).toBe(true);
     expect(canRouteEveryCategory(allowed)).toBe(false);

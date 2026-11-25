@@ -36,7 +36,7 @@ describe('settings configuration router', () => {
         manifest: {
           web_search: { enabled: true },
           memory: { enabled: true },
-          auto_model_routing: { enabled: true, allowed_models: [] },
+          auto_model_routing: { enabled: true, candidate_models: [] },
         },
         updated_at: expect.any(String),
       },
@@ -46,7 +46,7 @@ describe('settings configuration router', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
       updated_at: expect.any(String),
     });
@@ -111,12 +111,12 @@ describe('settings configuration router', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: true },
-        auto_model_routing: { enabled: false, allowed_models: [] },
+        auto_model_routing: { enabled: false, candidate_models: [] },
       },
     });
   });
 
-  describe('Auto mode model allow-list', () => {
+  describe('Auto mode model candidate list', () => {
     const tenantId = STANDALONE_REQUEST_CONTEXT.tenant_id;
     const modelNames = (count: number) => Array.from({ length: count }, (_, index) => `acct/model-${String(index)}`);
     const four = modelNames(4);
@@ -125,10 +125,10 @@ describe('settings configuration router', () => {
       const { router, store } = await createRouter();
 
       expect(await (await router.request('/')).json()).toMatchObject({
-        data: { manifest: { auto_model_routing: { enabled: true, allowed_models: [] } } },
+        data: { manifest: { auto_model_routing: { enabled: true, candidate_models: [] } } },
       });
       const record = await store.getConfiguration(tenantId);
-      expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, allowed_models: [] });
+      expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, candidate_models: [] });
     });
 
     it('PATCH saves the list, dropping duplicates, and a later GET reads it back', async () => {
@@ -136,24 +136,24 @@ describe('settings configuration router', () => {
 
       const patched = await router.request(
         '/',
-        patchInit({ auto_model_routing: { allowed_models: [...four, 'acct/model-0'] } }),
+        patchInit({ auto_model_routing: { candidate_models: [...four, 'acct/model-0'] } }),
       );
       expect(patched.status).toBe(200);
 
       expect(await (await router.request('/')).json()).toMatchObject({
-        data: { manifest: { auto_model_routing: { enabled: true, allowed_models: four } } },
+        data: { manifest: { auto_model_routing: { enabled: true, candidate_models: four } } },
       });
     });
 
     it('PATCH of the switch alone keeps the saved list', async () => {
       const { router, store } = await createRouter();
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
 
       const patched = await router.request('/', patchInit({ auto_model_routing: { enabled: false } }));
       expect(patched.status).toBe(200);
 
       await expect(store.getConfiguration(tenantId)).resolves.toMatchObject({
-        manifest: { auto_model_routing: { enabled: false, allowed_models: four } },
+        manifest: { auto_model_routing: { enabled: false, candidate_models: four } },
       });
     });
 
@@ -161,63 +161,63 @@ describe('settings configuration router', () => {
       const { router, store } = await createRouter();
       await router.request('/', patchInit({ auto_model_routing: { enabled: false } }));
 
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
 
       await expect(store.getConfiguration(tenantId)).resolves.toMatchObject({
-        manifest: { auto_model_routing: { enabled: false, allowed_models: four } },
+        manifest: { auto_model_routing: { enabled: false, candidate_models: four } },
       });
     });
 
     it('PATCH with an empty list removes every model', async () => {
       const { router, store } = await createRouter();
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
 
-      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: [] } }));
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: [] } }));
       expect(patched.status).toBe(200);
 
       const record = await store.getConfiguration(tenantId);
-      expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, allowed_models: [] });
+      expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, candidate_models: [] });
     });
 
     it.each([1, 2, 3])('PATCH rejects a list of %i model(s), below the minimum of four', async count => {
       const { router, store } = await createRouter();
-      await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
 
       const patched = await router.request(
         '/',
-        patchInit({ auto_model_routing: { allowed_models: modelNames(count) } }),
+        patchInit({ auto_model_routing: { candidate_models: modelNames(count) } }),
       );
       expect(patched.status).toBe(400);
 
       const record = await store.getConfiguration(tenantId);
-      expect(record?.manifest.auto_model_routing.allowed_models).toEqual(four);
+      expect(record?.manifest.auto_model_routing.candidate_models).toEqual(four);
     });
 
     it('PATCH counts a repeated model once toward the minimum', async () => {
       const { router } = await createRouter();
 
       const repeated = Array.from({ length: 4 }, () => 'acct/model-0');
-      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: repeated } }));
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: repeated } }));
       expect(patched.status).toBe(400);
     });
 
     it('PATCH accepts exactly four models', async () => {
       const { router } = await createRouter();
 
-      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: four } }));
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
       expect(patched.status).toBe(200);
     });
 
     it('PATCH accepts ten models and rejects eleven', async () => {
       const { router, store } = await createRouter();
 
-      const ten = await router.request('/', patchInit({ auto_model_routing: { allowed_models: modelNames(10) } }));
+      const ten = await router.request('/', patchInit({ auto_model_routing: { candidate_models: modelNames(10) } }));
       expect(ten.status).toBe(200);
-      const eleven = await router.request('/', patchInit({ auto_model_routing: { allowed_models: modelNames(11) } }));
+      const eleven = await router.request('/', patchInit({ auto_model_routing: { candidate_models: modelNames(11) } }));
       expect(eleven.status).toBe(400);
 
       const record = await store.getConfiguration(tenantId);
-      expect(record?.manifest.auto_model_routing.allowed_models).toEqual(modelNames(10));
+      expect(record?.manifest.auto_model_routing.candidate_models).toEqual(modelNames(10));
     });
 
     it.each(['', 'sonnet', '/sonnet', 'acct/', 'acct/team/sonnet'])(
@@ -225,7 +225,7 @@ describe('settings configuration router', () => {
       async name => {
         const { router } = await createRouter();
 
-        const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: [name] } }));
+        const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: [name] } }));
         expect(patched.status).toBe(400);
       },
     );
@@ -233,7 +233,7 @@ describe('settings configuration router', () => {
     it('PATCH rejects null for the list', async () => {
       const { router } = await createRouter();
 
-      const patched = await router.request('/', patchInit({ auto_model_routing: { allowed_models: null } }));
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: null } }));
       expect(patched.status).toBe(400);
     });
   });
@@ -263,7 +263,7 @@ describe('settings configuration router', () => {
           manifest: {
             web_search: { enabled: false },
             memory: { enabled: false },
-            auto_model_routing: { enabled: true, allowed_models: [] },
+            auto_model_routing: { enabled: true, candidate_models: [] },
           },
         });
         return await store.getOrCreateConfiguration(input);
@@ -304,7 +304,7 @@ describe('settings configuration router', () => {
     expect(JSON.parse(stored.rows[0]?.raw ?? 'null')).toEqual({
       web_search: { enabled: false },
       memory: { enabled: true },
-      auto_model_routing: { enabled: true, allowed_models: [] },
+      auto_model_routing: { enabled: true, candidate_models: [] },
     });
   });
 

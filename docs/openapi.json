@@ -423,7 +423,7 @@
       "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
-          "allowed_models": {
+          "candidate_models": {
             "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none.",
             "items": {
               "type": "string"
@@ -438,14 +438,14 @@
         },
         "required": [
           "enabled",
-          "allowed_models"
+          "candidate_models"
         ],
         "type": "object"
       },
       "AutoModelRoutingConfigurationPatch": {
         "additionalProperties": false,
         "properties": {
-          "allowed_models": {
+          "candidate_models": {
             "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none.",
             "items": {
               "type": "string"

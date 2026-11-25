@@ -258,7 +258,7 @@ describe('TruefoundrySettingsBuilder', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: true },
           memory: { enabled: true },
-          autoModelRouting: { enabled: true, allowedModels: [] },
+          autoModelRouting: { enabled: true, candidateModels: [] },
         }),
         updateConfiguration: unavailable,
       },
@@ -292,7 +292,7 @@ describe('TruefoundrySettingsBuilder', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: true },
           memory: { enabled: true },
-          autoModelRouting: { enabled: true, allowedModels: [] },
+          autoModelRouting: { enabled: true, candidateModels: [] },
         }),
         updateConfiguration: unavailable,
       },
@@ -311,7 +311,7 @@ describe('TruefoundrySettingsBuilder', () => {
         getConfiguration: async () => ({
           webSearch: { enabled: true },
           memory: { enabled: true },
-          autoModelRouting: { enabled: true, allowedModels: [] },
+          autoModelRouting: { enabled: true, candidateModels: [] },
         }),
         updateConfiguration: unavailable,
       },

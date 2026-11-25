@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { canRouteEveryCategory, restrictToAllowedModels } from '@truefoundry/trueforge-core/core';
+import { canRouteEveryCategory, restrictToCandidateModels } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
@@ -95,8 +95,11 @@ async function autoCapability({
     return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
   const userModels = await modelProviderStore.listModels({ tenant_id });
-  const allowedModels = restrictToAllowedModels({ models: userModels, allowedModels: autoModelRouting.allowed_models });
-  if (canRouteEveryCategory(allowedModels)) {
+  const candidateModels = restrictToCandidateModels({
+    models: userModels,
+    candidateModels: autoModelRouting.candidate_models,
+  });
+  if (canRouteEveryCategory(candidateModels)) {
     return { status: 'enabled' };
   }
   // Tells an admin-fixable restriction apart from a user who simply lacks the models.

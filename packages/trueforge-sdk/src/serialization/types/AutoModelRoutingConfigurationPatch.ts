@@ -8,8 +8,8 @@ export const AutoModelRoutingConfigurationPatch: core.serialization.ObjectSchema
     serializers.AutoModelRoutingConfigurationPatch.Raw,
     TrueForge.AutoModelRoutingConfigurationPatch
 > = core.serialization.object({
-    allowedModels: core.serialization.property(
-        "allowed_models",
+    candidateModels: core.serialization.property(
+        "candidate_models",
         core.serialization.list(core.serialization.string()).optional(),
     ),
     enabled: core.serialization.boolean().optional(),
@@ -17,7 +17,7 @@ export const AutoModelRoutingConfigurationPatch: core.serialization.ObjectSchema
 
 export declare namespace AutoModelRoutingConfigurationPatch {
     export interface Raw {
-        allowed_models?: string[] | null;
+        candidate_models?: string[] | null;
         enabled?: boolean | null;
     }
 }

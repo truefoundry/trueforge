@@ -52,7 +52,7 @@ export async function isWebSearchEnabledForTenant({
   return manifest.web_search.enabled;
 }
 
-/** The tenant's Auto mode switch and model allow-list. Reads only; never writes the row. */
+/** The tenant's Auto mode switch and model candidate list. Reads only; never writes the row. */
 export async function getAutoModelRoutingForTenant({
   tenant_id,
   store,

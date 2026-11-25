@@ -38,7 +38,7 @@ const memoryOn: ConfigurationServer = {
   getConfiguration: async () => ({
     webSearch: { enabled: true },
     memory: { enabled: true },
-    autoModelRouting: { enabled: true, allowedModels: [] },
+    autoModelRouting: { enabled: true, candidateModels: [] },
   }),
   updateConfiguration: unavailable,
 };
@@ -76,7 +76,7 @@ describe('MemorySettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: false },
-        autoModelRouting: { enabled: true, allowedModels: [] },
+        autoModelRouting: { enabled: true, candidateModels: [] },
       }),
       updateConfiguration: unavailable,
     });
@@ -90,13 +90,13 @@ describe('MemorySettings tenant switch', () => {
     const updateConfiguration = vi.fn(async () => ({
       webSearch: { enabled: true },
       memory: { enabled: false },
-      autoModelRouting: { enabled: true, allowedModels: [] },
+      autoModelRouting: { enabled: true, candidateModels: [] },
     }));
     renderSettings({
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true, allowedModels: [] },
+        autoModelRouting: { enabled: true, candidateModels: [] },
       }),
       updateConfiguration,
     });
@@ -117,12 +117,12 @@ describe('MemorySettings tenant switch', () => {
       getConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: false },
-        autoModelRouting: { enabled: true, allowedModels: [] },
+        autoModelRouting: { enabled: true, candidateModels: [] },
       }),
       updateConfiguration: async () => ({
         webSearch: { enabled: true },
         memory: { enabled: true },
-        autoModelRouting: { enabled: true, allowedModels: [] },
+        autoModelRouting: { enabled: true, candidateModels: [] },
       }),
     });
 
@@ -195,7 +195,7 @@ describe('MemorySettings providers', () => {
     let resolveConfiguration: (value: {
       webSearch: { enabled: boolean };
       memory: { enabled: boolean };
-      autoModelRouting: { enabled: boolean; allowedModels: string[] };
+      autoModelRouting: { enabled: boolean; candidateModels: string[] };
     }) => void = () => undefined;
     const getMemoryProviderCatalog = vi.fn(memoryCatalog.getMemoryProviderCatalog);
     renderSettings(
@@ -219,7 +219,7 @@ describe('MemorySettings providers', () => {
     resolveConfiguration({
       webSearch: { enabled: true },
       memory: { enabled: true },
-      autoModelRouting: { enabled: true, allowedModels: [] },
+      autoModelRouting: { enabled: true, candidateModels: [] },
     });
     expect(await screen.findByText('Zep')).toBeInTheDocument();
   });

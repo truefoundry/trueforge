@@ -22,26 +22,26 @@ const AutoModelRoutingEnabledSchema = z
   .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.');
 
 /** Most models an admin may allow for auto routing. */
-export const MAX_AUTO_ALLOWED_MODELS = 10;
+export const MAX_AUTO_CANDIDATE_MODELS = 10;
 
 /** Fewest models an admin may allow once they choose any; an empty list stays the "none chosen" default. */
-export const MIN_AUTO_ALLOWED_MODELS = 4;
+export const MIN_AUTO_CANDIDATE_MODELS = 4;
 
-const AutoModelRoutingAllowedModelsSchema = z
+const AutoModelRoutingCandidateModelsSchema = z
   .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
-  .max(MAX_AUTO_ALLOWED_MODELS)
+  .max(MAX_AUTO_CANDIDATE_MODELS)
   .refine(
-    names => names.length === 0 || new Set(names).size >= MIN_AUTO_ALLOWED_MODELS,
-    `Choose at least ${String(MIN_AUTO_ALLOWED_MODELS)} models, or none.`,
+    names => names.length === 0 || new Set(names).size >= MIN_AUTO_CANDIDATE_MODELS,
+    `Choose at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models, or none.`,
   )
   .describe(
-    `Full names (account/model) of ${String(MIN_AUTO_ALLOWED_MODELS)} to ${String(MAX_AUTO_ALLOWED_MODELS)} models auto routing may pick from. Empty allows none.`,
+    `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models auto routing may pick from. Empty allows none.`,
   );
 
 const AutoModelRoutingConfigurationSchema = z
   .object({
     enabled: AutoModelRoutingEnabledSchema,
-    allowed_models: AutoModelRoutingAllowedModelsSchema,
+    candidate_models: AutoModelRoutingCandidateModelsSchema,
   })
   .strict()
   .openapi('AutoModelRoutingConfiguration');
@@ -50,7 +50,7 @@ const AutoModelRoutingConfigurationSchema = z
 const AutoModelRoutingConfigurationPatchSchema = z
   .object({
     enabled: AutoModelRoutingEnabledSchema.optional(),
-    allowed_models: AutoModelRoutingAllowedModelsSchema.optional(),
+    candidate_models: AutoModelRoutingCandidateModelsSchema.optional(),
   })
   .strict()
   .openapi('AutoModelRoutingConfigurationPatch');
@@ -106,7 +106,7 @@ export type ConfigurationFeature = keyof ConfigurationManifest;
 export const DEFAULT_CONFIGURATION_MANIFEST: ConfigurationManifest = {
   web_search: { enabled: true },
   memory: { enabled: true },
-  auto_model_routing: { enabled: true, allowed_models: [] },
+  auto_model_routing: { enabled: true, candidate_models: [] },
 };
 
 /**

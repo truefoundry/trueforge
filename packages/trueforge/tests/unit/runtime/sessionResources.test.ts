@@ -225,7 +225,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: true },
-        auto_model_routing: { enabled: false, allowed_models: [] },
+        auto_model_routing: { enabled: false, candidate_models: [] },
       },
     });
     const modelRouting = parseTrueFoundryModelRouting(
@@ -424,7 +424,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -452,7 +452,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -502,7 +502,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -531,7 +531,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -558,7 +558,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     const memorySpec = AgentSpecSchema.parse({
@@ -588,7 +588,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -620,7 +620,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await expect(
@@ -667,7 +667,7 @@ describe('validateAgentSpec', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     await stores.memoryProviderStore.upsertProvider({

@@ -21,7 +21,7 @@ function manifest({ webSearch, memory }: { webSearch: boolean; memory: boolean }
   return {
     web_search: { enabled: webSearch },
     memory: { enabled: memory },
-    auto_model_routing: { enabled: true, allowed_models: [] },
+    auto_model_routing: { enabled: true, candidate_models: [] },
   };
 }
 
@@ -29,7 +29,7 @@ const LEGACY_MANIFEST_JSON = '{"web_search":{"enabled":false}}';
 const SEEDED = {
   web_search: { enabled: false },
   memory: { enabled: true },
-  auto_model_routing: { enabled: true, allowed_models: [] },
+  auto_model_routing: { enabled: true, candidate_models: [] },
 };
 
 export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationStoreContractEnv): void {
@@ -60,7 +60,7 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
     await expect(isMemoryEnabledForTenant({ tenant_id: 'legacy', store })).resolves.toBe(true);
     await expect(getAutoModelRoutingForTenant({ tenant_id: 'legacy', store })).resolves.toEqual({
       enabled: true,
-      allowed_models: [],
+      candidate_models: [],
     });
   });
 
@@ -74,7 +74,7 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
     const expected = {
       web_search: { enabled: true },
       memory: { enabled: true },
-      auto_model_routing: { enabled: false, allowed_models: [] },
+      auto_model_routing: { enabled: false, candidate_models: [] },
     };
     expect((await store.getConfiguration('toggle-only'))?.manifest).toEqual(expected);
     expect(await readRawManifest('toggle-only')).toEqual(expected);
@@ -84,12 +84,12 @@ export function runConfigurationStoreContractSuite(getEnv: () => ConfigurationSt
     const { store, insertRawManifest } = getEnv();
     await insertRawManifest({
       tenant_id: 'listed',
-      manifest_json: '{"auto_model_routing":{"enabled":true,"allowed_models":["acct/sonnet"]}}',
+      manifest_json: '{"auto_model_routing":{"enabled":true,"candidate_models":["acct/sonnet"]}}',
     });
 
     expect((await store.getConfiguration('listed'))?.manifest.auto_model_routing).toEqual({
       enabled: true,
-      allowed_models: ['acct/sonnet'],
+      candidate_models: ['acct/sonnet'],
     });
   });
 

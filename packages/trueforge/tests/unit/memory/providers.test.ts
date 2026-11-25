@@ -30,7 +30,7 @@ async function setup() {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
   return { deps, memoryProviderStore, setSwitch };

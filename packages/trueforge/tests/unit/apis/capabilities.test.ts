@@ -130,7 +130,7 @@ describe('capabilities routers', () => {
     tenantWebSearchEnabled = true,
     tenantMemoryEnabled = true,
     tenantAutoEnabled = true,
-    tenantAutoAllowedModels = [],
+    tenantAutoCandidateModels = [],
     hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
     modelProviderStore,
@@ -140,7 +140,7 @@ describe('capabilities routers', () => {
     tenantWebSearchEnabled?: boolean;
     tenantMemoryEnabled?: boolean;
     tenantAutoEnabled?: boolean;
-    tenantAutoAllowedModels?: string[];
+    tenantAutoCandidateModels?: string[];
     hasMemoryProvider?: boolean;
     userStore?: IUserStore;
     modelProviderStore?: IModelProviderStore;
@@ -169,7 +169,7 @@ describe('capabilities routers', () => {
       manifest: {
         web_search: { enabled: tenantWebSearchEnabled },
         memory: { enabled: tenantMemoryEnabled },
-        auto_model_routing: { enabled: tenantAutoEnabled, allowed_models: tenantAutoAllowedModels },
+        auto_model_routing: { enabled: tenantAutoEnabled, candidate_models: tenantAutoCandidateModels },
       },
       updated_at: '2026-01-01T00:00:00.000Z',
     };
@@ -352,18 +352,18 @@ describe('capabilities routers', () => {
       });
     });
 
-    describe('with an admin allow-list', () => {
+    describe('with an admin candidate list', () => {
       // Sonnet alone covers every routing category; Haiku misses the adaptive one.
       const sonnet = 'acct/sonnet';
       const haiku = 'acct/haiku';
       const outsideClusters = 'acct/unclustered';
 
-      async function autoStatus(allowedModels: string[]) {
+      async function autoStatus(candidateModels: string[]) {
         disableOidcAuth();
         enableModelRouting();
         const db = createSqliteDb(':memory:');
         const response = await makeRouter({
-          tenantAutoAllowedModels: allowedModels,
+          tenantAutoCandidateModels: candidateModels,
           modelProviderStore: new ListedModelsStore({
             db,
             models: [
@@ -393,7 +393,7 @@ describe('capabilities routers', () => {
         });
       });
 
-      it('disables auto for an empty allow-list, even though the user has routable models', async () => {
+      it('disables auto for an empty candidate list, even though the user has routable models', async () => {
         expect(await autoStatus([])).toMatchObject({
           data: { auto: { status: 'disabled', reason: AUTO_MODELS_RESTRICTED_REASON } },
         });
@@ -405,11 +405,11 @@ describe('capabilities routers', () => {
         });
       });
 
-      it('reports the generic reason when the user lacks the models regardless of the allow-list', async () => {
+      it('reports the generic reason when the user lacks the models regardless of the candidate list', async () => {
         disableOidcAuth();
         enableModelRouting();
         const response = await makeRouter({
-          tenantAutoAllowedModels: [haiku],
+          tenantAutoCandidateModels: [haiku],
           modelProviderStore: new ListedModelsStore({
             db: createSqliteDb(':memory:'),
             models: [routableModel({ name: haiku, canonicalModel: 'anthropic/claude-haiku-5-5' })],

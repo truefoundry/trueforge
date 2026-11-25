@@ -88,7 +88,7 @@ function tenantMemory({
     manifest: {
       web_search: { enabled: true },
       memory: { enabled: tenantEnabled },
-      auto_model_routing: { enabled: true, allowed_models: [] },
+      auto_model_routing: { enabled: true, candidate_models: [] },
     },
     updated_at: '2026-10-01T00:00:00.000Z',
   });

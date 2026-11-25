@@ -166,7 +166,7 @@ describe('ModelSettings Auto mode switch', () => {
   const autoOn = {
     webSearch: { enabled: true },
     memory: { enabled: true },
-    autoModelRouting: { enabled: true, allowedModels: [] },
+    autoModelRouting: { enabled: true, candidateModels: [] },
   };
 
   function renderAutoSettings({
@@ -214,7 +214,7 @@ describe('ModelSettings Auto mode switch', () => {
   it('saves only the Auto mode switch and refreshes capabilities so the picker updates', async () => {
     const updateConfiguration = vi.fn(async () => ({
       ...autoOn,
-      autoModelRouting: { enabled: false, allowedModels: [] },
+      autoModelRouting: { enabled: false, candidateModels: [] },
     }));
     const { getCapabilities } = renderAutoSettings({
       auto: { status: 'enabled' },
@@ -271,7 +271,7 @@ describe('ModelSettings Auto mode switch', () => {
     renderAutoSettings({
       auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
       configuration: {
-        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, allowedModels: [] } }),
+        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } }),
         updateConfiguration: vi.fn(),
       },
     });
@@ -279,12 +279,12 @@ describe('ModelSettings Auto mode switch', () => {
     expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false');
   });
 
-  describe('model allow-list', () => {
+  describe('model candidate list', () => {
     const modelNames = ['acct/haiku', 'acct/sonnet'];
     const fiveModels = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini', 'acct/grok'];
-    const withModels = (allowedModels: string[]) => ({
+    const withModels = (candidateModels: string[]) => ({
       ...autoOn,
-      autoModelRouting: { enabled: true, allowedModels },
+      autoModelRouting: { enabled: true, candidateModels },
     });
     const openPicker = async () => {
       fireEvent.click(await screen.findByRole('combobox', { name: 'Select models' }));
@@ -344,7 +344,7 @@ describe('ModelSettings Auto mode switch', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: chosen } }),
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: chosen } }),
       );
       await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
@@ -402,7 +402,7 @@ describe('ModelSettings Auto mode switch', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: [] } }),
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: [] } }),
       );
     });
 
@@ -427,7 +427,7 @@ describe('ModelSettings Auto mode switch', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { allowedModels: next } }),
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: next } }),
       );
     });
 
@@ -494,7 +494,7 @@ describe('ModelSettings Auto mode switch', () => {
         auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
         modelNames,
         configuration: {
-          getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, allowedModels: [] } }),
+          getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } }),
           updateConfiguration: vi.fn(),
         },
       });

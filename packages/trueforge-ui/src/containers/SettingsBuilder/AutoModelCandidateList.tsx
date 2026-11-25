@@ -16,15 +16,15 @@ import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
-/** The server rejects lists outside these limits (an empty list is allowed); kept in step with its `allowed_models`. */
-const MAX_ALLOWED_MODELS = 10;
-const MIN_ALLOWED_MODELS = 4;
+/** The server rejects lists outside these limits (an empty list is allowed); kept in step with its `candidate_models`. */
+const MAX_CANDIDATE_MODELS = 10;
+const MIN_CANDIDATE_MODELS = 4;
 
-type AutoModelAllowListProps = {
+type AutoModelCandidateListProps = {
   /** The saved full model names (account/model); an empty list allows none. */
-  allowedModels: string[];
+  candidateModels: string[];
   saving: boolean;
-  onSave: (allowedModels: string[]) => void;
+  onSave: (candidateModels: string[]) => void;
 };
 
 function sameSelection({ left, right }: { left: readonly string[]; right: readonly string[] }): boolean {
@@ -37,14 +37,14 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
  * not refresh capabilities. The list opens in the page flow, pushing Save down rather than floating over it, so it is
  * never clipped by the scrolling settings pane. Remount with a new `key` when the saved list changes to restart the draft from it.
  */
-const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowListProps) => {
+const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCandidateListProps) => {
   const server = useOptionalServer();
   const capabilities = useServerCapabilities();
   const queryClient = useServerQueryClient();
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const [selected, setSelected] = useState<string[]>(allowedModels);
+  const [selected, setSelected] = useState<string[]>(candidateModels);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -86,10 +86,10 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
   const listed = new Set(models.map(model => model.name));
   const isListingKnown = modelsQuery.isSuccess;
 
-  const dirty = !sameSelection({ left: selected, right: allowedModels });
-  const atLimit = selected.length >= MAX_ALLOWED_MODELS;
+  const dirty = !sameSelection({ left: selected, right: candidateModels });
+  const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
   // An empty selection is saveable (it clears the list); a partial one is not.
-  const belowMinimum = selected.length > 0 && selected.length < MIN_ALLOWED_MODELS;
+  const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
   const routingUnavailableReason = capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
 
   const toggle = (name: string) =>
@@ -99,7 +99,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
     <div className="mt-2 rounded-xl border border-border bg-card-bg p-3">
       <h4 className="text-sm font-medium text-text-primary">Models Auto can choose from</h4>
       <p className="mt-0.5 text-xs text-text-secondary">
-        {`Auto only picks from the models selected here, among the models each user has access to. Choose ${String(MIN_ALLOWED_MODELS)} to ${String(MAX_ALLOWED_MODELS)}.`}
+        {`Auto only picks from the models selected here, among the models each user has access to. Choose ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)}.`}
       </p>
 
       {routingUnavailableReason ? (
@@ -110,7 +110,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
 
       <div ref={rootRef} className="mt-3">
         {modelsQuery.isPending ? (
-          <Skeleton data-testid="auto-model-allow-list-skeleton" className="h-8 w-full rounded-md" />
+          <Skeleton data-testid="auto-model-candidate-list-skeleton" className="h-8 w-full rounded-md" />
         ) : (
           <div
             className={auiInputClass(
@@ -238,15 +238,15 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
         <p className="mt-2 text-xs text-failure-bg">{getErrorMessage(modelsQuery.error, 'Failed to load models')}</p>
       ) : null}
       <p className="mt-2 text-xs text-text-secondary">
-        {`${String(selected.length)} of ${String(MAX_ALLOWED_MODELS)} selected.`}
+        {`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected.`}
         {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
-        {belowMinimum && dirty ? ` Choose at least ${String(MIN_ALLOWED_MODELS)} models to save.` : ''}
+        {belowMinimum && dirty ? ` Choose at least ${String(MIN_CANDIDATE_MODELS)} models to save.` : ''}
         {atLimit ? ' Remove a model to choose another.' : ''}
       </p>
 
       {dirty ? (
         <div className="mt-3 flex justify-end gap-2">
-          <Button.Secondary size="small" type="button" disabled={saving} onClick={() => setSelected(allowedModels)}>
+          <Button.Secondary size="small" type="button" disabled={saving} onClick={() => setSelected(candidateModels)}>
             Reset
           </Button.Secondary>
           <Button.Primary size="small" type="button" disabled={saving || belowMinimum} onClick={() => onSave(selected)}>
@@ -258,4 +258,4 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
   );
 };
 
-export default AutoModelAllowList;
+export default AutoModelCandidateList;

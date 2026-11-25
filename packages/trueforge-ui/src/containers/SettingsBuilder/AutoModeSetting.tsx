@@ -12,7 +12,7 @@ import { useOptionalConfigurationServer, useOptionalRefreshServerCapabilities } 
 import type { UpdateTenantConfigurationRequest } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
-import AutoModelAllowList from './AutoModelAllowList.js';
+import AutoModelCandidateList from './AutoModelCandidateList.js';
 
 type AutoModelRoutingChange = NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>;
 
@@ -46,13 +46,13 @@ const AutoModeSetting = () => {
         queryClient.setQueryData(queryKeys.settings.configuration(), saved);
         // The model picker offers or withholds Auto with the switch and the allowed models.
         refreshCapabilities?.();
-        const { enabled, allowedModels } = saved.autoModelRouting;
-        if (change.allowedModels === undefined) {
+        const { enabled, candidateModels } = saved.autoModelRouting;
+        if (change.candidateModels === undefined) {
           toaster?.showSuccess({ title: enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
           track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
         } else {
           toaster?.showSuccess({ title: 'Auto models updated' });
-          track(AnalyticsEvents.Settings.AUTO_MODE_ALLOWED_MODELS_SAVED, { model_count: allowedModels.length });
+          track(AnalyticsEvents.Settings.AUTO_MODE_CANDIDATE_MODELS_SAVED, { model_count: candidateModels.length });
         }
       },
     },
@@ -100,13 +100,13 @@ const AutoModeSetting = () => {
         </div>
       ) : null}
       {routing?.enabled ? (
-        <AutoModelAllowList
+        <AutoModelCandidateList
           // The draft restarts from whatever is saved.
-          key={JSON.stringify(routing.allowedModels)}
-          allowedModels={routing.allowedModels}
+          key={JSON.stringify(routing.candidateModels)}
+          candidateModels={routing.candidateModels}
           saving={saveMutation.isPending}
           onSave={next => {
-            saveMutation.mutate({ allowedModels: next });
+            saveMutation.mutate({ candidateModels: next });
           }}
         />
       ) : null}

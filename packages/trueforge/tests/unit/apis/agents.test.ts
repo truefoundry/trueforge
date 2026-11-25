@@ -477,7 +477,7 @@ describe('agents router', () => {
       manifest: {
         web_search: { enabled: true },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     const webSearchManifest = {
@@ -496,7 +496,7 @@ describe('agents router', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
 
@@ -518,7 +518,7 @@ describe('agents router', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: true },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     const memoryManifest = {
@@ -537,7 +537,7 @@ describe('agents router', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
 

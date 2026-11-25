@@ -2,7 +2,7 @@
 
 export interface AutoModelRoutingConfigurationPatch {
     /** Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none. */
-    allowedModels?: string[];
+    candidateModels?: string[];
     /** Whether this tenant may use auto model routing, which picks a model for each turn and each subagent. */
     enabled?: boolean;
 }

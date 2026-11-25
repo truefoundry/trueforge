@@ -8,7 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class AutoModelRoutingConfiguration(UncheckedBaseModel):
-    allowed_models: typing.List[str] = pydantic.Field()
+    candidate_models: typing.List[str] = pydantic.Field()
     """
     Full names (account/model) of 4 to 10 models auto routing may pick from. Empty allows none.
     """

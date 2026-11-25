@@ -1056,7 +1056,7 @@ describe('sessions HTTP agent binding', () => {
       manifest: {
         web_search: { enabled: false },
         memory: { enabled: false },
-        auto_model_routing: { enabled: true, allowed_models: [] },
+        auto_model_routing: { enabled: true, candidate_models: [] },
       },
     });
     try {
@@ -1078,7 +1078,7 @@ describe('sessions HTTP agent binding', () => {
         manifest: {
           web_search: { enabled: true },
           memory: { enabled: false },
-          auto_model_routing: { enabled: true, allowed_models: [] },
+          auto_model_routing: { enabled: true, candidate_models: [] },
         },
       });
     }

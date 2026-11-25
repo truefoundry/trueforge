@@ -49,7 +49,7 @@ import {
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
-  restrictToAllowedModels,
+  restrictToCandidateModels,
   SandboxError,
   VercelAILLM,
   withTimeout,
@@ -389,11 +389,11 @@ function turnModelRouting(input: {
     question: {
       categories: routing.categories,
     },
-    // The user's models, narrowed to the admin's allow-list; the router then keeps only those in a routing cluster.
+    // The user's models, narrowed to the admin's candidate list; the router then keeps only those in a routing cluster.
     listModels: async () =>
-      restrictToAllowedModels({
+      restrictToCandidateModels({
         models: await modelProviderStore.listModels({ tenant_id }),
-        allowedModels: input.autoModelRouting.allowed_models,
+        candidateModels: input.autoModelRouting.candidate_models,
       }),
   };
 }

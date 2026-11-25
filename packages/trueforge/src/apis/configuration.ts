@@ -22,7 +22,7 @@ function toConfiguration(record: ConfigurationRecord): Configuration {
   return { manifest: record.manifest, updated_at: record.updated_at };
 }
 
-/** `enabled` and `allowed_models` change independently: an omitted field keeps its stored value. */
+/** `enabled` and `candidate_models` change independently: an omitted field keeps its stored value. */
 function applyAutoModelRoutingPatch({
   current,
   patch,
@@ -35,7 +35,7 @@ function applyAutoModelRoutingPatch({
   }
   return {
     enabled: patch.enabled ?? current.enabled,
-    allowed_models: [...new Set(patch.allowed_models ?? current.allowed_models)],
+    candidate_models: [...new Set(patch.candidate_models ?? current.candidate_models)],
   };
 }
 
