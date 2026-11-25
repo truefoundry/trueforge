@@ -9,7 +9,7 @@ export interface ArtifactRecord {
   name: string;
   /** Highest version; 0 until the first version. */
   latest_version: number;
-  /** Latest version's `artifact_version_metadata.entry_point`; null until the first version. */
+  /** Latest version's `entry_point`; null until the first version. */
   latest_entry_point: string | null;
   created_by_subject: Subject;
   created_by_session_id: string;
