@@ -37,12 +37,24 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     });
   }
 
-  async function createVersion({ artifactId, entryPoint }: { artifactId: string; entryPoint: string }) {
+  async function createVersion({
+    artifactId,
+    entryPoint,
+    sessionId = 'session-1',
+    agentId = AGENT_ID,
+  }: {
+    artifactId: string;
+    entryPoint: string;
+    sessionId?: string;
+    agentId?: string | null;
+  }) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
       entry_point: entryPoint,
       total_bytes: 100,
+      created_by_session_id: sessionId,
+      created_by_agent_id: agentId,
     });
     if (version === undefined) {
       throw new Error('Expected version to be created');
@@ -135,7 +147,12 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const untouched = await createArtifact({ name: 'untouched' });
     await tick();
     const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
-    const v2 = await createVersion({ artifactId: artifact.id, entryPoint: 'report/index.html' });
+    const v2 = await createVersion({
+      artifactId: artifact.id,
+      entryPoint: 'report/index.html',
+      sessionId: 'session-2',
+      agentId: null,
+    });
     expect([v1.version, v2.version]).toEqual([1, 2]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
@@ -149,7 +166,12 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       expect.objectContaining({
         entry_point: 'index.html',
         total_bytes: 100,
+        created_by_session_id: 'session-1',
+        created_by_agent_id: AGENT_ID,
       }),
+    );
+    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 })).toEqual(
+      expect.objectContaining({ created_by_session_id: 'session-2', created_by_agent_id: null }),
     );
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
   });
@@ -164,6 +186,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         artifact_id: artifact.id,
         entry_point: 'index.html',
         total_bytes: 1,
+        created_by_session_id: 'session-1',
+        created_by_agent_id: AGENT_ID,
       }),
     ).toBeUndefined();
     expect(
