@@ -84,6 +84,8 @@ export const queryKeys = {
     sandboxProviders: (query?: string) => key('settings', 'sandbox-providers', query ?? ''),
     webSearchProviderCatalog: () => key('settings', 'web-search-provider-catalog'),
     webSearchProviders: (query?: string) => key('settings', 'web-search-providers', query ?? ''),
+    memoryProviderCatalog: () => key('settings', 'memory-provider-catalog'),
+    memoryProviders: () => key('settings', 'memory-providers'),
   },
   agentDetails: {
     all: () => key('agent-details'),
