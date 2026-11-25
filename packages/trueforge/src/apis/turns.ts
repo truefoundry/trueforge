@@ -378,7 +378,12 @@ function turnModelRouting(input: {
   decisionModel: DecisionModel | undefined;
 }): ModelRouterDeps | undefined {
   const { routing, tenant_id, modelProviderStore, decisionModel } = input;
-  if (routing === undefined || decisionModel === undefined || !input.autoModelRouting.enabled) {
+  if (routing === undefined || decisionModel === undefined) {
+    return undefined;
+  }
+  const { enabled, candidate_models } = input.autoModelRouting;
+  const hasCandidates = candidate_models.length > 0;
+  if (!enabled || !hasCandidates) {
     return undefined;
   }
   if (enabledTenantModelRouting(routing, tenant_id) === undefined) {

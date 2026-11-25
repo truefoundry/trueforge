@@ -94,6 +94,9 @@ async function autoCapability({
   if (!autoModelRouting.enabled) {
     return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
+  if (autoModelRouting.candidate_models.length === 0) {
+    return { status: 'disabled', reason: AUTO_MODELS_RESTRICTED_REASON };
+  }
   const candidateModels = await listAutoCandidateModels({ tenant_id, modelProviderStore, autoModelRouting });
   if (canRouteEveryCategory(candidateModels)) {
     return { status: 'enabled' };

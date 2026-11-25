@@ -90,10 +90,12 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
   // Empty is saveable (it clears the list); 1 to 3 is not.
   const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
-  // The reason is stale while capabilities refresh after a save.
+  // The reason is stale while a save is in flight and while capabilities refresh after it.
   const capabilitiesRefreshing = useIsFetching({ queryKey: queryKeys.capabilities() }, queryClient) > 0;
   const routingUnavailableReason =
-    !capabilitiesRefreshing && capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
+    !saving && !capabilitiesRefreshing && capabilities?.auto.status === 'disabled'
+      ? capabilities.auto.reason
+      : undefined;
 
   const hint =
     selected.length === 0

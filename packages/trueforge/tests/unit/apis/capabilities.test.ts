@@ -340,12 +340,15 @@ describe('capabilities routers', () => {
       });
     });
 
-    it('reports auto disabled when the tenant allows it but has no models to route to', async () => {
+    it('reports auto unavailable when the admin picked models but the user has none of them', async () => {
       disableOidcAuth();
       enableModelRouting();
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
-      const response = await makeRouter({ modelProviderStore: new SqliteModelProviderStore(db) }).request('/');
+      const response = await makeRouter({
+        tenantAutoCandidateModels: ['acct/sonnet'],
+        modelProviderStore: new SqliteModelProviderStore(db),
+      }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         data: { auto: { status: 'disabled', reason: 'Auto mode is not available for now' } },
