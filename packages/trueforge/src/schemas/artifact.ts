@@ -75,3 +75,5 @@ export const UpdateArtifactRequestSchema = z
   })
   .strict()
   .openapi('UpdateArtifactRequest');
+
+export const UpdateArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('UpdateArtifactResponse');

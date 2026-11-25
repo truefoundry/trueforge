@@ -8,6 +8,7 @@ import {
   ListArtifactsRequestQuerySchema,
   ListArtifactsResponseSchema,
   UpdateArtifactRequestSchema,
+  UpdateArtifactResponseSchema,
 } from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
@@ -90,7 +91,7 @@ export const updateArtifactRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetArtifactResponseSchema } },
+      content: { 'application/json': { schema: UpdateArtifactResponseSchema } },
       description: 'Artifact updated.',
     },
     400: {
