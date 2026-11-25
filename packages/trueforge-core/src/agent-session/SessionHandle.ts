@@ -559,7 +559,7 @@ export class SessionHandle<
             spec: input.spec,
             agent_info: agentInfo,
             model: choosesRootModel ? undefined : (previousThreadSnapshot?.model ?? undefined),
-            route: choosesRootModel
+            routingInput: choosesRootModel
               ? {
                   threadId: MAIN_THREAD_ID,
                   input: routingConversation(previousThreadSnapshot?.context ?? [], input.userMessage ?? []),
@@ -677,7 +677,7 @@ export class SessionHandle<
           spec: specForRoutedModel(input.spec, routed),
           agent_info: params.request,
           model: routed === undefined ? fallback : { name: routed.model, effort: routed.effort },
-          route: undefined,
+          routingInput: undefined,
         }),
       ]);
       const childDefinition: AgentDefinition = {

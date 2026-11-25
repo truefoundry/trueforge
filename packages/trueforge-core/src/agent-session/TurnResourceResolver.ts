@@ -308,7 +308,7 @@ export class TurnResourceResolver<
     spec: AgentSpec;
     agent_info: AgentInfo | undefined;
     model: ModelSnapshot | undefined;
-    route: RouteInput | undefined;
+    routingInput: RouteInput | undefined;
   }): Promise<AgentModel> {
     const { spec, agent_info } = input;
     if (spec.model.name !== AUTO_MODEL) {
@@ -320,10 +320,10 @@ export class TurnResourceResolver<
     if (input.model !== undefined) {
       return this.loadModel({ spec, agent_info, model: input.model });
     }
-    if (input.route === undefined) {
+    if (input.routingInput === undefined) {
       throw new Error('Unreachable: an auto thread has neither a chosen model nor a conversation to route on');
     }
-    const routed = await this.routeModel(input.route);
+    const routed = await this.routeModel(input.routingInput);
     if (routed === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }

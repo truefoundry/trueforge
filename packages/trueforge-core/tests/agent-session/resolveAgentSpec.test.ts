@@ -55,7 +55,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       spec: makeAgentSpec(),
       agent_info: undefined,
       model: undefined,
-      route: undefined,
+      routingInput: undefined,
     });
 
     expect(model.properties).toBeUndefined();
@@ -100,7 +100,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       spec,
       agent_info: undefined,
       model: undefined,
-      route: undefined,
+      routingInput: undefined,
     });
 
     expect(model.params?.['max_tokens']).toBe(expected);
@@ -141,7 +141,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/other' },
       model: undefined,
-      route: undefined,
+      routingInput: undefined,
     });
 
     expect(model.params).toEqual(expected);
@@ -169,7 +169,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/requested' },
       model: { name: 'provider/routed', effort: 'medium' },
-      route: undefined,
+      routingInput: undefined,
     });
 
     expect(model.name).toBe('provider/routed');
@@ -198,7 +198,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       spec,
       agent_info: undefined,
       model: { name: 'provider/saved', effort: 'low' },
-      route: undefined,
+      routingInput: undefined,
     });
 
     expect(model.name).toBe('provider/model');

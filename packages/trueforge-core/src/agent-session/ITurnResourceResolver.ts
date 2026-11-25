@@ -69,7 +69,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     spec: AgentSpec;
     agent_info: AgentInfo | undefined;
     model: ModelSnapshot | undefined;
-    route: RouteInput | undefined;
+    routingInput: RouteInput | undefined;
   }): Promise<AgentModel>;
   /** Picks a thread's model before it starts; undefined to not route. */
   readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
