@@ -67,7 +67,10 @@ const AutoModeSetting = () => {
       ? getErrorMessage(configurationQuery.error, 'Failed to load the Auto mode setting')
       : null;
   const routing = configurationQuery.data?.autoModelRouting;
-  const enabled = routing?.enabled;
+  // The switch, its text and the model list follow the click straight away, instead of waiting for the save, so
+  // nothing changes in stages. A failed save drops the pending change and the saved value shows again.
+  const pendingEnabled = saveMutation.isPending ? saveMutation.variables.enabled : undefined;
+  const enabled = pendingEnabled ?? routing?.enabled;
 
   return (
     <>
@@ -87,12 +90,14 @@ const AutoModeSetting = () => {
               <p className="mt-0.5 text-xs text-text-secondary">
                 {enabled
                   ? 'Intelligently chooses models based on the task, for agents and subagents.'
-                  : 'Auto is unavailable, including in chats that already use it, and subagents run on their parent model.'}
+                  : 'Auto is off, including in existing chats; subagents run on their parent model.'}
               </p>
             </div>
             <Switch
               checked={enabled}
               disabled={saveMutation.isPending}
+              // Held while saving without dimming, so the switch doesn't flash.
+              className="disabled:opacity-100"
               aria-label="Enable Auto Model Routing"
               onCheckedChange={next => {
                 saveMutation.mutate({ enabled: next });

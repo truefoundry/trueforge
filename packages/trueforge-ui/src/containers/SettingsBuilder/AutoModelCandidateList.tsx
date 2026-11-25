@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useIsFetching, useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { displayModelLabel, groupModelsByProvider, ProviderMark } from '../../atoms/draft/DraftModelCatalogPanel.js';
@@ -92,7 +92,10 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
   // An empty selection is saveable (it clears the list); a partial one is not.
   const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
-  const routingUnavailableReason = capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
+  // While capabilities refresh after a save, the reason still describes the old setting, so it isn't shown.
+  const capabilitiesRefreshing = useIsFetching({ queryKey: queryKeys.capabilities() }, queryClient) > 0;
+  const routingUnavailableReason =
+    !capabilitiesRefreshing && capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
 
   const hint =
     selected.length === 0

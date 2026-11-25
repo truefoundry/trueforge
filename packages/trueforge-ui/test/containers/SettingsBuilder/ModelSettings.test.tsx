@@ -237,6 +237,54 @@ describe('ModelSettings Auto mode switch', () => {
     expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
   });
 
+  it('flips the switch and hides the model list at once, before the save finishes', async () => {
+    let finishSave: (value: typeof autoOn) => void = () => undefined;
+    const updateConfiguration = vi.fn(
+      () =>
+        new Promise<typeof autoOn>(resolve => {
+          finishSave = resolve;
+        }),
+    );
+    renderAutoSettings({
+      auto: { status: 'enabled' },
+      modelNames: ['acct/haiku', 'acct/sonnet'],
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
+    await screen.findByRole('combobox', { name: 'Select models' });
+    toggle.click();
+
+    // The save has not returned, yet the card already shows the new state, and the switch isn't dimmed.
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      ),
+    );
+    expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveClass('disabled:opacity-100');
+
+    finishSave({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } });
+    await waitFor(() => expect(screen.getByText(/Auto is off, including in existing chats/)).toBeInTheDocument());
+  });
+
+  it('puts the switch back when the save fails', async () => {
+    const updateConfiguration = vi.fn(() => Promise.reject(new Error('Save failed')));
+    renderAutoSettings({
+      auto: { status: 'enabled' },
+      modelNames: ['acct/haiku', 'acct/sonnet'],
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
+    toggle.click();
+
+    expect(await screen.findByText('Save failed')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('combobox', { name: 'Select models' })).toBeInTheDocument();
+  });
+
   it('shows a skeleton in place of the switch while the setting loads', async () => {
     let resolveConfiguration: (value: typeof autoOn) => void = () => undefined;
     renderAutoSettings({
