@@ -261,11 +261,22 @@ jobs:
     needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
+    # create-github-releases talks to api.github.com with GITHUB_TOKEN; the org
+    # IP allowlist rejects ubuntu-latest unless this job joins the egress tag.
+    environment: trueforge-internal
     timeout-minutes: 20
     permissions:
       contents: write
       id-token: write
     steps:
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-publish-${{ github.run_id }}
+
       - name: Check out repo
         uses: actions/checkout@v7
         with:
@@ -291,6 +302,7 @@ jobs:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
           create-github-releases: true
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Attest source repo + commit on every publish. Trusted publishing
           # already uses OIDC (`id-token: write`); this flag is what changesets
           # / pnpm honor (they do not accept `--provenance`).
