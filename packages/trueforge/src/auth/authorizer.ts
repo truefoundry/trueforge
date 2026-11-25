@@ -1,10 +1,12 @@
 import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IArtifactStore } from '../db/artifactStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { IScheduleStore } from '../db/scheduleStore';
 import {
   AGENT_OWNER_PERMISSIONS,
   AGENT_USE_PERMISSIONS,
+  ARTIFACT_OWNER_PERMISSIONS,
   emptyPermissionsByResourceId,
   listPermissionsData,
   SCHEDULE_OWNER_PERMISSIONS,
@@ -30,6 +32,7 @@ export type GetPermissionsInput =
   | (GetPermissionsBase & { resourceType: 'schedule'; store: IScheduleStore })
   | (GetPermissionsBase & { resourceType: 'sandbox_environment'; store: ISandboxEnvironmentStore })
   | (GetPermissionsBase & { resourceType: 'session'; store: Pick<ISessionStore, 'getOwnedIds'> })
+  | (GetPermissionsBase & { resourceType: 'artifact'; store: Pick<IArtifactStore, 'getOwnedIds'> })
   | (GetPermissionsBase & { resourceType: 'tenant' });
 
 export interface Authorizer {
@@ -84,6 +87,27 @@ export async function resolveSandboxEnvironmentPermissions(input: {
   return listPermissionsData('sandbox_environment', data);
 }
 
+const OWNER_PERMISSIONS = {
+  session: SESSION_OWNER_PERMISSIONS,
+  artifact: ARTIFACT_OWNER_PERMISSIONS,
+} as const;
+
+/** Creator-only resources: owners get MANAGE/DELETE, everyone else nothing. */
+export async function resolveOwnedResourcePermissions(
+  input: Extract<GetPermissionsInput, { resourceType: keyof typeof OWNER_PERMISSIONS }>,
+): Promise<ListPermissionsData> {
+  const data = emptyPermissionsByResourceId(input.resourceIds);
+  const ownedIds = await input.store.getOwnedIds({
+    tenant_id: input.requestContext.tenant_id,
+    ids: input.resourceIds,
+    subject_id: input.requestContext.subject.id,
+  });
+  for (const id of ownedIds) {
+    data[id] = [...OWNER_PERMISSIONS[input.resourceType]];
+  }
+  return listPermissionsData(input.resourceType, data);
+}
+
 function tenantCreatePermissions(requestContext: RequestContext): ListPermissionsData {
   return listPermissionsData('tenant', {
     agent: [...TENANT_CREATE_AGENT_PERMISSIONS],
@@ -110,9 +134,8 @@ export class TrueForgeAuthorizer implements Authorizer {
       return tenantCreatePermissions(input.requestContext);
     }
 
-    const data = emptyPermissionsByResourceId(input.resourceIds);
-
     if (input.resourceType === 'agent') {
+      const data = emptyPermissionsByResourceId(input.resourceIds);
       const ownedIds = await input.store.getOwnedIds({
         tenant_id: input.requestContext.tenant_id,
         ids: input.resourceIds,
@@ -133,14 +156,6 @@ export class TrueForgeAuthorizer implements Authorizer {
       return resolveSandboxEnvironmentPermissions(input);
     }
 
-    const ownedIds = await input.store.getOwnedIds({
-      tenant_id: input.requestContext.tenant_id,
-      ids: input.resourceIds,
-      subject_id: input.requestContext.subject.id,
-    });
-    for (const id of ownedIds) {
-      data[id] = [...SESSION_OWNER_PERMISSIONS];
-    }
-    return listPermissionsData('session', data);
+    return resolveOwnedResourcePermissions(input);
   }
 }

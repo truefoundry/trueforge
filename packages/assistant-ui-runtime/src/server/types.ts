@@ -1380,7 +1380,7 @@ export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironmen
 // Permissions — optional resource mutation grants
 // ---------------------------------------------------------------------------
 
-export type PermissionResourceType = 'agent' | 'schedule' | 'session' | 'tenant' | 'sandbox_environment';
+export type PermissionResourceType = 'agent' | 'schedule' | 'session' | 'tenant' | 'sandbox_environment' | 'artifact';
 
 export type ResourcePermission = 'USE' | 'MANAGE' | 'DELETE' | 'CREATE';
 

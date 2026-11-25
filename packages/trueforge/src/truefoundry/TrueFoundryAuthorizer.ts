@@ -5,6 +5,7 @@ import {
   type AgentListAccess,
   type Authorizer,
   type GetPermissionsInput,
+  resolveOwnedResourcePermissions,
   resolveSandboxEnvironmentPermissions,
   resolveSchedulePermissions,
 } from '../auth/authorizer';
@@ -14,7 +15,6 @@ import type { ListPermissionsData, ResourcePermission } from '../schemas/permiss
 import {
   emptyPermissionsByResourceId,
   listPermissionsData,
-  SESSION_OWNER_PERMISSIONS,
   TENANT_CREATE_AGENT_PERMISSIONS,
   TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
 } from '../schemas/permissions';
@@ -124,14 +124,6 @@ export class TrueFoundryAuthorizer implements Authorizer {
       return resolveSandboxEnvironmentPermissions(input);
     }
 
-    const ownedIds = await input.store.getOwnedIds({
-      tenant_id: requestContext.tenant_id,
-      ids: resourceIds,
-      subject_id: requestContext.subject.id,
-    });
-    for (const id of ownedIds) {
-      data[id] = [...SESSION_OWNER_PERMISSIONS];
-    }
-    return listPermissionsData('session', data);
+    return resolveOwnedResourcePermissions(input);
   }
 }

@@ -56,6 +56,42 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
+  it('grants MANAGE/DELETE on artifacts only to the owner', async () => {
+    const artifactStore = {
+      getOwnedIds: jest.fn(async ({ subject_id }: { subject_id: string }) =>
+        subject_id === 'alice' ? ['artifact-1'] : [],
+      ),
+    };
+
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'artifact',
+        requestContext: ALICE,
+        resourceIds: ['artifact-1', 'artifact-2'],
+        store: artifactStore,
+      }),
+    ).toEqual({
+      type: 'artifact',
+      permissions: {
+        'artifact-1': ['MANAGE', 'DELETE'],
+        'artifact-2': [],
+      },
+    });
+
+    const admin: RequestContext = { ...BOB, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'artifact',
+        requestContext: admin,
+        resourceIds: ['artifact-1'],
+        store: artifactStore,
+      }),
+    ).toEqual({
+      type: 'artifact',
+      permissions: { 'artifact-1': [] },
+    });
+  });
+
   it('grants MANAGE/DELETE via canEditSchedule (owner or admin)', async () => {
     const scheduleStore = {
       getSchedulesByIds: jest.fn(async ({ ids }: { ids: readonly string[] }) =>

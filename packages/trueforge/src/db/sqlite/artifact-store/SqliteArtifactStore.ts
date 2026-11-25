@@ -1,4 +1,9 @@
-import { SubjectSchema, type Subject, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  SubjectSchema,
+  type GetOwnedIdsInput,
+  type Subject,
+  type TokenPagination,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -140,5 +145,19 @@ export class SqliteArtifactStore implements IArtifactStore {
       .where('artifact_version.artifact_id', '=', input.artifact_id)
       .where('artifact_version.version', '=', input.version)
       .executeTakeFirst();
+  }
+
+  async getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const rows = await this.#db
+      .selectFrom('artifact')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.subject_id)
+      .execute();
+    return rows.map(row => row.id);
   }
 }

@@ -171,4 +171,21 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     ).toBeUndefined();
     expect((await store.listArtifacts(LIST_DEFAULTS)).data[0]?.latest_version).toBe(1);
   });
+
+  it('returns only ids the subject created in the tenant', async () => {
+    const store = getStore();
+    const owned = await createArtifact();
+    const otherSubject = await store.createArtifact({
+      tenant_id: TENANT,
+      name: 'other',
+      created_by_subject: { ...SUBJECT, subject_id: 'someone-else' },
+      created_by_session_id: 'session-1',
+      created_by_agent_id: AGENT_ID,
+    });
+    const otherTenant = await createArtifact({ tenantId: OTHER_TENANT });
+    const ids = [owned.id, otherSubject.id, otherTenant.id, 'missing'];
+
+    expect(await store.getOwnedIds({ tenant_id: TENANT, ids, subject_id: SUBJECT.subject_id })).toEqual([owned.id]);
+    expect(await store.getOwnedIds({ tenant_id: TENANT, ids: [], subject_id: SUBJECT.subject_id })).toEqual([]);
+  });
 }

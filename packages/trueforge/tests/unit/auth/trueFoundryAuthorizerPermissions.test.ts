@@ -108,3 +108,30 @@ describe('TrueFoundryAuthorizer.getPermissions schedule', () => {
     expect(scheduleStore.getSchedulesByIds).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TrueFoundryAuthorizer.getPermissions artifact', () => {
+  it('grants MANAGE/DELETE only on artifacts the subject owns', async () => {
+    const artifactStore = { getOwnedIds: jest.fn(async () => ['artifact-1']) };
+    const authorizer = new TrueFoundryAuthorizer({} as TrueFoundryServiceFoundryServerClient);
+
+    await expect(
+      authorizer.getPermissions({
+        resourceType: 'artifact',
+        requestContext: ALICE,
+        resourceIds: ['artifact-1', 'artifact-2'],
+        store: artifactStore,
+      }),
+    ).resolves.toEqual({
+      type: 'artifact',
+      permissions: {
+        'artifact-1': ['MANAGE', 'DELETE'],
+        'artifact-2': [],
+      },
+    });
+    expect(artifactStore.getOwnedIds).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      ids: ['artifact-1', 'artifact-2'],
+      subject_id: 'alice',
+    });
+  });
+});

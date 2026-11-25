@@ -2,7 +2,7 @@
 import { z } from '@hono/zod-openapi';
 
 export const PermissionResourceTypeSchema = z
-  .enum(['agent', 'schedule', 'session', 'tenant', 'sandbox_environment'])
+  .enum(['agent', 'schedule', 'session', 'tenant', 'sandbox_environment', 'artifact'])
   .describe('Resource type to evaluate permissions for.')
   .openapi('PermissionResourceType');
 
@@ -25,6 +25,11 @@ export const SessionResourcePermissionSchema = z
   .enum(['MANAGE', 'DELETE'])
   .describe('Granted action on a session.')
   .openapi('SessionResourcePermission');
+
+export const ArtifactResourcePermissionSchema = z
+  .enum(['MANAGE', 'DELETE'])
+  .describe('Granted action on an artifact.')
+  .openapi('ArtifactResourcePermission');
 
 /** Tenant-scoped create actions (keys are entity kinds, e.g. `agent`, `sandbox_environment`). */
 export const TenantScopedResourcePermissionSchema = z
@@ -65,6 +70,7 @@ export type AgentResourcePermission = z.infer<typeof AgentResourcePermissionSche
 export type ScheduleResourcePermission = z.infer<typeof ScheduleResourcePermissionSchema>;
 export type SandboxEnvironmentResourcePermission = z.infer<typeof SandboxEnvironmentResourcePermissionSchema>;
 export type SessionResourcePermission = z.infer<typeof SessionResourcePermissionSchema>;
+export type ArtifactResourcePermission = z.infer<typeof ArtifactResourcePermissionSchema>;
 export type TenantScopedResourcePermission = z.infer<typeof TenantScopedResourcePermissionSchema>;
 export type ResourcePermission = z.infer<typeof ResourcePermissionSchema>;
 export type ListPermissionsRequest = z.infer<typeof ListPermissionsRequestSchema>;
@@ -76,6 +82,7 @@ export const AGENT_OWNER_PERMISSIONS = AgentResourcePermissionSchema.options;
 export const SCHEDULE_OWNER_PERMISSIONS = ScheduleResourcePermissionSchema.options;
 export const SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS = SandboxEnvironmentResourcePermissionSchema.options;
 export const SESSION_OWNER_PERMISSIONS = SessionResourcePermissionSchema.options;
+export const ARTIFACT_OWNER_PERMISSIONS = ArtifactResourcePermissionSchema.options;
 export const TENANT_CREATE_AGENT_PERMISSIONS = [TenantScopedResourcePermissionSchema.enum.CREATE] as const;
 export const TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS = [
   TenantScopedResourcePermissionSchema.enum.CREATE,
