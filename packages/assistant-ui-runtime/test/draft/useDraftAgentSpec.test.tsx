@@ -249,7 +249,9 @@ describe('useDraftAgentSpec', () => {
       getDraftAgentSpec: vi.fn().mockResolvedValue(defaultAgentSpec),
       syncAgentSpec: vi.fn().mockResolvedValue('2026-06-30T18:00:00.000Z'),
     };
-    const { result } = renderHook(() => useDraftAgentSpec({ draftBridge, defaultAgentSpec }));
+    const { result } = renderHook(() =>
+      useDraftAgentSpec({ draftSessionId: undefined, draftBridge, defaultAgentSpec }),
+    );
     await flushMicrotasks();
 
     act(() => {
