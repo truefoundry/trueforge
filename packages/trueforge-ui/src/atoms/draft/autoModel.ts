@@ -21,9 +21,6 @@ export const AUTO_MODEL_PATCH: Model = {
 
 export const AUTO_MODEL_LABEL = 'Auto';
 
-/** Section heading above the Auto option; more modes (Balance, Intelligence, …) will sit under it later. */
-export const AUTO_MODEL_SECTION_TITLE = 'Auto';
-
 export const AUTO_MODEL_UNAVAILABLE_HINT = 'Auto mode is not available for now';
 
 export const AUTO_MODEL_TOOLTIP_TITLE = 'Auto';

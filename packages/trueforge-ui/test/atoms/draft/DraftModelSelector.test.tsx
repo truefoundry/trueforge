@@ -65,7 +65,7 @@ async function expectOnlyDisabledAutoOption() {
   expect(options).toHaveLength(1);
   expect(options[0]).toHaveTextContent('Auto');
   expect(options[0]).toBeDisabled();
-  expect(within(listbox).getByRole('group', { name: 'Auto' })).toBeInTheDocument();
+  expect(within(listbox).queryByRole('group')).toBeNull();
   expect(screen.queryByText('No models')).toBeNull();
 }
 
@@ -187,10 +187,9 @@ describe('DraftModelSelector', () => {
     ]);
     expect(within(listbox).getByText(/128K context/)).toBeInTheDocument();
     const providerGroups = within(listbox).getAllByRole('group');
-    expect(providerGroups).toHaveLength(3);
-    expect(providerGroups[0]).toHaveTextContent(/^Auto/);
-    expect(providerGroups[1]).toHaveTextContent(/openai/i);
-    expect(providerGroups[2]).toHaveTextContent(/anthropic/i);
+    expect(providerGroups).toHaveLength(2);
+    expect(providerGroups[0]).toHaveTextContent(/openai/i);
+    expect(providerGroups[1]).toHaveTextContent(/anthropic/i);
     expect(
       within(listbox)
         .getByRole('group', { name: /openai/i })
@@ -354,16 +353,14 @@ describe('DraftModelSelector', () => {
       expect(screen.queryByText('No models')).toBeNull();
     });
 
-    it('shows an Auto section title and hover tooltip', async () => {
+    it('shows a hover tooltip for Auto', async () => {
       renderSelector({}, withAuto);
 
       const trigger = await screen.findByRole('button', { name: 'Select model' });
       await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
       fireEvent.click(trigger);
 
-      const listbox = await screen.findByRole('listbox', { name: 'Select model' });
-      expect(within(listbox).getByRole('group', { name: 'Auto' })).toBeInTheDocument();
-      const auto = within(listbox).getByRole('option', { name: /Auto/ });
+      const auto = await screen.findByRole('option', { name: /Auto/ });
       fireEvent.mouseEnter(auto);
 
       const tip = await screen.findByRole('tooltip');
