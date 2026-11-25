@@ -3,10 +3,11 @@
 #
 # UI packages have their own owners; everyone else falls through to `*`.
 
-* @debajyoti-truefoundry @chiragjn @heerambavi1998 @thesujai
-
-/packages/assistant-ui-runtime @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry @kumarsks619 @sajal-truefoundry
-/packages/trueforge-ui/ @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry @kumarsks619 @sajal-truefoundry
-/packages/frontend/ @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry @kumarsks619 @sajal-truefoundry
-/docs/ui-sdk/ @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry @kumarsks619 @sajal-truefoundry
+* @debajyoti-truefoundry @chiragjn @heerambavi1998 @thesujai @hary73 @ramantehlan
+/.github/workflows/ @truefoundry/trueforge-workflows-reviewers
+/.github/CODEOWNERS @truefoundry/trueforge-workflows-reviewers
+/packages/assistant-ui-runtime @govindavashishtha @harshil-2096 @sajal-truefoundry @qaifi-tf
+/packages/trueforge-ui/ @govindavashishtha @harshil-2096 @sajal-truefoundry @qaifi-tf
+/packages/frontend/ @govindavashishtha @harshil-2096 @sajal-truefoundry @qaifi-tf
+/docs/ui-sdk/ @govindavashishtha @harshil-2096 @sajal-truefoundry @qaifi-tf
 .changeset/
