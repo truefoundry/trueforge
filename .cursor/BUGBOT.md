@@ -32,6 +32,14 @@ If the change touches release, pack, or publish wiring, flag if it would break d
 
 If `docker-compose.yml` or `docker-compose.dev.yml` changes, flag when shared Postgres/Redis settings (image versions, health checks, `env_file`) drift. Intentional differences (app services, data paths, project `name`, host ports, in-network `POSTGRES_HOST` / `REDIS_URL`) must stay explicit. `docker-compose.yml` may read `packages/trueforge/.env` but must override container connectivity so host-dev localhost values are not used inside the smoke-test stack.
 
+### GitHub token choice (workflows)
+
+Flag a workflow that pushes commits to `main` or `release-v*`, opens or merges PRs into those branches, or writes to another repository using `secrets.GITHUB_TOKEN` instead of a TrueForge Dev Bot App installation token (`TRUEFORGE_GENERATE_SDK_APP_ID` / `TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY` via `actions/create-github-app-token`).
+
+Flag minting that App token for same-repo API reads or for creating package git tags / GitHub Releases when `secrets.GITHUB_TOKEN` is enough.
+
+Flag either token calling `api.github.com` without joining `tag:ci-github-egress` first (org IP allowlist).
+
 ## Types, schemas, and ownership
 
 If types or schemas change, flag when `packages/trueforge-core`, `packages/frontend`, `packages/trueforge`, or `patches` is updated without the other affected layers.
