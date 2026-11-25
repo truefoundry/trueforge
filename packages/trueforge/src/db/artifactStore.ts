@@ -52,6 +52,13 @@ export interface ListArtifactsInput {
   page_token: string | undefined;
 }
 
+export interface ListSessionArtifactsInput {
+  tenant_id: string;
+  session_id: string;
+  /** Case-insensitive substring match. */
+  name: string | undefined;
+}
+
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
@@ -84,6 +91,8 @@ export interface IArtifactStore {
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
+  /** Artifacts with at least one version created in the session, most recently updated first. */
+  listSessionArtifacts(input: ListSessionArtifactsInput): Promise<ArtifactRecord[]>;
   /**
    * Atomically inserts the next version for files already uploaded for it and
    * advances `latest_version`, `latest_entry_point` and `updated_at`. Undefined when the artifact is not in the tenant.

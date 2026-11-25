@@ -2175,7 +2175,7 @@ client.schedules.list_runs(
 </details>
 
 ## Sessions
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L56-L141">list</a>(...) -> ListSessionsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L57-L142">list</a>(...) -> ListSessionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2317,7 +2317,7 @@ client.sessions.list()
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L143-L182">create</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L144-L183">create</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2399,7 +2399,7 @@ client.sessions.create(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L184-L214">get</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L185-L215">get</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2471,7 +2471,7 @@ client.sessions.get(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L216-L245">delete</a>(...)</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L217-L246">delete</a>(...)</code></summary>
 <dl>
 <dd>
 
@@ -2543,7 +2543,7 @@ client.sessions.delete(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L247-L294">update</a>(...) -> GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L248-L295">update</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2639,7 +2639,87 @@ client.sessions.update(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L296-L328">cancel</a>(...) -> CancelSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L297-L336">list_artifacts</a>(...) -> ListSessionArtifactsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List artifacts with a version created in this session, most recently updated first. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.list_artifacts(
+    session_id="session_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L338-L370">cancel</a>(...) -> CancelSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -2711,7 +2791,7 @@ client.sessions.cancel(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L330-L387">list_events</a>(...) -> ListSessionEventsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L372-L429">list_events</a>(...) -> ListSessionEventsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2807,7 +2887,7 @@ client.sessions.list_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L389-L421">list_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L431-L463">list_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2879,7 +2959,7 @@ client.sessions.list_grants(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L423-L468">update_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L465-L510">update_grants</a>(...) -> ListSessionGrantsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2967,7 +3047,7 @@ client.sessions.update_grants(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L470-L527">list_turns</a>(...) -> ListTurnsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L512-L569">list_turns</a>(...) -> ListTurnsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3063,7 +3143,7 @@ client.sessions.list_turns(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L529-L597">create_turn_stream</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L571-L639">create_turn_stream</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 
@@ -3178,7 +3258,7 @@ client.sessions.create_turn_stream(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L599-L661">create_turn</a>(...) -> GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L641-L703">create_turn</a>(...) -> GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -3293,7 +3373,7 @@ client.sessions.create_turn_stream(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L663-L699">get_turn</a>(...) -> GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L705-L741">get_turn</a>(...) -> GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -3374,7 +3454,7 @@ client.sessions.get_turn(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L701-L743">download_sandbox_file</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L743-L785">download_sandbox_file</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 
@@ -3464,7 +3544,7 @@ client.sessions.download_sandbox_file(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L745-L808">list_turn_events</a>(...) -> ListTurnEventsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L787-L850">list_turn_events</a>(...) -> ListTurnEventsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3569,7 +3649,7 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L810-L857">create_turn_events</a>(...) -> CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L852-L899">create_turn_events</a>(...) -> CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -3663,7 +3743,7 @@ client.sessions.create_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L859-L924">subscribe_to_turn</a>(...) -> typing.Iterator[bytes]</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py#L901-L966">subscribe_to_turn</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>
 

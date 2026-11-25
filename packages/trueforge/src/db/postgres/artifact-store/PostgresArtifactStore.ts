@@ -14,6 +14,7 @@ import {
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
+  type ListSessionArtifactsInput,
 } from '../../artifactStore';
 import { json, now } from '../sqlExpressions';
 import type { ArtifactTable, ArtifactVersionTable, Database } from '../types';
@@ -91,6 +92,27 @@ export class PostgresArtifactStore implements IArtifactStore {
       .execute();
     const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
     return { data: data.map(toArtifactRecord), pagination };
+  }
+
+  async listSessionArtifacts(input: ListSessionArtifactsInput): Promise<ArtifactRecord[]> {
+    let query = this.#db
+      .selectFrom('artifact')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where(eb =>
+        eb.exists(
+          eb
+            .selectFrom('artifact_version')
+            .select('artifact_version.artifact_id')
+            .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
+            .where('artifact_version.created_by_session_id', '=', input.session_id),
+        ),
+      );
+    if (input.name !== undefined) {
+      query = query.where(sql<boolean>`position(lower(${input.name}) in lower(name)) > 0`);
+    }
+    const rows = await query.orderBy('updated_at', 'desc').orderBy('id').execute();
+    return rows.map(toArtifactRecord);
   }
 
   async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {

@@ -5,6 +5,7 @@
  * Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
+import { ListSessionArtifactsRequestQuerySchema, ListSessionArtifactsResponseSchema } from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
@@ -282,6 +283,35 @@ export const listSessionEventsRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid page token.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller cannot read this session.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+  },
+});
+
+export const listSessionArtifactsRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/artifacts',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'List session artifacts',
+  description:
+    'List artifacts with a version created in this session, most recently updated first. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'list_artifacts',
+  request: {
+    params: SessionIdParamsSchema,
+    query: ListSessionArtifactsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSessionArtifactsResponseSchema } },
+      description: 'Artifacts of the session.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

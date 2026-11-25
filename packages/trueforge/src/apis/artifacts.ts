@@ -11,7 +11,7 @@ export interface ArtifactsRouterDeps {
   resolveRequestContext: ResolveRequestContext;
 }
 
-function toWireArtifact(record: ArtifactRecord): Artifact {
+export function toWireArtifact(record: ArtifactRecord): Artifact {
   return {
     id: record.id,
     name: record.name,

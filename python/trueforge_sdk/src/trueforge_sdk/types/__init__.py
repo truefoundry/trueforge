@@ -128,6 +128,7 @@ if typing.TYPE_CHECKING:
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
+    from .list_session_artifacts_response import ListSessionArtifactsResponse
     from .list_session_events_response import ListSessionEventsResponse
     from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
@@ -432,6 +433,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
+    "ListSessionArtifactsResponse": ".list_session_artifacts_response",
     "ListSessionEventsResponse": ".list_session_events_response",
     "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
@@ -760,6 +762,7 @@ __all__ = [
     "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
+    "ListSessionArtifactsResponse",
     "ListSessionEventsResponse",
     "ListSessionGrantsResponse",
     "ListSessionsOrder",

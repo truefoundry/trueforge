@@ -54,6 +54,18 @@ export const ListArtifactsResponseSchema = z
   })
   .openapi('ListArtifactsResponse');
 
+export const ListSessionArtifactsRequestQuerySchema = z
+  .object({
+    name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on artifact name.'),
+  })
+  .openapi('ListSessionArtifactsRequestQuery');
+
+export const ListSessionArtifactsResponseSchema = z
+  .object({
+    data: z.array(ArtifactSchema),
+  })
+  .openapi('ListSessionArtifactsResponse');
+
 /** `artifact_version.artifact_version_metadata` jsonb only — not on wire responses. */
 export const ArtifactVersionMetadataSchema = z
   .object({

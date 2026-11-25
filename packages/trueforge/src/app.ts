@@ -677,6 +677,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSessionsRouter({
         accessControlStore: deps.accessControlStore,
         activeTurns: deps.activeTurns,
+        artifactStore: deps.artifactStore,
         authorizer: deps.authorizer,
         logger: deps.logger,
         redis: deps.redis,

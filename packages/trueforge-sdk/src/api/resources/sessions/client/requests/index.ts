@@ -4,6 +4,7 @@ export type { CreateTurnEventRequest } from "./CreateTurnEventRequest.js";
 export type { CreateTurnSessionsRequest } from "./CreateTurnSessionsRequest.js";
 export type { CreateTurnSessionsStreamRequest } from "./CreateTurnSessionsStreamRequest.js";
 export type { DownloadSandboxFileSessionsRequest } from "./DownloadSandboxFileSessionsRequest.js";
+export type { ListArtifactsSessionsRequest } from "./ListArtifactsSessionsRequest.js";
 export type { ListEventsSessionsRequest } from "./ListEventsSessionsRequest.js";
 export type { ListSessionsRequest } from "./ListSessionsRequest.js";
 export type { ListTurnEventsSessionsRequest } from "./ListTurnEventsSessionsRequest.js";

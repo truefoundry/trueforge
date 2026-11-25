@@ -178,6 +178,32 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
   });
 
+  it('lists artifacts with a version created in the session', async () => {
+    const store = getStore();
+    const own = await createArtifact({ name: 'own' });
+    const shared = await createArtifact({ name: 'Shared Report', sessionId: 'session-2' });
+    await createArtifact({ name: 'no versions' });
+    const elsewhere = await createArtifact({ name: 'elsewhere' });
+    const otherTenant = await createArtifact({ name: 'other tenant', tenantId: OTHER_TENANT });
+    await createVersion({ artifactId: own.id, entryPoint: 'index.html' });
+    await createVersion({ artifactId: elsewhere.id, entryPoint: 'index.html', sessionId: 'session-2' });
+    await store.createVersion({
+      tenant_id: OTHER_TENANT,
+      artifact_id: otherTenant.id,
+      artifact_version_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
+      created_by_session_id: 'session-1',
+      created_by_agent_id: AGENT_ID,
+    });
+    await tick();
+    await createVersion({ artifactId: shared.id, entryPoint: 'a.html' });
+    await createVersion({ artifactId: shared.id, entryPoint: 'b.html' });
+
+    const input = { tenant_id: TENANT, session_id: 'session-1', name: undefined };
+    expect((await store.listSessionArtifacts(input)).map(a => a.id)).toEqual([shared.id, own.id]);
+    expect((await store.listSessionArtifacts({ ...input, name: 'REPORT' })).map(a => a.id)).toEqual([shared.id]);
+    expect(await store.listSessionArtifacts({ ...input, session_id: 'session-3' })).toEqual([]);
+  });
+
   it('hides versions from other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
