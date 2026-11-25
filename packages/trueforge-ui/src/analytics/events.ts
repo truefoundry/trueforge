@@ -84,6 +84,9 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
   },
+  FilePreview: {
+    RELOADED: 'trueforge.file_preview.reloaded',
+  },
   Sdk: {
     HTTP_TIMEOUT: 'trueforge.sdk.http_timeout',
   },

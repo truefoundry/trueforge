@@ -73,25 +73,24 @@ describe('sandbox file preview', () => {
       expect(anchorClick).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: 'Preview report.txt' })).toHaveAttribute('aria-pressed', 'true');
 
-      const callsBeforeReload = downloadSandboxFile.mock.calls.length;
-      fireEvent.click(within(panel).getByRole('button', { name: 'Reload preview' }));
-      await waitFor(() => {
-        expect(downloadSandboxFile.mock.calls.length).toBeGreaterThan(callsBeforeReload);
-      });
-
       fireEvent.click(within(panel).getByRole('button', { name: 'Download report.txt' }));
       await waitFor(() => {
         expect(anchorClick).toHaveBeenCalledTimes(1);
       });
+      expect(downloadSandboxFile).toHaveBeenCalledTimes(1);
 
-      const callsBeforeArtifactDownload = downloadSandboxFile.mock.calls.length;
       fireEvent.click(
         within(screen.getByTestId('aui-sandbox-artifacts')).getByRole('button', { name: 'Download report.txt' }),
       );
       await waitFor(() => {
-        expect(downloadSandboxFile.mock.calls.length).toBeGreaterThan(callsBeforeArtifactDownload);
+        expect(downloadSandboxFile).toHaveBeenCalledTimes(2);
       });
       expect(anchorClick).toHaveBeenCalledTimes(2);
+
+      fireEvent.click(within(panel).getByRole('button', { name: 'Reload preview' }));
+      await waitFor(() => {
+        expect(downloadSandboxFile).toHaveBeenCalledTimes(3);
+      });
 
       fireEvent.click(within(panel).getByRole('button', { name: 'Close preview' }));
       expect(screen.queryByRole('complementary', { name: 'Preview of report.txt' })).not.toBeInTheDocument();

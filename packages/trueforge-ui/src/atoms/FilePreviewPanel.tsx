@@ -8,6 +8,7 @@ import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { Button } from './primitives/Button.js';
 import { Spinner } from './primitives/Spinner.js';
 
 export type FilePreviewView =
@@ -25,7 +26,6 @@ export type FilePreviewPanelProps = {
   onEnterFullPage?: () => void;
   onExitFullPage?: () => void;
   onReload?: () => void;
-  onRetry?: () => void;
   downloadBusy?: boolean;
   /** Side-pane width in CSS pixels. Overlay and full-page placement ignore this. */
   widthPx?: number;
@@ -116,7 +116,6 @@ export function FilePreviewPanel({
   onEnterFullPage,
   onExitFullPage,
   onReload,
-  onRetry,
   downloadBusy = false,
   widthPx,
   onWidthChange,
@@ -219,22 +218,18 @@ export function FilePreviewPanel({
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
         <Icon name="file" size={16} className="shrink-0 text-text-secondary" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{name}</span>
-        {view.status === 'error' && onRetry != null ? (
-          <button type="button" onClick={onRetry} className={auiButtonClass({ variant: 'ghost', size: 'small' })}>
-            Retry
-          </button>
-        ) : null}
         {onReload != null ? (
-          <button
+          <Button.Ghost
             type="button"
+            size="icon"
+            className="h-7 w-7"
             onClick={onReload}
             disabled={view.status === 'loading'}
             aria-label="Reload preview"
             title="Reload preview"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-7 w-7' })}
           >
             <Icon name="refresh-cw" size={14} className={cn(view.status === 'loading' && 'animate-spin')} />
-          </button>
+          </Button.Ghost>
         ) : null}
         {placement === 'full' && onExitFullPage != null ? (
           <button
