@@ -459,6 +459,26 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.queryByRole('listbox')).toBeNull();
     });
 
+    it('closes the dropdown on an outside click, and Save still works while it is open', async () => {
+      const chosen = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
+      const updateConfiguration = vi.fn(async () => withModels(chosen));
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+      });
+
+      await openPicker();
+      for (const name of chosen) fireEvent.click(option(name));
+      // Save is reachable with the list open: it sits below the list rather than under it.
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(updateConfiguration).toHaveBeenCalled());
+
+      await openPicker();
+      fireEvent.click(document.body);
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
     it('shows the server reason when the allowed models cannot route', async () => {
       renderAutoSettings({
         auto: { status: 'disabled', reason: 'Auto mode has no usable models selected.' },

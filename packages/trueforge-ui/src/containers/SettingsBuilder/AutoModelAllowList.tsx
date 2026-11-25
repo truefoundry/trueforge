@@ -34,7 +34,8 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
 /**
  * Which models Auto may choose from: a searchable dropdown of the models this admin can use, grouped by provider like
  * the chat model picker, with the picks shown as removable chips. The draft stays local until saved, so each pick does
- * not refresh capabilities. Remount with a new `key` when the saved list changes to restart the draft from it.
+ * not refresh capabilities. The list opens in the page flow, pushing Save down rather than floating over it, so it is
+ * never clipped by the scrolling settings pane. Remount with a new `key` when the saved list changes to restart the draft from it.
  */
 const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowListProps) => {
   const server = useOptionalServer();
@@ -70,13 +71,14 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
 
   useEffect(() => {
     if (!open) return;
-    const handlePointerDown = (event: MouseEvent) => {
+    // On click, not mousedown: closing the list moves Save up, which would swallow the click that was aimed at it.
+    const handleOutsideClick = (event: MouseEvent) => {
       if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
       setOpen(false);
       setQuery('');
     };
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
   }, [open]);
 
   // Saved names this admin can't see stay listed, so saving never drops them silently. Nothing is flagged until the
@@ -106,7 +108,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
         </p>
       ) : null}
 
-      <div ref={rootRef} className="relative mt-3">
+      <div ref={rootRef} className="mt-3">
         {modelsQuery.isPending ? (
           <Skeleton data-testid="auto-model-allow-list-skeleton" className="h-8 w-full rounded-md" />
         ) : (
@@ -154,7 +156,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
 
         {open ? (
           <div
-            className="aui-popup-enter absolute left-0 top-full z-50 mt-1 flex max-h-[22rem] w-full flex-col overflow-hidden rounded-lg border border-border bg-card-bg text-text-primary shadow-lg"
+            className="aui-popup-enter mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-border bg-card-bg text-text-primary"
             onKeyDown={event => {
               if (event.key !== 'Escape') return;
               event.stopPropagation();
@@ -238,7 +240,7 @@ const AutoModelAllowList = ({ allowedModels, saving, onSave }: AutoModelAllowLis
       <p className="mt-2 text-xs text-text-secondary">
         {`${String(selected.length)} of ${String(MAX_ALLOWED_MODELS)} selected.`}
         {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
-        {belowMinimum ? ` Choose at least ${String(MIN_ALLOWED_MODELS)} models to save.` : ''}
+        {belowMinimum && dirty ? ` Choose at least ${String(MIN_ALLOWED_MODELS)} models to save.` : ''}
         {atLimit ? ' Remove a model to choose another.' : ''}
       </p>
 
