@@ -26,6 +26,9 @@ export interface ArtifactVersionRecord {
   /** Path of the default file to render, relative to the version's files. */
   entry_point: string;
   total_bytes: number;
+  created_by_session_id: string;
+  /** Creating session's registry agent; null for inline-spec sessions. */
+  created_by_agent_id: string | null;
   /** ISO-8601 UTC instant. */
   created_at: string;
 }
@@ -55,6 +58,9 @@ export interface CreateArtifactVersionInput {
   artifact_id: string;
   entry_point: string;
   total_bytes: number;
+  created_by_session_id: string;
+  /** The session's registry agent; null for inline-spec sessions. */
+  created_by_agent_id: string | null;
 }
 
 export interface GetArtifactVersionInput {

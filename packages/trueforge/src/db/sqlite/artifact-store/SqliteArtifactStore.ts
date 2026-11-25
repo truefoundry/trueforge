@@ -118,6 +118,8 @@ export class SqliteArtifactStore implements IArtifactStore {
           version,
           entry_point: input.entry_point,
           total_bytes: input.total_bytes,
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
         })
         .returningAll()

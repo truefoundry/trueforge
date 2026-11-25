@@ -668,6 +668,8 @@ export interface ArtifactVersionTable {
   entry_point: string;
   total_bytes: number;
   created_at: Date;
+  created_by_session_id: string;
+  created_by_agent_id: string | null;
 }
 
 /**

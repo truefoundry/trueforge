@@ -38,6 +38,8 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
     version: row.version,
     entry_point: row.entry_point,
     total_bytes: row.total_bytes,
+    created_by_session_id: row.created_by_session_id,
+    created_by_agent_id: row.created_by_agent_id,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -105,6 +107,8 @@ export class PostgresArtifactStore implements IArtifactStore {
           version,
           entry_point: input.entry_point,
           total_bytes: input.total_bytes,
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
           created_at: now(),
         })
         .returningAll()

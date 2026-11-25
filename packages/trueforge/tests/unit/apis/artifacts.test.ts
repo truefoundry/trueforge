@@ -38,6 +38,8 @@ describe('artifacts router', () => {
       artifact_id: report.id,
       entry_point: 'report/index.html',
       total_bytes: 1,
+      created_by_session_id: 'session-1',
+      created_by_agent_id: 'agent-1',
     });
     await artifactStore.createArtifact({
       ...mine,
