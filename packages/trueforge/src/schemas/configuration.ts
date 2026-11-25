@@ -21,10 +21,9 @@ const AutoModelRoutingEnabledSchema = z
   .boolean()
   .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.');
 
-/** Most models an admin may allow for auto routing. */
 export const MAX_AUTO_CANDIDATE_MODELS = 10;
 
-/** Fewest models an admin may allow once they choose any; an empty list stays the "none chosen" default. */
+/** Fewest models once any are chosen; an empty list is the default. */
 export const MIN_AUTO_CANDIDATE_MODELS = 4;
 
 const AutoModelRoutingCandidateModelsSchema = z
@@ -46,7 +45,7 @@ const AutoModelRoutingConfigurationSchema = z
   .strict()
   .openapi('AutoModelRoutingConfiguration');
 
-/** Unlike the other switches, a patch merges into the stored value, so `enabled` and the list change independently. */
+/** Both fields are optional; a field left out keeps its stored value. */
 const AutoModelRoutingConfigurationPatchSchema = z
   .object({
     enabled: AutoModelRoutingEnabledSchema.optional(),

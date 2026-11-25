@@ -389,15 +389,8 @@ function turnModelRouting(input: {
     question: {
       categories: routing.categories,
     },
-    // The user's models narrowed to the admin's candidate list; the router then keeps only those in a routing cluster.
-    listModels: async () =>
-      (
-        await listAutoCandidateModels({
-          tenant_id,
-          modelProviderStore,
-          autoModelRouting: input.autoModelRouting,
-        })
-      ).candidateModels,
+    listModels: () =>
+      listAutoCandidateModels({ tenant_id, modelProviderStore, autoModelRouting: input.autoModelRouting }),
   };
 }
 

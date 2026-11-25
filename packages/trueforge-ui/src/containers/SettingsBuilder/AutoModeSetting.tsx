@@ -48,7 +48,7 @@ const AutoModeSetting = () => {
           : configuration.updateConfiguration({ autoModelRouting: change }),
       onSuccess: (saved, change) => {
         queryClient.setQueryData(queryKeys.settings.configuration(), saved);
-        // The model picker offers or withholds Auto with the switch and the allowed models.
+        // Auto's availability depends on this setting.
         refreshCapabilities?.();
         const { enabled, candidateModels } = saved.autoModelRouting;
         if (change.candidateModels === undefined) {
@@ -71,8 +71,7 @@ const AutoModeSetting = () => {
       ? getErrorMessage(configurationQuery.error, 'Failed to load the Auto mode setting')
       : null;
   const routing = configurationQuery.data?.autoModelRouting;
-  // The switch, its text and the model list follow the click straight away, instead of waiting for the save, so
-  // nothing changes in stages. A failed save drops the pending change and the saved value shows again.
+  // The UI follows the click immediately; a failed save reverts to the saved value.
   const pendingEnabled = saveMutation.isPending ? saveMutation.variables.enabled : undefined;
   const enabled = pendingEnabled ?? routing?.enabled;
 
@@ -125,7 +124,7 @@ const AutoModeSetting = () => {
           {enabled && routing ? (
             <div className="mt-3 border-t border-border pt-3">
               <AutoModelCandidateList
-                // The draft restarts from whatever is saved.
+                // Restarts the draft when the saved list changes.
                 key={JSON.stringify(routing.candidateModels)}
                 candidateModels={routing.candidateModels}
                 saving={saveMutation.isPending}

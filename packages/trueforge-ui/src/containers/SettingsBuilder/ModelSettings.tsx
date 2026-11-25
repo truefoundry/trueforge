@@ -346,7 +346,7 @@ const ModelSettings = () => {
         </p>
       ) : null}
 
-      {/* The pane doesn't scroll, so a tall Auto card (with its model list open) scrolls on its own. */}
+      {/* The pane doesn't scroll, so a tall Auto card scrolls on its own. */}
       {showAutoMode ? (
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           <AutoModeSetting />

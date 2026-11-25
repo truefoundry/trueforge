@@ -403,7 +403,6 @@ describe('ModelSettings Auto mode switch', () => {
 
       await openPicker();
       for (const name of chosen) fireEvent.click(option(name));
-      // The dropdown stays open for more picks, and each pick shows as a chip.
       expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
       await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
@@ -542,7 +541,6 @@ describe('ModelSettings Auto mode switch', () => {
 
       await openPicker();
       for (const name of chosen) fireEvent.click(option(name));
-      // Save is reachable with the list open: it sits below the list rather than under it.
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => expect(updateConfiguration).toHaveBeenCalled());
 

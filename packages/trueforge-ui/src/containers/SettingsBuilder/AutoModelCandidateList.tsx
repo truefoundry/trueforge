@@ -16,7 +16,7 @@ import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
-/** The server rejects lists outside these limits (an empty list is allowed); kept in step with its `candidate_models`. */
+/** Mirrors the server's limits on `candidate_models` (an empty list is also allowed). */
 export const MAX_CANDIDATE_MODELS = 10;
 export const MIN_CANDIDATE_MODELS = 4;
 
@@ -32,10 +32,9 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
 }
 
 /**
- * Which models Auto may choose from: a searchable dropdown of the models this admin can use, grouped by provider like
- * the chat model picker, with the picks shown as removable chips. The draft stays local until saved, so each pick does
- * not refresh capabilities. The list opens in the page flow, pushing Save down rather than floating over it, so it is
- * never clipped by the scrolling settings pane. Remount with a new `key` when the saved list changes to restart the draft from it.
+ * Picker for the models Auto may choose from: searchable, grouped by provider, picks shown as removable chips. The
+ * draft stays local until saved; remount with a new `key` to reset it from the saved list. The list opens in the page
+ * flow, so the scrolling settings pane never clips it.
  */
 const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCandidateListProps) => {
   const server = useOptionalServer();
@@ -81,18 +80,17 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [open]);
 
-  // Saved names this admin can't see stay listed, flagged, so nothing is dropped silently. The server only accepts models
-  // the admin can use, so they have to be removed before saving. Nothing is flagged until the listing has loaded, and a
-  // failed listing still shows what is saved.
+  // Saved models the admin can't see stay listed and flagged; the server rejects them, so they must be removed to save.
+  // Nothing is flagged until the listing loads.
   const listed = new Set(models.map(model => model.name));
   const isListingKnown = modelsQuery.isSuccess;
   const hasUnavailable = isListingKnown && selected.some(name => !listed.has(name));
 
   const dirty = !sameSelection({ left: selected, right: candidateModels });
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
-  // An empty selection is saveable (it clears the list); a partial one is not.
+  // Empty is saveable (it clears the list); 1 to 3 is not.
   const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
-  // While capabilities refresh after a save, the reason still describes the old setting, so it isn't shown.
+  // The reason is stale while capabilities refresh after a save.
   const capabilitiesRefreshing = useIsFetching({ queryKey: queryKeys.capabilities() }, queryClient) > 0;
   const routingUnavailableReason =
     !capabilitiesRefreshing && capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;

@@ -27,7 +27,6 @@ function toConfiguration(record: ConfigurationRecord): Configuration {
   return { manifest: record.manifest, updated_at: record.updated_at };
 }
 
-/** `enabled` and `candidate_models` change independently: an omitted field keeps its stored value. */
 function applyAutoModelRoutingPatch({
   current,
   patch,

@@ -74,10 +74,9 @@ const AUTO_MODELS_RESTRICTED_REASON =
   'Auto mode has no usable models selected - an admin can choose models for it in settings.';
 
 /**
- * Auto needs model routing set up for the tenant, the tenant switch on, and a model the user has in every routing
- * cluster, among the models the admin allows (none until they choose some). `not_configured` when routing isn't set up, so clients hide Auto
- * entirely. A failed listing fails the request, so clients keep their last known capabilities instead of dropping a
- * selected Auto.
+ * Enabled when routing is set up, the tenant switch is on, and the user's candidate models cover every routing
+ * category. `not_configured` (no routing) hides Auto in clients. A failed model listing fails the request, so clients
+ * keep their last known capabilities.
  */
 async function autoCapability({
   tenant_id,
@@ -95,18 +94,17 @@ async function autoCapability({
   if (!autoModelRouting.enabled) {
     return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
-  const { accessibleModels, candidateModels } = await listAutoCandidateModels({
-    tenant_id,
-    modelProviderStore,
-    autoModelRouting,
-  });
+  const candidateModels = await listAutoCandidateModels({ tenant_id, modelProviderStore, autoModelRouting });
   if (canRouteEveryCategory(candidateModels)) {
     return { status: 'enabled' };
   }
-  // Tells an admin-fixable restriction apart from a user who simply lacks the models.
+  // Auto is blocked either by the admin's list (the user's own models could route every category) or by the user
+  // lacking models. The reason shown differs.
+  const accessibleModels = await modelProviderStore.listModels({ tenant_id });
+  const adminListIsTooNarrow = canRouteEveryCategory(accessibleModels);
   return {
     status: 'disabled',
-    reason: canRouteEveryCategory(accessibleModels) ? AUTO_MODELS_RESTRICTED_REASON : AUTO_UNAVAILABLE_REASON,
+    reason: adminListIsTooNarrow ? AUTO_MODELS_RESTRICTED_REASON : AUTO_UNAVAILABLE_REASON,
   };
 }
 

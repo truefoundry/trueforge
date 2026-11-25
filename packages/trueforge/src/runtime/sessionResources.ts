@@ -312,7 +312,8 @@ export async function validateAgentSpec({
         message: 'Model "auto" does not accept model params',
       });
     }
-    if (!(await getAutoModelRoutingForTenant({ tenant_id, store: configurationStore })).enabled) {
+    const autoModelRouting = await getAutoModelRoutingForTenant({ tenant_id, store: configurationStore });
+    if (!autoModelRouting.enabled) {
       throw new HTTPException(422, { message: AUTO_MODE_TURNED_OFF_MESSAGE });
     }
   } else {
