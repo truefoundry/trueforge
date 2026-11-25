@@ -1,6 +1,7 @@
 import type { ILLM } from '../../../src/core/llm/ILLM';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
+import type { AgentThread } from '../../../src/core/runtime/AgentThread';
 import {
   InternalEventType,
   type AgentThreadExecutionEvent,
@@ -176,4 +177,12 @@ export async function runExecute(input: {
 
 export function llmCreateInputs(llm: ILLM): unknown[] {
   return jest.mocked(llm).create.mock.calls.map(call => call[0]);
+}
+
+/** The client of a thread built with its model. */
+export function threadModelClient(thread: AgentThread): ILLM {
+  if (thread.model === undefined) {
+    throw new Error(`thread ${thread.threadId} has no model`);
+  }
+  return thread.model.client;
 }

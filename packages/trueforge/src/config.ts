@@ -159,20 +159,22 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
 const RoutingDescriptionSchema = z.string().trim().min(1);
 
 const TrueFoundryModelRoutingSchema = z.object({
-  /** What each category means to the decision model; all three or none. */
+  /** What each category means to the decision model; `frontier` defaults when the other three are given. */
   categories: z
     .object({
       direct: RoutingDescriptionSchema,
       fixed_steps: RoutingDescriptionSchema,
       adaptive: RoutingDescriptionSchema,
+      frontier: RoutingDescriptionSchema.default(DEFAULT_ROUTING_QUESTION.categories.frontier),
     })
     .strict()
     .default(DEFAULT_ROUTING_QUESTION.categories),
-  /** Per tenant: the decision model is the tenant's own gateway model (`account/model`). */
-  tenants: z.record(
-    z.string(),
-    z.object({ enabled: z.enum(['off', 'on']).default('off'), decision_model: z.string().min(1) }),
-  ),
+  /** The decision model every tenant classifies with (`account/model`), called with the virtual account's `api_key`. */
+  decision_model: z.object({
+    name: z.string().min(1),
+    api_key: z.string().min(1),
+  }),
+  tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
 });
 
 export type TrueFoundryModelRouting = z.infer<typeof TrueFoundryModelRoutingSchema>;
@@ -186,7 +188,7 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
     return TrueFoundryModelRoutingSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on","decision_model":"typesafe/jev-1.13.0"}}})',
+      'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object with "decision_model" (name, api_key) and per-tenant "tenants" entries (e.g. {"decision_model":{"name":"typesafe/jev-1.13.0","api_key":"<token>"},"tenants":{"<tenant_id>":{"enabled":"on"}}})',
       { cause: error },
     );
   }
@@ -1140,8 +1142,9 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
   /**
    * Optional model routing for subagents and `auto` root agents (TrueFoundry mode only). JSON object with optional
-   * `categories` overriding what each routing category means, and per-tenant entries: `enabled` (`off` | `on`) and
-   * the tenant's decision model. Unset, or a tenant not listed → off.
+   * `categories` overriding what each routing category means, the shared `decision_model` (with the `api_key` of
+   * its virtual account, whose tenant needs a gateway logging config with `log: false`), and per-tenant entries:
+   * `enabled` (`off` | `on`). Unset, or a tenant not listed → off.
    * Env: `TRUEFOUNDRY_MODEL_ROUTING`.
    */
   TRUEFOUNDRY_MODEL_ROUTING: TrueFoundryModelRouting | undefined;
@@ -1604,7 +1607,6 @@ if (isTrueFoundryModeEnabled(configuration)) {
   if (configuration.TRUEFOUNDRY_API_KEY === undefined) {
     throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
-
   // Shared sandbox
   if (configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
     if (configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === undefined) {

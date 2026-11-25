@@ -43,6 +43,7 @@ async function buildApp() {
   app.route(
     '/',
     createTurnsRouter({
+      decisionModel: undefined,
       activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),

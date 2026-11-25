@@ -1,6 +1,6 @@
 import type { Decision, DecisionInputMessage, DecisionModelCreateParams } from '../decision/IDecisionModel';
 import { estimateCharactersForTokens, estimateTokensForString } from '../llm/usage';
-import type { RoutingQuestion } from './question';
+import type { RoutingCategory, RoutingQuestion } from './question';
 
 const TRUNCATION_MARKER = '\n\n[…]\n\n';
 /** Context window assumed when the catalog does not list the decision model's. */
@@ -55,11 +55,14 @@ export function classificationRequest({
   input,
   question,
   instructions,
+  categories,
   contextLength,
 }: {
   input: string | DecisionInputMessage[];
   question: RoutingQuestion;
   instructions: string;
+  /** The categories offered as choices, in the question's order. */
+  categories: readonly RoutingCategory[];
   contextLength: number | undefined;
 }): { body: DecisionModelCreateParams; isTruncated: boolean } {
   const questions: DecisionModelCreateParams['questions'] = [
@@ -67,7 +70,9 @@ export function classificationRequest({
       type: 'choice',
       name: 'category',
       instructions,
-      choices: Object.entries(question.categories).map(([value, description]) => ({ value, description })),
+      choices: Object.entries(question.categories)
+        .filter(([value]) => categories.some(category => category === value))
+        .map(([value, description]) => ({ value, description })),
     },
   ];
   const maxChars = estimateCharactersForTokens(

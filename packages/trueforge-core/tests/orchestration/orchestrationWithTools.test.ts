@@ -10,7 +10,13 @@ import {
 } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { createSubAgentStream, driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
+import {
+  createSubAgentStream,
+  driveUntilPauseOrDone,
+  llmCreateInputs,
+  textReplyStream,
+  threadModelClient,
+} from './helpers/helpers';
 
 const ROOT_ID = 'thread_root';
 const TOOL_CALL_ID = 'call-sub';
@@ -18,7 +24,7 @@ const CHILD_REPLY = 'hello from the child';
 const ROOT_FINAL = 'How are you?';
 const INSTRUCTION = 'You are running in a test setup.';
 const CHILD_TASK = 'do the delegated task';
-/** Chosen by the thread factory, not the parent's request, as when the subagent's model is routed. */
+/** Resolved by the subagent thread itself, not the parent's request, as when the subagent's model is routed. */
 const CHILD_MODEL = 'provider/child-model';
 
 const CREATE_SUB_AGENT_ARGS = JSON.stringify({ name: 'worker', input: CHILD_TASK });
@@ -48,9 +54,9 @@ const EXPECTED_EVENTS = [
     type: EventType.THREAD_CREATED,
     title: 'worker',
     agent_info: { name: 'worker' },
-    model: { name: CHILD_MODEL, effort: null },
     parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
   },
+  { type: EventType.THREAD_SWITCH_MODEL, model: { name: CHILD_MODEL, params: { reasoning_effort: 'low' } } },
   { type: EventType.MODEL_MESSAGE, thread_id: expect.any(String) },
   { type: EventType.MODEL_MESSAGE_DELTA, thread_id: expect.any(String), content: CHILD_REPLY },
   {
@@ -121,17 +127,21 @@ describe('orchestration: dynamic sub-agent', () => {
         iterationLimit: undefined,
         toolSets: undefined,
       },
-      model: {
-        // This is an instance if ILLM
-        client: {
-          create: jest
-            .fn()
-            .mockImplementationOnce(() => createSubAgentStream())
-            .mockImplementation(() => textReplyStream(ROOT_FINAL)),
-          createNonStream: jest.fn(),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            // This is an instance if ILLM
+            client: {
+              create: jest
+                .fn()
+                .mockImplementationOnce(() => createSubAgentStream())
+                .mockImplementation(() => textReplyStream(ROOT_FINAL)),
+              createNonStream: jest.fn(),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: ROOT_ID,
       title: 'orchestration-with-tools',
       // Undefined
@@ -157,10 +167,11 @@ describe('orchestration: dynamic sub-agent', () => {
       threadId,
       parent,
     }) => {
-      childLLM = {
+      const client: ILLM = {
         create: jest.fn().mockImplementation(() => textReplyStream(CHILD_REPLY)),
         createNonStream: jest.fn().mockImplementation(() => textReplyStream(CHILD_REPLY)),
       };
+      childLLM = client;
 
       const agentDefinition: AgentDefinition = {
         instruction: undefined,
@@ -171,7 +182,11 @@ describe('orchestration: dynamic sub-agent', () => {
       };
       return new AgentThread({
         definition: agentDefinition,
-        model: { client: childLLM, name: CHILD_MODEL },
+        resolveModel: () =>
+          Promise.resolve({
+            model: { client, name: CHILD_MODEL, params: { reasoning_effort: 'low' } },
+            routed: true,
+          }),
         threadId,
         title: request.name,
         parent,
@@ -210,7 +225,7 @@ describe('orchestration: dynamic sub-agent', () => {
     expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
     expect(outcome.result).toMatchObject(OUTPUT);
     expect(outcome.result.root_agent_error).toBeUndefined();
-    expect(llmCreateInputs(thread_1.model.client)).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
+    expect(llmCreateInputs(threadModelClient(thread_1))).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
     if (childLLM === undefined) {
       throw new Error('expected child LLM to be created');
     }

@@ -72,10 +72,14 @@ describe('AgentThread model.message reasoning_content', () => {
         instruction: 'test',
         toolSets: [],
       },
-      model: {
-        client: modelClient,
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: modelClient,
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       context: [{ role: 'user', content: 'hi' }],
     });
 

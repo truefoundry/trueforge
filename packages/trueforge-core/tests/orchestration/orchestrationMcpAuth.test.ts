@@ -6,7 +6,7 @@ import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrche
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { withTimeout } from '../../src/core/util/promiseUtils';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { textReplyStream } from './helpers/helpers';
+import { textReplyStream, threadModelClient } from './helpers/helpers';
 
 function makeAuthBlockedThread(threadId: string): AgentThread {
   const authToolSet: IToolSet = {
@@ -38,13 +38,17 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    model: {
-      client: {
-        create: jest.fn(() => textReplyStream(`${threadId} done`)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest.fn(() => textReplyStream(`${threadId} done`)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId,
     title: threadId,
     parent: undefined,
@@ -122,7 +126,7 @@ describe('orchestration: MCP auth continuation', () => {
     while (!step.done) {
       step = await withTimeout(iterator.next(), 1_000, 'MCP-auth resumed completion');
     }
-    expect(first.model.client.create).toHaveBeenCalledTimes(1);
-    expect(second.model.client.create).toHaveBeenCalledTimes(1);
+    expect(threadModelClient(first).create).toHaveBeenCalledTimes(1);
+    expect(threadModelClient(second).create).toHaveBeenCalledTimes(1);
   });
 });

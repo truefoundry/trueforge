@@ -5,7 +5,7 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
-import { driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
+import { driveUntilPauseOrDone, llmCreateInputs, textReplyStream, threadModelClient } from './helpers/helpers';
 
 const THREAD_ID = 'main';
 const REPLY = 'hello from the mocked model';
@@ -46,13 +46,17 @@ describe('orchestration: mocked LLM and no tools', () => {
         iterationLimit: undefined,
         toolSets: undefined,
       },
-      model: {
-        client: {
-          create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-          createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: {
+              create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+              createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: THREAD_ID,
       title: 'orchestration',
       parent: undefined,
@@ -90,6 +94,6 @@ describe('orchestration: mocked LLM and no tools', () => {
     expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
     expect(outcome.result).toMatchObject(OUTPUT);
     expect(outcome.result.root_agent_error).toBeUndefined();
-    expect(llmCreateInputs(thread.model.client)).toMatchObject(EXPECTED_LLM_INPUT);
+    expect(llmCreateInputs(threadModelClient(thread))).toMatchObject(EXPECTED_LLM_INPUT);
   });
 });
