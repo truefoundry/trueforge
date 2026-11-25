@@ -227,7 +227,7 @@ describe('auto model selection', () => {
 
     const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(stored?.state).toMatchObject({ status: 'error', message: 'Auto model selection could not choose a model' });
-    expect(types).not.toContain(EventType.THREAD_MODEL_SELECTED);
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(close).toHaveBeenCalledTimes(1);
   });
 
@@ -243,15 +243,14 @@ describe('auto model selection', () => {
     const events = [];
     for await (const event of turn.stream()) events.push(event);
 
-    const selected = events.filter(event => event.type === EventType.THREAD_MODEL_SELECTED);
+    const selected = events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL);
     expect(selected).toHaveLength(1);
     expect(selected[0]).toMatchObject({
       thread_id: MAIN_THREAD_ID,
-      model_name: HAIKU,
-      params: { reasoning_effort: 'low' },
+      model: { name: HAIKU, params: { reasoning_effort: 'low' } },
     });
     const types = events.map(event => event.type);
-    expect(types.indexOf(EventType.THREAD_MODEL_SELECTED)).toBeLessThan(types.indexOf(EventType.MODEL_MESSAGE));
+    expect(types.indexOf(EventType.THREAD_SWITCH_MODEL)).toBeLessThan(types.indexOf(EventType.MODEL_MESSAGE));
     const persisted = await store.listTurnEvents({
       session_id: 's1',
       turn_id: turn.id,
@@ -259,7 +258,7 @@ describe('auto model selection', () => {
       page_token: undefined,
       order: 'asc',
     });
-    expect(persisted.data.map(row => row.type)).toContain(EventType.THREAD_MODEL_SELECTED);
+    expect(persisted.data.map(row => row.type)).toContain(EventType.THREAD_SWITCH_MODEL);
     const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
   });
@@ -274,7 +273,7 @@ describe('auto model selection', () => {
     const types: string[] = [];
     for await (const event of turn.stream()) types.push(event.type);
 
-    expect(types).not.toContain(EventType.THREAD_MODEL_SELECTED);
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(route.calls).toHaveLength(0);
     const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toBeNull();
@@ -330,7 +329,7 @@ describe('auto model selection', () => {
     const types: string[] = [];
     for await (const event of rebuilt.stream()) types.push(event.type);
 
-    expect(types).not.toContain(EventType.THREAD_MODEL_SELECTED);
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(route.calls).toHaveLength(0);
     expect(names).toEqual([HAIKU]);
     expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
@@ -370,12 +369,12 @@ describe('auto model selection', () => {
     expect(created).not.toHaveProperty('model');
     const childId = created !== undefined && 'thread_id' in created ? created.thread_id : undefined;
     const selectedAt = events.findIndex(
-      event => event.type === EventType.THREAD_MODEL_SELECTED && event.thread_id === childId,
+      event => event.type === EventType.THREAD_SWITCH_MODEL && event.thread_id === childId,
     );
     const firstCallAt = events.findIndex(
       event => event.type === EventType.MODEL_MESSAGE && event.thread_id === childId,
     );
-    expect(events[selectedAt]).toMatchObject({ params: { reasoning_effort: 'high' } });
+    expect(events[selectedAt]).toMatchObject({ model: { params: { reasoning_effort: 'high' } } });
     expect(selectedAt).toBeGreaterThan(createdAt);
     expect(selectedAt).toBeLessThan(firstCallAt);
   });
@@ -414,7 +413,7 @@ describe('auto model selection', () => {
     for await (const event of turn2.stream()) types.push(event.type);
 
     expect(route.calls).toHaveLength(0);
-    expect(types).not.toContain(EventType.THREAD_MODEL_SELECTED);
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
   });
 
   it('runs an unplaced subagent of an auto root on the root model and effort', async () => {

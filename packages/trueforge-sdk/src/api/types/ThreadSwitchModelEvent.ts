@@ -2,15 +2,13 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ThreadModelSelectedEvent {
+export interface ThreadSwitchModelEvent {
     /** ISO 8601 event timestamp. */
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    /** Name of the chosen model, `provider/model`. */
-    modelName: string;
-    params: TrueForge.ThreadModelSelectedEventParams;
+    model: TrueForge.ThreadSwitchModelEventModel;
     /** Thread the model was selected for. */
     threadId: string;
-    type: "thread.model_selected";
+    type: "thread.switch_model";
 }

@@ -19,9 +19,9 @@ import {
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
   type ThreadCreatedEvent,
-  type ThreadModelSelectedEvent,
   type ThreadOverwriteContextEvent,
   type ThreadStateError,
+  type ThreadSwitchModelEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
@@ -192,7 +192,7 @@ export interface InternalTurnStateEvent {
 
 export type AgentThreadExecutionEvent =
   | WithRegisteredPassthrough<
-      ThreadCreatedEvent | ThreadModelSelectedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
+      ThreadCreatedEvent | ThreadSwitchModelEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
     >
   | InternalTurnStateEvent;
 

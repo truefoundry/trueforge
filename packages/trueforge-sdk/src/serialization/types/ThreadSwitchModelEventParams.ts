@@ -4,14 +4,14 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ThreadModelSelectedEventParams: core.serialization.ObjectSchema<
-    serializers.ThreadModelSelectedEventParams.Raw,
-    TrueForge.ThreadModelSelectedEventParams
+export const ThreadSwitchModelEventParams: core.serialization.ObjectSchema<
+    serializers.ThreadSwitchModelEventParams.Raw,
+    TrueForge.ThreadSwitchModelEventParams
 > = core.serialization.object({
     reasoningEffort: core.serialization.property("reasoning_effort", core.serialization.string()),
 });
 
-export declare namespace ThreadModelSelectedEventParams {
+export declare namespace ThreadSwitchModelEventParams {
     export interface Raw {
         reasoning_effort: string;
     }

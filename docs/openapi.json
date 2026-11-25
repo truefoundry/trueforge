@@ -4565,7 +4565,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
-            "thread.model_selected": "#/components/schemas/ThreadModelSelectedEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -4599,7 +4599,7 @@
             "$ref": "#/components/schemas/ThreadCreatedEvent"
           },
           {
-            "$ref": "#/components/schemas/ThreadModelSelectedEvent"
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -5401,58 +5401,6 @@
         ],
         "type": "object"
       },
-      "ThreadModelSelectedEvent": {
-        "properties": {
-          "created_at": {
-            "description": "ISO 8601 event timestamp.",
-            "type": "string"
-          },
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          },
-          "model_name": {
-            "description": "Name of the chosen model, `provider/model`.",
-            "type": "string"
-          },
-          "params": {
-            "$ref": "#/components/schemas/ThreadModelSelectedEventParams"
-          },
-          "thread_id": {
-            "description": "Thread the model was selected for.",
-            "type": "string"
-          },
-          "type": {
-            "description": "Model routing chose the model a thread runs on, before its first model call.",
-            "enum": [
-              "thread.model_selected"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "created_at",
-          "thread_id",
-          "model_name",
-          "params"
-        ],
-        "type": "object"
-      },
-      "ThreadModelSelectedEventParams": {
-        "description": "Model parameters chosen with the model.",
-        "properties": {
-          "reasoning_effort": {
-            "description": "Reasoning effort chosen for the model.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reasoning_effort"
-        ],
-        "type": "object"
-      },
       "ThreadState": {
         "discriminator": {
           "mapping": {
@@ -5509,6 +5457,70 @@
         "required": [
           "status",
           "error"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventModel"
+          },
+          "thread_id": {
+            "description": "Thread the model was selected for.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Model routing chose the model a thread runs on, before its first model call.",
+            "enum": [
+              "thread.switch_model"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "model"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventModel": {
+        "description": "The chosen model and its parameters.",
+        "properties": {
+          "name": {
+            "description": "Name of the chosen model, `provider/model`.",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventParams"
+          }
+        },
+        "required": [
+          "name",
+          "params"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventParams": {
+        "description": "Model parameters chosen with the model.",
+        "properties": {
+          "reasoning_effort": {
+            "description": "Reasoning effort chosen for the model.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reasoning_effort"
         ],
         "type": "object"
       },
@@ -6311,7 +6323,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
-            "thread.model_selected": "#/components/schemas/ThreadModelSelectedEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -6339,7 +6351,7 @@
             "$ref": "#/components/schemas/ThreadCreatedEvent"
           },
           {
-            "$ref": "#/components/schemas/ThreadModelSelectedEvent"
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"

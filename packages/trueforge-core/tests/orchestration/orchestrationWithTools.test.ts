@@ -57,7 +57,7 @@ const EXPECTED_EVENTS = [
     agent_info: { name: 'worker' },
     parent: { thread_id: ROOT_ID, tool_call_id: TOOL_CALL_ID },
   },
-  { type: EventType.THREAD_MODEL_SELECTED, model_name: CHILD_MODEL, params: { reasoning_effort: 'low' } },
+  { type: EventType.THREAD_SWITCH_MODEL, model: { name: CHILD_MODEL, params: { reasoning_effort: 'low' } } },
   { type: EventType.MODEL_MESSAGE, thread_id: expect.any(String) },
   { type: EventType.MODEL_MESSAGE_DELTA, thread_id: expect.any(String), content: CHILD_REPLY },
   {

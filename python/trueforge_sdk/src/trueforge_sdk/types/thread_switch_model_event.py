@@ -5,10 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .thread_model_selected_event_params import ThreadModelSelectedEventParams
+from .thread_switch_model_event_model import ThreadSwitchModelEventModel
 
 
-class ThreadModelSelectedEvent(UncheckedBaseModel):
+class ThreadSwitchModelEvent(UncheckedBaseModel):
     created_at: str = pydantic.Field()
     """
     ISO 8601 event timestamp.
@@ -19,18 +19,13 @@ class ThreadModelSelectedEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    model_name: str = pydantic.Field()
-    """
-    Name of the chosen model, `provider/model`.
-    """
-
-    params: ThreadModelSelectedEventParams
+    model: ThreadSwitchModelEventModel
     thread_id: str = pydantic.Field()
     """
     Thread the model was selected for.
     """
 
-    type: typing.Literal["thread.model_selected"] = "thread.model_selected"
+    type: typing.Literal["thread.switch_model"] = "thread.switch_model"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

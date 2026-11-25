@@ -3,7 +3,7 @@
 /**
  * Model parameters chosen with the model.
  */
-export interface ThreadModelSelectedEventParams {
+export interface ThreadSwitchModelEventParams {
     /** Reasoning effort chosen for the model. */
     reasoningEffort: string;
 }

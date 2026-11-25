@@ -5,7 +5,7 @@ import {
   newEventId,
   type MCPServerInitInfo,
   type ModelMessageEvent,
-  type ThreadModelSelectedEvent,
+  type ThreadSwitchModelEvent,
   type ToolApprovalPolicy,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
@@ -601,7 +601,7 @@ export class AgentThreadOrchestrator {
   }
 
   /** Resolves the model of each thread that has none, before it first runs, and records the ones routing chose. */
-  private async *resolveMissingModels(): AsyncGenerator<ThreadModelSelectedEvent, void, unknown> {
+  private async *resolveMissingModels(): AsyncGenerator<ThreadSwitchModelEvent, void, unknown> {
     const resolved = await Promise.all(
       [...this.agentThreads.values()]
         .filter(thread => thread.model === undefined)
@@ -614,12 +614,11 @@ export class AgentThreadOrchestrator {
           throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
         }
         yield {
-          type: EventType.THREAD_MODEL_SELECTED,
+          type: EventType.THREAD_SWITCH_MODEL,
           id: newEventId(),
           created_at: new Date().toISOString(),
           thread_id: thread.threadId,
-          model_name: model.name,
-          params: { reasoning_effort: effort },
+          model: { name: model.name, params: { reasoning_effort: effort } },
         };
       }
       thread.setModel(model);

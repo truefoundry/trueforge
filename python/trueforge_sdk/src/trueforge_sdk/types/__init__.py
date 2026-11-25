@@ -254,11 +254,12 @@ if typing.TYPE_CHECKING:
     from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
-    from .thread_model_selected_event import ThreadModelSelectedEvent
-    from .thread_model_selected_event_params import ThreadModelSelectedEventParams
     from .thread_state import ThreadState
     from .thread_state_done import ThreadStateDone
     from .thread_state_error import ThreadStateError
+    from .thread_switch_model_event import ThreadSwitchModelEvent
+    from .thread_switch_model_event_model import ThreadSwitchModelEventModel
+    from .thread_switch_model_event_params import ThreadSwitchModelEventParams
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
@@ -559,11 +560,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
-    "ThreadModelSelectedEvent": ".thread_model_selected_event",
-    "ThreadModelSelectedEventParams": ".thread_model_selected_event_params",
     "ThreadState": ".thread_state",
     "ThreadStateDone": ".thread_state_done",
     "ThreadStateError": ".thread_state_error",
+    "ThreadSwitchModelEvent": ".thread_switch_model_event",
+    "ThreadSwitchModelEventModel": ".thread_switch_model_event_model",
+    "ThreadSwitchModelEventParams": ".thread_switch_model_event_params",
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
@@ -888,11 +890,12 @@ __all__ = [
     "ThreadContextCompactionStartedEvent",
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
-    "ThreadModelSelectedEvent",
-    "ThreadModelSelectedEventParams",
     "ThreadState",
     "ThreadStateDone",
     "ThreadStateError",
+    "ThreadSwitchModelEvent",
+    "ThreadSwitchModelEventModel",
+    "ThreadSwitchModelEventParams",
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",

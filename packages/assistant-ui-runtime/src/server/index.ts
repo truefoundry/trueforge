@@ -201,7 +201,7 @@ export type {
   ThreadContextCompactionStartedEvent,
   ThreadCreatedEvent,
   ThreadDoneEvent,
-  ThreadModelSelectedEvent,
+  ThreadSwitchModelEvent,
   ToolApprovalRequiredEvent,
   ToolCall,
   ToolCallFunction,

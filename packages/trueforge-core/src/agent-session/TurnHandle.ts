@@ -845,14 +845,14 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
         return;
       }
 
-      case HarnessEventType.THREAD_MODEL_SELECTED: {
+      case HarnessEventType.THREAD_SWITCH_MODEL: {
         await this.writeStore('append', () =>
           this.store.withTransaction(async transaction => {
             await this.store.patchThreadModel(
               {
                 ...scope,
                 thread_id: event.thread_id,
-                model: { name: event.model_name, effort: event.params.reasoning_effort },
+                model: { name: event.model.name, effort: event.model.params.reasoning_effort },
               },
               transaction,
             );
