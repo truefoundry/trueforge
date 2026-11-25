@@ -48,7 +48,7 @@ const AutoModeSetting = () => {
         refreshCapabilities?.();
         const { enabled, candidateModels } = saved.autoModelRouting;
         if (change.candidateModels === undefined) {
-          toaster?.showSuccess({ title: enabled ? 'Auto mode turned on' : 'Auto mode turned off' });
+          toaster?.showSuccess({ title: enabled ? 'Auto model routing turned on' : 'Auto model routing turned off' });
           track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
         } else {
           toaster?.showSuccess({ title: 'Auto models updated' });
@@ -80,35 +80,39 @@ const AutoModeSetting = () => {
         <Skeleton data-testid="auto-mode-setting-skeleton" className="mt-4 h-16 w-full rounded-xl" />
       ) : null}
       {enabled !== undefined ? (
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border bg-card-bg p-3">
-          <div className="min-w-0">
-            <h4 className="text-sm font-medium text-text-primary">Allow Auto mode</h4>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              {enabled
-                ? 'Chats can pick Auto, which chooses a model for each turn and each subagent.'
-                : 'Auto is unavailable, including in chats that already use it, and subagents run on their parent model.'}
-            </p>
+        <div className="mt-4 rounded-xl border border-border bg-card-bg p-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h4 className="text-sm font-medium text-text-primary">Enable Auto Model Routing</h4>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                {enabled
+                  ? 'Intelligently chooses models based on the task, for agents and subagents.'
+                  : 'Auto is unavailable, including in chats that already use it, and subagents run on their parent model.'}
+              </p>
+            </div>
+            <Switch
+              checked={enabled}
+              disabled={saveMutation.isPending}
+              aria-label="Enable Auto Model Routing"
+              onCheckedChange={next => {
+                saveMutation.mutate({ enabled: next });
+              }}
+            />
           </div>
-          <Switch
-            checked={enabled}
-            disabled={saveMutation.isPending}
-            aria-label="Allow Auto mode"
-            onCheckedChange={next => {
-              saveMutation.mutate({ enabled: next });
-            }}
-          />
+          {enabled && routing ? (
+            <div className="mt-3 border-t border-border pt-3">
+              <AutoModelCandidateList
+                // The draft restarts from whatever is saved.
+                key={JSON.stringify(routing.candidateModels)}
+                candidateModels={routing.candidateModels}
+                saving={saveMutation.isPending}
+                onSave={next => {
+                  saveMutation.mutate({ candidateModels: next });
+                }}
+              />
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {routing?.enabled ? (
-        <AutoModelCandidateList
-          // The draft restarts from whatever is saved.
-          key={JSON.stringify(routing.candidateModels)}
-          candidateModels={routing.candidateModels}
-          saving={saveMutation.isPending}
-          onSave={next => {
-            saveMutation.mutate({ candidateModels: next });
-          }}
-        />
       ) : null}
     </>
   );

@@ -49,7 +49,6 @@ import {
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
-  restrictToCandidateModels,
   SandboxError,
   VercelAILLM,
   withTimeout,
@@ -103,6 +102,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { listAutoCandidateModels } from '../runtime/autoModelRouting';
 import {
   eventIdTimestampMs,
   isLegacySequenceEntryId,
@@ -389,12 +389,15 @@ function turnModelRouting(input: {
     question: {
       categories: routing.categories,
     },
-    // The user's models, narrowed to the admin's candidate list; the router then keeps only those in a routing cluster.
+    // The user's models narrowed to the admin's candidate list; the router then keeps only those in a routing cluster.
     listModels: async () =>
-      restrictToCandidateModels({
-        models: await modelProviderStore.listModels({ tenant_id }),
-        candidateModels: input.autoModelRouting.candidate_models,
-      }),
+      (
+        await listAutoCandidateModels({
+          tenant_id,
+          modelProviderStore,
+          autoModelRouting: input.autoModelRouting,
+        })
+      ).candidateModels,
   };
 }
 

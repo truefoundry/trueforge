@@ -2,6 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { ConfigurationRecord, IConfigurationStore } from '../db/configurationStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
 import { getConfigurationRoute, patchConfigurationRoute } from '../routes/configurationRoutes';
 import {
   DEFAULT_CONFIGURATION_MANIFEST,
@@ -15,6 +16,8 @@ import {
 
 export interface ConfigurationRouterDeps {
   resolveConfigurationStore: (c: Context) => IConfigurationStore;
+  /** The caller's models: an admin can only make Auto pick models they have access to. */
+  resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -73,6 +76,21 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
     const body: UpdateConfigurationRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveConfigurationStore(c);
+    const candidateModels = body.manifest.auto_model_routing?.candidate_models;
+    if (candidateModels !== undefined) {
+      const accessible = new Set(
+        (await deps.resolveModelProviderStore(c).listModels({ tenant_id: requestContext.tenant_id })).map(
+          model => model.name,
+        ),
+      );
+      const inaccessible = [...new Set(candidateModels)].filter(name => !accessible.has(name));
+      if (inaccessible.length > 0) {
+        return c.json(
+          { error: { message: `You don't have access to these models: ${inaccessible.join(', ')}.` } },
+          400,
+        );
+      }
+    }
     const current = await store.getOrCreateConfiguration({
       tenant_id: requestContext.tenant_id,
       default_manifest: DEFAULT_CONFIGURATION_MANIFEST,

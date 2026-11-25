@@ -66,18 +66,6 @@ function isRoutingCategory(category: string): category is RoutingCategory {
   return Object.hasOwn(ROUTING_CLUSTERS, category);
 }
 
-/** The models an admin allows routing to, by full name; an empty candidate list allows none. */
-export function restrictToCandidateModels({
-  models,
-  candidateModels,
-}: {
-  models: readonly RoutableModel[];
-  candidateModels: readonly string[];
-}): RoutableModel[] {
-  const candidates = new Set(candidateModels);
-  return models.filter(model => candidates.has(model.name));
-}
-
 /** True when every routing category has a model the user can be routed to. */
 export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean {
   return Object.keys(ROUTING_CLUSTERS)

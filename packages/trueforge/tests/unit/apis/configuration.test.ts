@@ -1,10 +1,13 @@
-import { sql } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import { createConfigurationRouter } from '../../../src/apis/configuration';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { ModelInfo } from '../../../src/db/modelProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
+import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import type { Database } from '../../../src/db/sqlite/types';
 
 function patchInit(manifest: unknown): RequestInit {
   return {
@@ -14,12 +17,37 @@ function patchInit(manifest: unknown): RequestInit {
   };
 }
 
-async function createRouter() {
+const modelNames = (count: number) => Array.from({ length: count }, (_, index) => `acct/model-${String(index)}`);
+
+/** Lists a fixed set of models, standing in for the models the calling admin has access to. */
+class ListedModelsStore extends SqliteModelProviderStore {
+  readonly #models: ModelInfo[];
+
+  constructor({ db, names }: { db: Kysely<Database>; names: string[] }) {
+    super(db);
+    this.#models = names.map(name => ({
+      name,
+      model_id: name,
+      provider: { name: 'acct' },
+      properties: {},
+      canonicalModel: undefined,
+      cost: 1,
+    }));
+  }
+
+  override listModels(): Promise<ModelInfo[]> {
+    return Promise.resolve(this.#models);
+  }
+}
+
+/** The admin can access `accessibleModels`; by default the ten models the tests pick from. */
+async function createRouter({ accessibleModels = modelNames(10) }: { accessibleModels?: string[] } = {}) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const store = new SqliteConfigurationStore(db);
   const router = createConfigurationRouter({
     resolveConfigurationStore: () => store,
+    resolveModelProviderStore: () => new ListedModelsStore({ db, names: accessibleModels }),
     resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
   });
   return { router, store, db };
@@ -118,7 +146,6 @@ describe('settings configuration router', () => {
 
   describe('Auto mode model candidate list', () => {
     const tenantId = STANDALONE_REQUEST_CONTEXT.tenant_id;
-    const modelNames = (count: number) => Array.from({ length: count }, (_, index) => `acct/model-${String(index)}`);
     const four = modelNames(4);
 
     it('starts empty, which allows no model', async () => {
@@ -129,6 +156,44 @@ describe('settings configuration router', () => {
       });
       const record = await store.getConfiguration(tenantId);
       expect(record?.manifest.auto_model_routing).toEqual({ enabled: true, candidate_models: [] });
+    });
+
+    it('rejects models the admin has no access to, and saves nothing', async () => {
+      const { router, store } = await createRouter({ accessibleModels: four });
+      const lacking = ['acct/model-0', 'acct/model-1', 'acct/model-2', 'acct/secret-a', 'acct/secret-b'];
+
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: lacking } }));
+
+      expect(patched.status).toBe(400);
+      expect(await patched.json()).toEqual({
+        error: { message: "You don't have access to these models: acct/secret-a, acct/secret-b." },
+      });
+      const record = await store.getConfiguration(tenantId);
+      expect(record?.manifest.auto_model_routing.candidate_models ?? []).toEqual([]);
+    });
+
+    it('accepts models the admin has access to', async () => {
+      const { router } = await createRouter({ accessibleModels: four });
+
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
+
+      expect(patched.status).toBe(200);
+    });
+
+    it('does not check access when only the switch changes, so a saved list survives', async () => {
+      const { router, store, db } = await createRouter();
+      await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
+      const restricted = createConfigurationRouter({
+        resolveConfigurationStore: () => store,
+        resolveModelProviderStore: () => new ListedModelsStore({ db, names: [] }),
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      });
+
+      const patched = await restricted.request('/', patchInit({ auto_model_routing: { enabled: false } }));
+
+      expect(patched.status).toBe(200);
+      const record = await store.getConfiguration(tenantId);
+      expect(record?.manifest.auto_model_routing).toEqual({ enabled: false, candidate_models: four });
     });
 
     it('PATCH saves the list, dropping duplicates, and a later GET reads it back', async () => {
@@ -251,7 +316,7 @@ describe('settings configuration router', () => {
   });
 
   it('GET does not roll back an update that landed while it was in flight', async () => {
-    const { store } = await createRouter();
+    const { store, db } = await createRouter();
     const tenant_id = STANDALONE_REQUEST_CONTEXT.tenant_id;
     // Stands in for a PATCH committing after the GET found no row.
     const racingStore: IConfigurationStore = {
@@ -272,6 +337,7 @@ describe('settings configuration router', () => {
     };
     const router = createConfigurationRouter({
       resolveConfigurationStore: () => racingStore,
+      resolveModelProviderStore: () => new ListedModelsStore({ db, names: [] }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
 

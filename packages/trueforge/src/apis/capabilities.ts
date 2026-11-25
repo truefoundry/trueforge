@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { canRouteEveryCategory, restrictToCandidateModels } from '@truefoundry/trueforge-core/core';
+import { canRouteEveryCategory } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
@@ -18,6 +18,7 @@ import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { getCapabilitiesRoute, type AutoCapability, type SessionSharingCapability } from '../routes/capabilityRoutes';
+import { listAutoCandidateModels } from '../runtime/autoModelRouting';
 import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
@@ -94,10 +95,10 @@ async function autoCapability({
   if (!autoModelRouting.enabled) {
     return { status: 'disabled', reason: AUTO_TURNED_OFF_REASON };
   }
-  const userModels = await modelProviderStore.listModels({ tenant_id });
-  const candidateModels = restrictToCandidateModels({
-    models: userModels,
-    candidateModels: autoModelRouting.candidate_models,
+  const { accessibleModels, candidateModels } = await listAutoCandidateModels({
+    tenant_id,
+    modelProviderStore,
+    autoModelRouting,
   });
   if (canRouteEveryCategory(candidateModels)) {
     return { status: 'enabled' };
@@ -105,7 +106,7 @@ async function autoCapability({
   // Tells an admin-fixable restriction apart from a user who simply lacks the models.
   return {
     status: 'disabled',
-    reason: canRouteEveryCategory(userModels) ? AUTO_MODELS_RESTRICTED_REASON : AUTO_UNAVAILABLE_REASON,
+    reason: canRouteEveryCategory(accessibleModels) ? AUTO_MODELS_RESTRICTED_REASON : AUTO_UNAVAILABLE_REASON,
   };
 }
 

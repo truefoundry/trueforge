@@ -132,7 +132,6 @@ export {
   AUTO_MODEL,
   canRouteEveryCategory,
   createModelRouter,
-  restrictToCandidateModels,
   selectModel,
   type ModelRouterDeps,
   type RoutableModel,

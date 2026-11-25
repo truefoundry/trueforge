@@ -221,7 +221,7 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    const toggle = await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
     const callsBeforeSave = getCapabilities.mock.calls.length;
@@ -229,7 +229,10 @@ describe('ModelSettings Auto mode switch', () => {
 
     await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { enabled: false } }));
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false'),
+      expect(screen.getByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      ),
     );
     expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
   });
@@ -248,10 +251,10 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     expect(await screen.findByTestId('auto-mode-setting-skeleton')).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Enable Auto Model Routing' })).toBeNull();
 
     resolveConfiguration(autoOn);
-    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Enable Auto Model Routing' })).toBeInTheDocument();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 
@@ -262,7 +265,7 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
     });
 
-    await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
     expect(screen.queryByRole('button', { name: /Add Custom Provider/ })).toBeNull();
     expect(listModelProviders).not.toHaveBeenCalled();
   });
@@ -276,7 +279,10 @@ describe('ModelSettings Auto mode switch', () => {
       },
     });
 
-    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByRole('switch', { name: 'Enable Auto Model Routing' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
   });
 
   describe('model candidate list', () => {
@@ -304,9 +310,25 @@ describe('ModelSettings Auto mode switch', () => {
       expect(option('acct/haiku')).toHaveAttribute('aria-selected', 'false');
       expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'false');
       expect(
-        screen.getByText(/0 of 10 selected\. With none selected, Auto has no model to pick\./),
+        screen.getByText(/0 of 10 selected\. Pick 4 to 10 models; with none, Auto stays unavailable\./),
       ).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('puts the picker in the same card as the Auto switch, with no heading of its own', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      const toggle = await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
+      const picker = await screen.findByRole('combobox', { name: 'Select models' });
+
+      const card = toggle.closest('.rounded-xl');
+      expect(card).not.toBeNull();
+      expect(card).toContainElement(picker);
+      expect(screen.queryByRole('heading', { name: 'Models Auto can choose from' })).toBeNull();
     });
 
     it('narrows the dropdown with search', async () => {
@@ -361,11 +383,11 @@ describe('ModelSettings Auto mode switch', () => {
       await openPicker();
       for (const name of fiveModels.slice(0, 3)) fireEvent.click(option(name));
       expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-      expect(screen.getByText(/Choose at least 4 models to save\./)).toBeInTheDocument();
+      expect(screen.getByText(/Pick at least 4 to save\./)).toBeInTheDocument();
 
       fireEvent.click(option('acct/gemini'));
       expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-      expect(screen.queryByText(/Choose at least 4 models to save\./)).toBeNull();
+      expect(screen.queryByText(/Pick at least 4 to save\./)).toBeNull();
     });
 
     it('stops at ten models and frees a slot when one is removed', async () => {
@@ -499,7 +521,7 @@ describe('ModelSettings Auto mode switch', () => {
         },
       });
 
-      await screen.findByRole('switch', { name: 'Allow Auto mode' });
+      await screen.findByRole('switch', { name: 'Enable Auto Model Routing' });
       expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
     });
   });
@@ -511,7 +533,7 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     await screen.findByText('gpt-4-1');
-    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Enable Auto Model Routing' })).toBeNull();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 });

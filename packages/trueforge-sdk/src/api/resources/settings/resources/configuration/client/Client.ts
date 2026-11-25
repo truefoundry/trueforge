@@ -121,7 +121,7 @@ export class ConfigurationClient {
     }
 
     /**
-     * Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+     * Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to.
      *
      * @param {TrueForge.settings.UpdateConfigurationRequest} request
      * @param {ConfigurationClient.RequestOptions} requestOptions - Request-specific configuration.

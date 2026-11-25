@@ -92,23 +92,27 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
   const routingUnavailableReason = capabilities?.auto.status === 'disabled' ? capabilities.auto.reason : undefined;
 
+  const hint =
+    selected.length === 0
+      ? `Pick ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)} models; with none, Auto stays unavailable.`
+      : belowMinimum && dirty
+        ? `Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
+        : atLimit
+          ? 'Remove one to add another.'
+          : 'Users are only routed to models they can access.';
+
   const toggle = (name: string) =>
     setSelected(current => (current.includes(name) ? current.filter(item => item !== name) : [...current, name]));
 
   return (
-    <div className="mt-2 rounded-xl border border-border bg-card-bg p-3">
-      <h4 className="text-sm font-medium text-text-primary">Models Auto can choose from</h4>
-      <p className="mt-0.5 text-xs text-text-secondary">
-        {`Auto only picks from the models selected here, among the models each user has access to. Choose ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)}.`}
-      </p>
-
+    <div>
       {routingUnavailableReason ? (
-        <p role="status" className="mt-3 text-xs text-failure-bg">
+        <p role="status" className="mb-3 text-xs text-failure-bg">
           {routingUnavailableReason}
         </p>
       ) : null}
 
-      <div ref={rootRef} className="mt-3">
+      <div ref={rootRef}>
         {modelsQuery.isPending ? (
           <Skeleton data-testid="auto-model-candidate-list-skeleton" className="h-8 w-full rounded-md" />
         ) : (
@@ -237,12 +241,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
       {modelsQuery.isError ? (
         <p className="mt-2 text-xs text-failure-bg">{getErrorMessage(modelsQuery.error, 'Failed to load models')}</p>
       ) : null}
-      <p className="mt-2 text-xs text-text-secondary">
-        {`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected.`}
-        {selected.length === 0 ? ' With none selected, Auto has no model to pick.' : ''}
-        {belowMinimum && dirty ? ` Choose at least ${String(MIN_CANDIDATE_MODELS)} models to save.` : ''}
-        {atLimit ? ' Remove a model to choose another.' : ''}
-      </p>
+      <p className="mt-2 text-xs text-text-secondary">{`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected. ${hint}`}</p>
 
       {dirty ? (
         <div className="mt-3 flex justify-end gap-2">

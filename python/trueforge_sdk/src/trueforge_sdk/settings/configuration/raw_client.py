@@ -90,7 +90,7 @@ class RawConfigurationClient:
         self, *, manifest: ConfigurationManifestPatch, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetConfigurationResponse]:
         """
-        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to.
 
         Parameters
         ----------
@@ -241,7 +241,7 @@ class AsyncRawConfigurationClient:
         self, *, manifest: ConfigurationManifestPatch, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetConfigurationResponse]:
         """
-        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+        Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to.
 
         Parameters
         ----------
