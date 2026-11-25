@@ -1,6 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { createConfigurationRouter } from '../../../src/apis/configuration';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration, { parseTrueFoundryModelRouting } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ModelInfo } from '../../../src/db/modelProviderStore';
@@ -23,14 +24,23 @@ const modelNames = (count: number) => Array.from({ length: count }, (_, index) =
 class ListedModelsStore extends SqliteModelProviderStore {
   readonly #models: ModelInfo[];
 
-  constructor({ db, names }: { db: Kysely<Database>; names: string[] }) {
+  constructor({
+    db,
+    names,
+    canonicalModels = {},
+  }: {
+    db: Kysely<Database>;
+    names: string[];
+    /** Canonical ids by model name, which place a model in a routing category. */
+    canonicalModels?: Record<string, string>;
+  }) {
     super(db);
     this.#models = names.map(name => ({
       name,
       model_id: name,
       provider: { name: 'acct' },
       properties: {},
-      canonicalModel: undefined,
+      canonicalModel: canonicalModels[name],
       cost: 1,
     }));
   }
@@ -41,13 +51,16 @@ class ListedModelsStore extends SqliteModelProviderStore {
 }
 
 /** The admin can access `accessibleModels`; by default the ten models the tests pick from. */
-async function createRouter({ accessibleModels = modelNames(10) }: { accessibleModels?: string[] } = {}) {
+async function createRouter({
+  accessibleModels = modelNames(10),
+  canonicalModels = {},
+}: { accessibleModels?: string[]; canonicalModels?: Record<string, string> } = {}) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const store = new SqliteConfigurationStore(db);
   const router = createConfigurationRouter({
     resolveConfigurationStore: () => store,
-    resolveModelProviderStore: () => new ListedModelsStore({ db, names: accessibleModels }),
+    resolveModelProviderStore: () => new ListedModelsStore({ db, names: accessibleModels, canonicalModels }),
     resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
   });
   return { router, store, db };
@@ -173,6 +186,102 @@ describe('settings configuration router', () => {
       });
       const record = await store.getConfiguration(tenantId);
       expect(record?.manifest.auto_model_routing.candidate_models ?? []).toEqual([]);
+    });
+
+    describe('with model routing set up for the tenant', () => {
+      const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
+      let previous: Map<(typeof routingKeys)[number], unknown> | undefined;
+
+      beforeEach(() => {
+        previous = new Map(routingKeys.map(key => [key, Reflect.get(configuration, key)]));
+        Reflect.set(configuration, 'STANDALONE', false);
+        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+        Reflect.set(
+          configuration,
+          'TRUEFOUNDRY_MODEL_ROUTING',
+          parseTrueFoundryModelRouting(
+            JSON.stringify({
+              decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+              tenants: { [tenantId]: { enabled: 'on' } },
+            }),
+          ),
+        );
+      });
+
+      afterEach(() => {
+        for (const [key, value] of previous ?? []) Reflect.set(configuration, key, value);
+        previous = undefined;
+      });
+
+      // flash covers direct and fixed_steps, argon covers adaptive, fable covers frontier.
+      const canonicalModels = {
+        'acct/flash': 'google/gemini-3-8-flash',
+        'acct/argon': 'google/gemini-4-argon',
+        'acct/fable': 'anthropic/claude-fable-5-2',
+        'acct/haiku': 'anthropic/claude-haiku-5-5',
+        'acct/other': 'unlisted/other-model',
+        'acct/unlisted-1': 'unlisted/model-1',
+        'acct/unlisted-2': 'unlisted/model-2',
+      };
+      const accessibleModels = Object.keys(canonicalModels);
+
+      it('rejects a list that leaves a routing category without a model, and saves nothing', async () => {
+        const { router, store } = await createRouter({ accessibleModels, canonicalModels });
+        const noFrontier = ['acct/flash', 'acct/argon', 'acct/haiku', 'acct/other'];
+
+        const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: noFrontier } }));
+
+        expect(patched.status).toBe(400);
+        expect(await patched.json()).toEqual({
+          error: {
+            message:
+              "The selected models don't cover every kind of task Auto handles. Add a model for: hard, open-ended tasks.",
+          },
+        });
+        const record = await store.getConfiguration(tenantId);
+        expect(record?.manifest.auto_model_routing.candidate_models ?? []).toEqual([]);
+      });
+
+      it('names every uncovered category', async () => {
+        const { router } = await createRouter({ accessibleModels, canonicalModels });
+
+        const patched = await router.request(
+          '/',
+          patchInit({
+            auto_model_routing: {
+              candidate_models: ['acct/fable', 'acct/other', 'acct/unlisted-1', 'acct/unlisted-2'],
+            },
+          }),
+        );
+
+        expect(patched.status).toBe(400);
+        expect(await patched.json()).toEqual({
+          error: {
+            message:
+              "The selected models don't cover every kind of task Auto handles. Add a model for: routine tasks, tool tasks with fixed steps, tasks that depend on earlier results.",
+          },
+        });
+      });
+
+      it('accepts a list that covers every category', async () => {
+        const { router } = await createRouter({ accessibleModels, canonicalModels });
+        const covering = ['acct/flash', 'acct/argon', 'acct/fable', 'acct/other'];
+
+        const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: covering } }));
+
+        expect(patched.status).toBe(200);
+        expect(await patched.json()).toMatchObject({
+          data: { manifest: { auto_model_routing: { candidate_models: covering } } },
+        });
+      });
+
+      it('still accepts an empty list, which clears the choice', async () => {
+        const { router } = await createRouter({ accessibleModels, canonicalModels });
+
+        const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: [] } }));
+
+        expect(patched.status).toBe(200);
+      });
     });
 
     it('accepts models the admin has access to', async () => {

@@ -1,9 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
+import { enabledTenantModelRouting, trueFoundryModelRouting } from '../config';
 import type { ConfigurationRecord, IConfigurationStore } from '../db/configurationStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import { getConfigurationRoute, patchConfigurationRoute } from '../routes/configurationRoutes';
+import { describeUncoveredCandidateCategories } from '../runtime/autoModelRouting';
 import {
   DEFAULT_CONFIGURATION_MANIFEST,
   type AutoModelRoutingConfiguration,
@@ -78,11 +80,10 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
     const store = deps.resolveConfigurationStore(c);
     const candidateModels = body.manifest.auto_model_routing?.candidate_models;
     if (candidateModels !== undefined) {
-      const accessible = new Set(
-        (await deps.resolveModelProviderStore(c).listModels({ tenant_id: requestContext.tenant_id })).map(
-          model => model.name,
-        ),
-      );
+      const accessibleModels = await deps
+        .resolveModelProviderStore(c)
+        .listModels({ tenant_id: requestContext.tenant_id });
+      const accessible = new Set(accessibleModels.map(model => model.name));
       const inaccessible = [...new Set(candidateModels)].filter(name => !accessible.has(name));
       if (inaccessible.length > 0) {
         return c.json(
@@ -93,6 +94,19 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
           },
           400,
         );
+      }
+      // Categories only exist where model routing is set up for the tenant; an empty list clears the choice.
+      if (
+        candidateModels.length > 0 &&
+        enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id)
+      ) {
+        const chosen = new Set(candidateModels);
+        const uncovered = describeUncoveredCandidateCategories(
+          accessibleModels.filter(model => chosen.has(model.name)),
+        );
+        if (uncovered !== undefined) {
+          return c.json({ error: { message: uncovered } }, 400);
+        }
       }
     }
     const current = await store.getOrCreateConfiguration({

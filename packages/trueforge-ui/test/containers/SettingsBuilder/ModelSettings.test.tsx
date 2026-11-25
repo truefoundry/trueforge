@@ -221,7 +221,7 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Auto model routing' });
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
     const callsBeforeSave = getCapabilities.mock.calls.length;
@@ -229,7 +229,7 @@ describe('ModelSettings Auto mode switch', () => {
 
     await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { enabled: false } }));
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Auto model routing' })).toHaveAttribute('aria-checked', 'false'),
+      expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false'),
     );
     expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
   });
@@ -248,21 +248,27 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Auto model routing' });
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
     await screen.findByRole('combobox', { name: 'Select models' });
-    expect(screen.getByText('Selects the most capable model for each task.')).toBeInTheDocument();
-    expect(screen.queryByText(/While off, Auto is unavailable/)).toBeNull();
+    expect(screen.getByText(/Each task is matched to a tier/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Learn more' })).toHaveAttribute(
+      'href',
+      'https://trueforge.dev/auto-model-routing',
+    );
+    expect(screen.queryByText(/Intelligently picks a suitable model/)).toBeNull();
     toggle.click();
 
     // The save has not returned, yet the card already shows the new state, and the switch isn't dimmed.
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Auto model routing' })).toHaveAttribute('aria-checked', 'false'),
+      expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false'),
     );
     expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
-    expect(screen.getByRole('switch', { name: 'Auto model routing' })).toHaveClass('disabled:opacity-100');
+    expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveClass('disabled:opacity-100');
 
     finishSave({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } });
-    await waitFor(() => expect(screen.getByText(/While off, Auto is unavailable in every chat/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Intelligently picks a suitable model/)).toBeInTheDocument());
+    expect(screen.queryByText(/Each task is matched to a tier/)).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Learn more' })).toBeNull();
   });
 
   it('puts the switch back when the save fails', async () => {
@@ -273,11 +279,11 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Auto model routing' });
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
     toggle.click();
 
     expect(await screen.findByText('Save failed')).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Auto model routing' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('combobox', { name: 'Select models' })).toBeInTheDocument();
   });
 
@@ -295,10 +301,10 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     expect(await screen.findByTestId('auto-mode-setting-skeleton')).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Auto model routing' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Auto Model Routing' })).toBeNull();
 
     resolveConfiguration(autoOn);
-    expect(await screen.findByRole('switch', { name: 'Auto model routing' })).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Auto Model Routing' })).toBeInTheDocument();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 
@@ -309,7 +315,7 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
     });
 
-    await screen.findByRole('switch', { name: 'Auto model routing' });
+    await screen.findByRole('switch', { name: 'Auto Model Routing' });
     expect(screen.queryByRole('button', { name: /Add Custom Provider/ })).toBeNull();
     expect(listModelProviders).not.toHaveBeenCalled();
   });
@@ -323,7 +329,7 @@ describe('ModelSettings Auto mode switch', () => {
       },
     });
 
-    expect(await screen.findByRole('switch', { name: 'Auto model routing' })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false');
   });
 
   describe('model candidate list', () => {
@@ -350,9 +356,7 @@ describe('ModelSettings Auto mode switch', () => {
       await openPicker();
       expect(option('acct/haiku')).toHaveAttribute('aria-selected', 'false');
       expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'false');
-      expect(
-        screen.getByText(/0 of 10 selected\. Pick 4 to 10 models; with none, Auto stays unavailable\./),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/0 of 10 selected\. With none selected, Auto stays unavailable\./)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     });
 
@@ -363,7 +367,7 @@ describe('ModelSettings Auto mode switch', () => {
         configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
       });
 
-      const toggle = await screen.findByRole('switch', { name: 'Auto model routing' });
+      const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
       const picker = await screen.findByRole('combobox', { name: 'Select models' });
 
       const card = toggle.closest('.rounded-xl');
@@ -567,7 +571,7 @@ describe('ModelSettings Auto mode switch', () => {
         },
       });
 
-      await screen.findByRole('switch', { name: 'Auto model routing' });
+      await screen.findByRole('switch', { name: 'Auto Model Routing' });
       expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
     });
   });
@@ -579,7 +583,7 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     await screen.findByText('gpt-4-1');
-    expect(screen.queryByRole('switch', { name: 'Auto model routing' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Auto Model Routing' })).toBeNull();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 });

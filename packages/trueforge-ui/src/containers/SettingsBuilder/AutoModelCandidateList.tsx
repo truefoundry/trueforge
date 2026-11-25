@@ -17,8 +17,8 @@ import { useOptionalServer, useServerCapabilities } from '../../server/ServerCon
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
 /** The server rejects lists outside these limits (an empty list is allowed); kept in step with its `candidate_models`. */
-const MAX_CANDIDATE_MODELS = 10;
-const MIN_CANDIDATE_MODELS = 4;
+export const MAX_CANDIDATE_MODELS = 10;
+export const MIN_CANDIDATE_MODELS = 4;
 
 type AutoModelCandidateListProps = {
   /** The saved full model names (account/model); an empty list allows none. */
@@ -99,7 +99,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
 
   const hint =
     selected.length === 0
-      ? ` Pick ${String(MIN_CANDIDATE_MODELS)} to ${String(MAX_CANDIDATE_MODELS)} models; with none, Auto stays unavailable.`
+      ? ' With none selected, Auto stays unavailable.'
       : hasUnavailable && dirty
         ? ' Remove the models marked "Not visible to you" to save.'
         : belowMinimum && dirty

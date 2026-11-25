@@ -11739,7 +11739,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to.",
+        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11769,7 +11769,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or a candidate model the caller cannot access."
+            "description": "Invalid request body, a candidate model the caller cannot access, or candidate models that leave a routing category without a model."
           },
           "401": {
             "content": {

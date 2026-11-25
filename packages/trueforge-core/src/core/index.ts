@@ -133,6 +133,7 @@ export {
   canRouteEveryCategory,
   createModelRouter,
   selectModel,
+  uncoveredRoutingCategories,
   type ModelRouterDeps,
   type RoutableModel,
   type RouteInput,

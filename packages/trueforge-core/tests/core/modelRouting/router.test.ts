@@ -9,7 +9,13 @@ import {
   SUBAGENT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
 } from '../../../src/core/modelRouting/question';
-import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
+import {
+  canRouteEveryCategory,
+  createModelRouter,
+  selectModel,
+  uncoveredRoutingCategories,
+  type RoutableModel,
+} from '../../../src/core/modelRouting/router';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { internalSystemMessage } from '../../../src/core/runtime/contextUtils';
 import { buildUploadedFilesAnnouncement } from '../../../src/core/runtime/UserInputMessage';
@@ -119,6 +125,13 @@ describe('canRouteEveryCategory', () => {
     const sol: RoutableModel = { name: 'a/gpt-6-1-sol', canonicalModel: 'openai/gpt-6-1-sol', cost: 5 };
     const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
     expect(canRouteEveryCategory([luna, sol])).toBe(true);
+  });
+
+  it('names the categories no model can serve', () => {
+    expect(uncoveredRoutingCategories([flash, argon])).toEqual(['frontier']);
+    expect(uncoveredRoutingCategories([fable])).toEqual(['direct', 'fixed_steps', 'adaptive']);
+    expect(uncoveredRoutingCategories([flash, argon, fable])).toEqual([]);
+    expect(uncoveredRoutingCategories([])).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
   });
 });
 
