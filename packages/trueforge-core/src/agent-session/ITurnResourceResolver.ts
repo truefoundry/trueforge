@@ -13,7 +13,6 @@ import type { AgentSpec } from './schemas/agentSpec';
 /** Result of {@link ITurnResourceResolver.resolveAgentDefinition}. */
 export interface ResolvedAgentDefinition {
   definition: AgentDefinition;
-  model: AgentModel;
   extraCapabilities?: AgentCapability[] | undefined;
 }
 
@@ -62,11 +61,16 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
-    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
+  resolveModel(input: {
+    spec: AgentSpec;
+    agent_info: AgentInfo | undefined;
+    model: ModelSnapshot | undefined;
+    routingInput: RouteInput | undefined;
+  }): Promise<AgentModel>;
   /** Picks a thread's model before it starts; undefined to not route. */
   readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
   /**

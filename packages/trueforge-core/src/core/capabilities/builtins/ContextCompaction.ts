@@ -15,12 +15,12 @@ export const DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS = 50 * 1000;
 export const DEFAULT_CONTEXT_COMPACTION_RATIO = 0.8;
 
 export function resolveCompactionThresholdTokens(input: {
-  configuredThresholdTokens: number | undefined;
+  compactionThresholdTokens: number | undefined;
   modelContextLength: number | undefined;
   modelParams: AgentModel['params'];
 }): number {
-  if (input.configuredThresholdTokens !== undefined) {
-    return input.configuredThresholdTokens;
+  if (input.compactionThresholdTokens !== undefined) {
+    return input.compactionThresholdTokens;
   }
   if (input.modelContextLength !== undefined) {
     const ratioThreshold = Math.floor(input.modelContextLength * DEFAULT_CONTEXT_COMPACTION_RATIO);
@@ -182,26 +182,29 @@ function createSummarizationCandidate(context: ContextMessage[]) {
 }
 
 export class ContextCompaction implements PreLLMAgentContextProcessor {
-  private modelClient: ILLM;
-  private compactionThresholdTokens: number;
+  private compactionThresholdTokens: number | undefined;
 
-  constructor(input: { modelClient: ILLM; compactionThresholdTokens: number }) {
-    this.modelClient = input.modelClient;
+  constructor(input: { compactionThresholdTokens: number | undefined }) {
     this.compactionThresholdTokens = input.compactionThresholdTokens;
   }
 
   async *processPreLLM(
     execution: Readonly<AgentThreadExecutionContext>,
   ): AsyncGenerator<AgentContextProcessorOutput, void, unknown> {
+    const thresholdTokens = resolveCompactionThresholdTokens({
+      compactionThresholdTokens: this.compactionThresholdTokens,
+      modelContextLength: execution.model.properties?.contextLength,
+      modelParams: execution.model.params,
+    });
     const contextTokens = execution.currentContextUsage.prompt_tokens + execution.currentContextUsage.completion_tokens;
-    if (contextTokens + PROMPT_TOKENS < this.compactionThresholdTokens) {
+    if (contextTokens + PROMPT_TOKENS < thresholdTokens) {
       return;
     }
 
     const trigger: CompactionTrigger = {
       type: 'context_threshold_exceeded',
       context_tokens: Math.ceil(contextTokens),
-      threshold_tokens: this.compactionThresholdTokens,
+      threshold_tokens: thresholdTokens,
     };
 
     yield {
@@ -223,7 +226,7 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
     const startedAtMs = Date.now();
     let response: Awaited<ReturnType<ILLM['createNonStream']>>;
     try {
-      response = await this.modelClient.createNonStream(body, {
+      response = await execution.model.client.createNonStream(body, {
         metadata: { 'tfg.thread_id': execution.threadId, 'tfg.compaction': 'true' },
       });
     } catch (error) {
@@ -264,20 +267,13 @@ export interface ContextCompactionSettings {
 }
 
 export function contextCompaction(options: {
-  model: AgentModel;
   settings?: ContextCompactionSettings | undefined;
   compactionThresholdTokens?: number | undefined;
 }): AgentCapability {
-  const threshold = resolveCompactionThresholdTokens({
-    configuredThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
-    modelContextLength: options.model.properties?.contextLength,
-    modelParams: options.model.params,
-  });
   return {
     preLLMProcessors: [
       new ContextCompaction({
-        modelClient: options.model.client,
-        compactionThresholdTokens: threshold,
+        compactionThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
       }),
     ],
   };

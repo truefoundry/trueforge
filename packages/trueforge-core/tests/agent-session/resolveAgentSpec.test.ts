@@ -51,11 +51,11 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
 
-    const { model } = await resolver.resolveAgentDefinition({
+    const model = await resolver.resolveModel({
       spec: makeAgentSpec(),
+      agent_info: undefined,
       model: undefined,
-      signal: new AbortController().signal,
-      tracing: resolver.createTracing(),
+      routingInput: undefined,
     });
 
     expect(model.properties).toBeUndefined();
@@ -96,11 +96,11 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       },
     });
 
-    const { model } = await resolver.resolveAgentDefinition({
+    const model = await resolver.resolveModel({
       spec,
+      agent_info: undefined,
       model: undefined,
-      signal: new AbortController().signal,
-      tracing: resolver.createTracing(),
+      routingInput: undefined,
     });
 
     expect(model.params?.['max_tokens']).toBe(expected);
@@ -112,12 +112,12 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     {
       name: "runs another model on its own defaults, not the agent's params",
       resolvedModelParams: { max_tokens: 4096 },
-      expected: { max_tokens: 4096, parallel_tool_calls: true },
+      expected: { max_tokens: 4096 },
     },
     {
       name: "sends no max_tokens on another model whose limit isn't known",
       resolvedModelParams: {},
-      expected: { parallel_tool_calls: true },
+      expected: {},
     },
   ])('$name', async ({ resolvedModelParams, expected }) => {
     const resolver = new TurnResourceResolver({
@@ -137,12 +137,11 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       model: { name: 'provider/model', params: { max_tokens: 8192, temperature: 0.2, reasoning_effort: 'high' } },
     });
 
-    const { model } = await resolver.resolveAgentDefinition({
+    const model = await resolver.resolveModel({
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/other' },
       model: undefined,
-      signal: new AbortController().signal,
-      tracing: resolver.createTracing(),
+      routingInput: undefined,
     });
 
     expect(model.params).toEqual(expected);
@@ -166,16 +165,44 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       model: { name: 'provider/model', params: { max_tokens: 8192, reasoning_effort: 'high' } },
     });
 
-    const { model } = await resolver.resolveAgentDefinition({
+    const model = await resolver.resolveModel({
       spec,
       agent_info: { type: 'dynamic', name: 'worker', input: 'task', model: 'provider/requested' },
       model: { name: 'provider/routed', effort: 'medium' },
-      signal: new AbortController().signal,
-      tracing: resolver.createTracing(),
+      routingInput: undefined,
     });
 
     expect(model.name).toBe('provider/routed');
-    expect(model.params).toEqual({ max_tokens: 4096, parallel_tool_calls: true, reasoning_effort: 'medium' });
+    expect(model.params).toEqual({ max_tokens: 4096, reasoning_effort: 'medium' });
+  });
+
+  it('runs a root that names a model on its spec, not a saved model', async () => {
+    const resolver = new TurnResourceResolver({
+      modelRouting: undefined,
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: { max_tokens: 4096 },
+          providerType: undefined,
+        }),
+      mcp: () => Promise.resolve(undefined),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model', params: { reasoning_effort: 'high' } },
+    });
+
+    const model = await resolver.resolveModel({
+      spec,
+      agent_info: undefined,
+      model: { name: 'provider/saved', effort: 'low' },
+      routingInput: undefined,
+    });
+
+    expect(model.name).toBe('provider/model');
+    expect(model.params).toEqual({ max_tokens: 4096, reasoning_effort: 'high' });
   });
 
   it('closes each RemoteMCP when the turn ends', async () => {
@@ -203,7 +230,6 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     await resolver.resolveAgentDefinition({
       spec,
-      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -286,6 +312,7 @@ describe('SessionHandle rebuild', () => {
 
     const resolver = makeTestResolver();
     const resolveAgentDefinition = jest.spyOn(resolver, 'resolveAgentDefinition');
+    const resolveModel = jest.spyOn(resolver, 'resolveModel');
     await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
@@ -295,13 +322,12 @@ describe('SessionHandle rebuild', () => {
       resolver,
     });
 
-    const calls = resolveAgentDefinition.mock.calls.map(([input]) => input);
-    expect(calls).toContainEqual(
+    expect(resolveModel.mock.calls.map(([input]) => input)).toContainEqual(
       expect.objectContaining({
         agent_info: expect.objectContaining({ name: 'child', model: 'acct/requested' }),
         model: { name: 'acct/routed', effort: 'high' },
       }),
     );
-    expect(calls.map(call => call.agent_info)).toContainEqual(undefined);
+    expect(resolveAgentDefinition.mock.calls.map(([input]) => input.agent_info)).toContainEqual(undefined);
   });
 });

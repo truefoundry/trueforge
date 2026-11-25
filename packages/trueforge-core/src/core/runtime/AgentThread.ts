@@ -3,6 +3,7 @@ import type { Logger } from 'winston';
 import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
+  AgentThreadContext,
   AgentThreadExecutionContext,
   PostToolCallAgentContextProcessor,
   PreLLMAgentContextProcessor,
@@ -1074,32 +1075,33 @@ export class AgentThread {
     void,
     unknown
   > {
-    let processors: ((
-      execution: Readonly<AgentThreadExecutionContext>,
-    ) => AsyncIterable<AgentContextProcessorOutput>)[];
-    switch (hook) {
-      case 'preSend':
-        processors = this.preSendContextProcessors.map(p => p.processPreSend.bind(p));
-        break;
-      case 'preLLM':
-        processors = this.preLLMContextProcessors.map(p => p.processPreLLM.bind(p));
-        break;
-      case 'postToolCall':
-        processors = this.postToolCallContextProcessor.map(p => p.processPostToolCall.bind(p));
-        break;
-      default:
-        throw new Error(`Unknown hook: ${String(hook)}`);
-    }
-
-    const execution: Readonly<AgentThreadExecutionContext> = {
+    const preSend: Readonly<AgentThreadContext> = {
       threadId: this.threadId,
       sandbox: this.sandbox,
       currentContextUsage: this.currentContextUsage,
       context: this.context,
     };
+    let processors: (() => AsyncIterable<AgentContextProcessorOutput>)[];
+    switch (hook) {
+      case 'preSend':
+        processors = this.preSendContextProcessors.map(p => () => p.processPreSend(preSend));
+        break;
+      case 'preLLM': {
+        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.model };
+        processors = this.preLLMContextProcessors.map(p => () => p.processPreLLM(execution));
+        break;
+      }
+      case 'postToolCall': {
+        const execution: Readonly<AgentThreadExecutionContext> = { ...preSend, model: this.model };
+        processors = this.postToolCallContextProcessor.map(p => () => p.processPostToolCall(execution));
+        break;
+      }
+      default:
+        throw new Error(`Unknown hook: ${String(hook)}`);
+    }
 
     for (const processor of processors) {
-      for await (const response of processor(execution)) {
+      for await (const response of processor()) {
         switch (response.type) {
           case InternalEventType.AGENT_CONTEXT_APPEND: {
             const append = this.toThreadContextAppend(response.context);
@@ -1460,6 +1462,7 @@ export class AgentThread {
       sandbox: this.sandbox,
       currentContextUsage: this.currentContextUsage,
       context: this.context,
+      model: this.model,
     };
     for (const processor of this.toolResponseProcessors) {
       const processorResult = await processor.process(toolCallResults, toolResponseExecution);
