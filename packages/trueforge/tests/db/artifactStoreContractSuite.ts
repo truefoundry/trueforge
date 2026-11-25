@@ -9,7 +9,7 @@ const AGENT_ID = 'agent-1';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
-  created_by_subject_id: OWNER,
+  created_by_subject_id: SUBJECT.subject_id,
   created_by_session_id: undefined,
   name: undefined,
   limit: 10,

@@ -1,4 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+
 export interface ArtifactRecord {
   id: string;
   tenant_id: string;
