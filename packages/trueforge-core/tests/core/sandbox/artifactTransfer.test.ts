@@ -19,7 +19,7 @@ describe('artifact_transfer_v1.py', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'artifact-transfer-'));
-    transferDir = join(root, 'tfg', 'artifacts');
+    transferDir = join(root, '.tfg', 'artifacts');
     mkdirSync(join(transferDir, 'uploads'), { recursive: true });
     writeFileSync(artifactTransferScriptPath(transferDir), sandboxScripts.artifactTransfer);
   });
@@ -131,7 +131,7 @@ describe('artifact_transfer_v1.py', () => {
 });
 
 describe('Sandbox artifact transfer', () => {
-  const TRANSFER_DIR = '/prov/tfg/artifacts';
+  const TRANSFER_DIR = '/prov/.tfg/artifacts';
   const SCRIPT = `${TRANSFER_DIR}/artifact_transfer_v1.py`;
   const VALIDATE_OUTPUT = { mode: 'validate', success: true, exit_code: 0, error: null, files: [] };
   const UPLOAD_OUTPUT = { mode: 'upload', success: true, exit_code: 0, files: [] };

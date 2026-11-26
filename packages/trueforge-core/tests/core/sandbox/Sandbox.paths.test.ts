@@ -26,7 +26,7 @@ function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider
     getFileUploadsDir: () => '/prov/uploads',
     getSkillsDir: () => '/prov/skills',
     getSkillDownloaderPath: () => '/prov/skill_downloader.py',
-    getArtifactTransferDir: () => '/prov/tfg/artifacts',
+    getArtifactTransferDir: () => '/prov/.tfg/artifacts',
     downloadFile: jest.fn(),
     uploadFile: jest.fn().mockResolvedValue(undefined),
     createCodeModeTransport: jest.fn(),
