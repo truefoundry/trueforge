@@ -121,6 +121,7 @@ export * from "./ListPermissionsResponse.js";
 export * from "./ListSandboxEnvironmentsResponse.js";
 export * from "./ListScheduleRunsResponse.js";
 export * from "./ListSchedulesResponse.js";
+export * from "./ListSessionArtifactsResponse.js";
 export * from "./ListSessionEventsResponse.js";
 export * from "./ListSessionGrantsResponse.js";
 export * from "./ListSessionsOrder.js";

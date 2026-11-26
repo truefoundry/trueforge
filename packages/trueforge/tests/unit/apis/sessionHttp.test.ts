@@ -20,6 +20,7 @@ import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
+import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -36,6 +37,7 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { ListSessionArtifactsResponseSchema } from '../../../src/schemas/artifact';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
@@ -81,6 +83,7 @@ const denyAllAuthorizer: Authorizer = {
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
+  let artifactStore: SqliteArtifactStore;
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let configurationStore: SqliteConfigurationStore;
@@ -107,6 +110,7 @@ describe('sessions HTTP agent binding', () => {
     memoryProviderStore = new SqliteMemoryProviderStore(db);
     configurationStore = new SqliteConfigurationStore(db);
     agentStore = new SqliteAgentStore(db);
+    artifactStore = new SqliteArtifactStore(db);
 
     await modelProviderStore.upsertProvider({
       tenant_id: 'default',
@@ -131,6 +135,7 @@ describe('sessions HTTP agent binding', () => {
     const deps: SessionsRouterDeps<Transaction<Database>> = {
       accessControlStore: new SqliteAccessControlStore(db),
       activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+      artifactStore,
       authorizer: new TrueForgeAuthorizer(),
       logger: createLogger({ silent: true }),
       redis: createClient(),
@@ -552,7 +557,7 @@ describe('sessions HTTP agent binding', () => {
     expect(response.status).toBe(400);
   });
 
-  it("rejects access to another user's session on get/update/delete/cancel/events and scopes list", async () => {
+  it("rejects access to another user's session on get/update/delete/cancel/events/artifacts and scopes list", async () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 'other-user-session',
@@ -602,6 +607,7 @@ describe('sessions HTTP agent binding', () => {
       ['/other-user-session', { method: 'DELETE' }],
       ['/other-user-session/cancel', { method: 'POST' }],
       ['/other-user-session/events', undefined],
+      ['/other-user-session/artifacts', undefined],
       [
         '/other-user-session/turns/any-turn/events',
         jsonInit('POST', {
@@ -623,6 +629,32 @@ describe('sessions HTTP agent binding', () => {
     }
 
     expect((await app.request(`/${json.data.id}`)).status).toBe(200);
+  });
+
+  it('lists the artifacts of a session', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    const artifact = await artifactStore.createArtifact({
+      tenant_id: 'default',
+      name: 'Report',
+      created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
+      created_by_session_id: 'another-session',
+      created_by_agent_id: null,
+    });
+    await artifactStore.createVersion({
+      tenant_id: 'default',
+      artifact_id: artifact.id,
+      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/report' },
+      created_by_subject: artifact.created_by_subject,
+      created_by_session_id: session.id,
+      created_by_agent_id: null,
+    });
+
+    const listed = await app.request(`/${session.id}/artifacts`);
+    expect(listed.status).toBe(200);
+    const { data } = ListSessionArtifactsResponseSchema.parse(await listed.json());
+    expect(data.map(a => a.id)).toEqual([artifact.id]);
+    expect((await app.request('/missing-session/artifacts')).status).toBe(404);
   });
 
   it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {

@@ -37,6 +37,12 @@ export const ListArtifactsResponseSchema = z
   })
   .openapi('ListArtifactsResponse');
 
+export const ListSessionArtifactsResponseSchema = z
+  .object({
+    data: z.array(ArtifactSchema),
+  })
+  .openapi('ListSessionArtifactsResponse');
+
 /** Excludes control characters, bidi embeddings/overrides/isolates, and characters disallowed in file names. */
 // eslint-disable-next-line no-control-regex -- rejecting control characters is the intent
 const ARTIFACT_NAME_PATTERN = /^[^\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069/\\:*?"<>|]*$/;

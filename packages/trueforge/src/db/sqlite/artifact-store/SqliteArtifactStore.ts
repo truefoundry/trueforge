@@ -14,6 +14,7 @@ import {
   type GetArtifactInput,
   type IArtifactStore,
   type ListArtifactsInput,
+  type ListSessionArtifactsInput,
   type UpdateArtifactInput,
 } from '../../artifactStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -126,6 +127,26 @@ export class SqliteArtifactStore implements IArtifactStore {
       .execute();
     const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
     return { data: data.map(toArtifactRecord), pagination };
+  }
+
+  async listSessionArtifacts(input: ListSessionArtifactsInput): Promise<ArtifactRecord[]> {
+    const rows = await this.#db
+      .selectFrom('artifact')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where(eb =>
+        eb.exists(
+          eb
+            .selectFrom('artifact_version')
+            .select('artifact_version.artifact_id')
+            .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
+            .where('artifact_version.created_by_session_id', '=', input.session_id),
+        ),
+      )
+      .orderBy('updated_at', 'desc')
+      .orderBy('id')
+      .execute();
+    return rows.map(toArtifactRecord);
   }
 
   async createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
