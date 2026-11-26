@@ -2,6 +2,7 @@
  * Stream processing: usage/finish-reason normalisation and the
  * TextStreamPart → ExtendedChatCompletionChunk mapper.
  */
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import type {
   FinishReason,
   LanguageModelUsage,
@@ -15,6 +16,8 @@ import { ModelProviderError } from '../../../src/core/errors';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
+  describeStreamPartError,
+  INTERRUPTED_RESPONSE_MESSAGE,
   mapFinishReason,
   mapStreamToChunks,
   normalizeUsage,
@@ -249,6 +252,36 @@ describe('describeStreamError', () => {
       expect(describeStreamError(42)).toBe('42');
       expect(describeStreamError(null)).toBe('null');
     });
+  });
+});
+
+// ─────────── describeStreamPartError ───────────
+
+describe('describeStreamPartError', () => {
+  it('replaces the adapter wording for a missing finish reason', () => {
+    const raw = new InvalidResponseDataError({
+      data: undefined,
+      message: 'Response stream ended without a finish reason.',
+    });
+    expect(describeStreamPartError(raw)).toBe(INTERRUPTED_RESPONSE_MESSAGE);
+  });
+
+  it('keeps the adapter message for other InvalidResponseDataError causes', () => {
+    const raw = new InvalidResponseDataError({
+      data: undefined,
+      message: "Expected 'function' type.",
+    });
+    expect(describeStreamPartError(raw)).toBe("Expected 'function' type.");
+  });
+
+  it('leaves every other stream error to describeStreamError', () => {
+    const raw = new APICallError({
+      message: 'invalid x-api-key',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 401,
+    });
+    expect(describeStreamPartError(raw)).toBe(describeStreamError(raw));
   });
 });
 
@@ -687,6 +720,24 @@ describe('mapStreamToChunks', () => {
       message: 'The requested model does not exist.',
       cause: { message: 'The requested model does not exist.' },
     });
+  });
+
+  it('replaces the adapter wording when the stream closed with no finish reason', async () => {
+    const cause = new InvalidResponseDataError({
+      data: undefined,
+      message: 'Response stream ended without a finish reason.',
+    });
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([
+            { type: 'text-delta', id: 't1', text: 'partial' },
+            { type: 'error', error: cause },
+          ]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({ message: INTERRUPTED_RESPONSE_MESSAGE, cause });
   });
 
   it('sets chunk metadata (id, model, object) on emitted chunks', async () => {

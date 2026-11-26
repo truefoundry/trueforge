@@ -261,6 +261,7 @@ describe('ThreadListContainer', () => {
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Chat History' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search chat history' })).toBeInTheDocument();
     expect(container.querySelector('[data-slot="aui_thread-list-viewport"]')).toHaveClass('aui-scrollbar-hidden');
   });
 

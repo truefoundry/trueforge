@@ -17,8 +17,8 @@ import { useTheme } from '../theme/ThemeProvider.js';
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
@@ -139,7 +139,7 @@ export function ShellActions({
                   hoverClass,
                   railClass,
                   labeledClass,
-                  shell.settingsOpen && (iconOnly ? shellRailSelectedClassName : shellSelectedClassName),
+                  shell.settingsOpen && (iconOnly ? shellRailSelectedClassName : shellNavSelectedClassName),
                 ),
               })}
               onClick={() => {

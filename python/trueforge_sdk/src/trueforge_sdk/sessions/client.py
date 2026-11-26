@@ -12,6 +12,7 @@ from ..types.create_session_agent import CreateSessionAgent
 from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
+from ..types.list_session_artifacts_response import ListSessionArtifactsResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
 from ..types.list_session_grants_response import ListSessionGrantsResponse
 from ..types.list_sessions_order import ListSessionsOrder
@@ -291,6 +292,40 @@ class SessionsClient:
         _response = self._raw_client.update(
             session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
+        return _response.data
+
+    def list_artifacts(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ListSessionArtifactsResponse:
+        """
+        List artifacts with a version created in this session, most recently updated first.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionArtifactsResponse
+            Artifacts of the session.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sessions.list_artifacts(
+            session_id="session_id",
+        )
+        """
+        _response = self._raw_client.list_artifacts(session_id=session_id, request_options=request_options)
         return _response.data
 
     def cancel(
@@ -1220,6 +1255,48 @@ class AsyncSessionsClient:
         _response = await self._raw_client.update(
             session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
+        return _response.data
+
+    async def list_artifacts(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ListSessionArtifactsResponse:
+        """
+        List artifacts with a version created in this session, most recently updated first.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ListSessionArtifactsResponse
+            Artifacts of the session.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.list_artifacts(
+                session_id="session_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_artifacts(session_id=session_id, request_options=request_options)
         return _response.data
 
     async def cancel(

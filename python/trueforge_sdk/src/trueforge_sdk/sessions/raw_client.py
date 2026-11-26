@@ -35,6 +35,7 @@ from ..types.create_session_agent import CreateSessionAgent
 from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
+from ..types.list_session_artifacts_response import ListSessionArtifactsResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
 from ..types.list_session_grants_response import ListSessionGrantsResponse
 from ..types.list_sessions_order import ListSessionsOrder
@@ -483,6 +484,71 @@ class RawSessionsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def list_artifacts(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ListSessionArtifactsResponse]:
+        """
+        List artifacts with a version created in this session, most recently updated first.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ListSessionArtifactsResponse]
+            Artifacts of the session.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/artifacts",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionArtifactsResponse,
+                    construct_type(
+                        type_=ListSessionArtifactsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -2342,6 +2408,71 @@ class AsyncRawSessionsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def list_artifacts(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ListSessionArtifactsResponse]:
+        """
+        List artifacts with a version created in this session, most recently updated first.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ListSessionArtifactsResponse]
+            Artifacts of the session.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/artifacts",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionArtifactsResponse,
+                    construct_type(
+                        type_=ListSessionArtifactsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

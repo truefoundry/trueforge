@@ -492,6 +492,79 @@ const response = page.response;
 </dl>
 </details>
 
+<details><summary><code>client.artifacts.<a href="/src/api/resources/artifacts/client/Client.ts">update</a>(artifact_id, { ...params }) -> TrueForge.UpdateArtifactResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Update an artifact.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.artifacts.update("artifact_id", {
+    name: "name"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**artifact_id:** `string` — Artifact identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.UpdateArtifactRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `ArtifactsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Auth
 <details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.GetMeResponse</code></summary>
 <dl>
@@ -2187,6 +2260,69 @@ await client.sessions.update("session_id");
 <dd>
 
 **request:** `TrueForge.UpdateSessionRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listArtifacts</a>(session_id) -> TrueForge.ListSessionArtifactsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List artifacts with a version created in this session, most recently updated first.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.listArtifacts("session_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -4268,7 +4404,7 @@ await client.settings.configuration.get();
 <dl>
 <dd>
 
-Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.
 </dd>
 </dl>
 </dd>

@@ -22,7 +22,10 @@ function toRecord(row: Selectable<ConfigurationTable>): ConfigurationRecord {
   };
 }
 
-/** Adds only the switches a row lacks, in one statement, so a concurrent save is never overwritten. */
+/**
+ * Adds only the switches a row lacks, in one statement, so a concurrent save is never overwritten.
+ * `||` is shallow, so the Auto switch's own fields are merged separately.
+ */
 async function seedMissingSwitches({
   db,
   row,
@@ -35,7 +38,13 @@ async function seedMissingSwitches({
   }
   return await db
     .updateTable('configuration')
-    .set({ manifest: sql<ConfigurationManifest>`${json(DEFAULT_CONFIGURATION_MANIFEST)} || manifest` })
+    .set({
+      manifest: sql<ConfigurationManifest>`jsonb_set(
+        ${json(DEFAULT_CONFIGURATION_MANIFEST)} || manifest,
+        '{auto_model_routing}',
+        ${json(DEFAULT_CONFIGURATION_MANIFEST.auto_model_routing)} || COALESCE(manifest -> 'auto_model_routing', '{}'::jsonb)
+      )`,
+    })
     .where('tenant_id', '=', row.tenant_id)
     .returningAll()
     .executeTakeFirstOrThrow();

@@ -1,10 +1,15 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
+import { enabledTenantModelRouting, trueFoundryModelRouting } from '../config';
 import type { ConfigurationRecord, IConfigurationStore } from '../db/configurationStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
 import { getConfigurationRoute, patchConfigurationRoute } from '../routes/configurationRoutes';
+import { describeUncoveredCandidateCategories } from '../runtime/autoModelRouting';
 import {
   DEFAULT_CONFIGURATION_MANIFEST,
+  type AutoModelRoutingConfiguration,
+  type AutoModelRoutingConfigurationPatch,
   type Configuration,
   type ConfigurationManifest,
   type ConfigurationManifestPatch,
@@ -13,11 +18,29 @@ import {
 
 export interface ConfigurationRouterDeps {
   resolveConfigurationStore: (c: Context) => IConfigurationStore;
+  /** The caller's models: an admin can only make Auto pick models they have access to. */
+  resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
 function toConfiguration(record: ConfigurationRecord): Configuration {
   return { manifest: record.manifest, updated_at: record.updated_at };
+}
+
+function applyAutoModelRoutingPatch({
+  current,
+  patch,
+}: {
+  current: AutoModelRoutingConfiguration;
+  patch: AutoModelRoutingConfigurationPatch | undefined;
+}): AutoModelRoutingConfiguration {
+  if (patch === undefined) {
+    return current;
+  }
+  return {
+    enabled: patch.enabled ?? current.enabled,
+    candidate_models: [...new Set(patch.candidate_models ?? current.candidate_models)],
+  };
 }
 
 /** Listed per switch so a new switch cannot be silently dropped from a patch. */
@@ -31,7 +54,10 @@ function applyPatch({
   return {
     web_search: patch.web_search ?? current.web_search,
     memory: patch.memory ?? current.memory,
-    auto_model_routing: patch.auto_model_routing ?? current.auto_model_routing,
+    auto_model_routing: applyAutoModelRoutingPatch({
+      current: current.auto_model_routing,
+      patch: patch.auto_model_routing,
+    }),
   };
 }
 
@@ -51,6 +77,29 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
     const body: UpdateConfigurationRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveConfigurationStore(c);
+    const candidateModels = body.manifest.auto_model_routing?.candidate_models;
+    if (candidateModels !== undefined) {
+      const accessibleModels = await deps
+        .resolveModelProviderStore(c)
+        .listModels({ tenant_id: requestContext.tenant_id });
+      const accessible = new Set(accessibleModels.map(model => model.name));
+      if (candidateModels.some(name => !accessible.has(name))) {
+        return c.json(
+          { error: { message: 'You do not have access to all candidate models in the provided list.' } },
+          400,
+        );
+      }
+      // Categories only exist where model routing is set up for the tenant.
+      if (enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id)) {
+        const chosen = new Set(candidateModels);
+        const uncovered = describeUncoveredCandidateCategories(
+          accessibleModels.filter(model => chosen.has(model.name)),
+        );
+        if (uncovered !== undefined) {
+          return c.json({ error: { message: uncovered } }, 400);
+        }
+      }
+    }
     const current = await store.getOrCreateConfiguration({
       tenant_id: requestContext.tenant_id,
       default_manifest: DEFAULT_CONFIGURATION_MANIFEST,

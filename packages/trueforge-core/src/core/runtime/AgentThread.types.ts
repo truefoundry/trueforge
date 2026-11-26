@@ -241,6 +241,8 @@ export interface AgentThreadConstructorInput {
    * turn / fresh sub-agent. The constructor is the sole hydration site.
    */
   capabilityState?: CapabilityState | undefined;
+  /** Model this thread last ran on. Null when it has not run before. */
+  lastUsedModel: ModelSnapshot | null;
   tracing: AgentTracing;
   logger: Logger;
 }

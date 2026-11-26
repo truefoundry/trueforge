@@ -13,16 +13,12 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     created_at: "2024-01-15T09:30:00Z",
-                    created_by_agent_id: "created_by_agent_id",
-                    created_by_session_id: "created_by_session_id",
                     created_by_subject: {
                         subject_display_name: "subject_display_name",
                         subject_id: "subject_id",
                         subject_type: "subject_type",
                     },
-                    entry_point: "entry_point",
                     id: "id",
-                    latest_version: 1,
                     name: "name",
                     updated_at: "2024-01-15T09:30:00Z",
                 },
@@ -42,16 +38,12 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                    createdByAgentId: "created_by_agent_id",
-                    createdBySessionId: "created_by_session_id",
                     createdBySubject: {
                         subjectDisplayName: "subject_display_name",
                         subjectId: "subject_id",
                         subjectType: "subject_type",
                     },
-                    entryPoint: "entry_point",
                     id: "id",
-                    latestVersion: 1,
                     name: "name",
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
@@ -94,5 +86,138 @@ describe("ArtifactsClient", () => {
         await expect(async () => {
             return await client.artifacts.list();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("update (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "name" };
+        const rawResponseBody = {
+            data: {
+                created_at: "2024-01-15T09:30:00Z",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
+                id: "id",
+                name: "name",
+                updated_at: "2024-01-15T09:30:00Z",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/artifacts/artifact_id/update")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.artifacts.update("artifact_id", {
+            name: "name",
+        });
+        expect(response).toEqual({
+            data: {
+                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
+                id: "id",
+                name: "name",
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+            },
+        });
+    });
+
+    test("update (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/artifacts/artifact_id/update")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.update("artifact_id", {
+                name: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("update (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/artifacts/artifact_id/update")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.update("artifact_id", {
+                name: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("update (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/artifacts/artifact_id/update")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.update("artifact_id", {
+                name: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("update (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/artifacts/artifact_id/update")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.update("artifact_id", {
+                name: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 });
