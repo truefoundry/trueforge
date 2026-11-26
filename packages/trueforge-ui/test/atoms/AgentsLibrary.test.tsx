@@ -899,13 +899,13 @@ describe('AgentsLibraryButton', () => {
   });
 
   it('paginates with next and previous and resets page token when page size changes', async () => {
-    const all = Array.from({ length: 15 }, (_, i) => ({
+    const all = Array.from({ length: 30 }, (_, i) => ({
       name: `agent-${String(i).padStart(2, '0')}`,
       agentId: `agent-${i}`,
     }));
-    const searchAgents = vi.fn(async ({ limit = 10, pageToken }: { limit?: number; pageToken?: string } = {}) => {
+    const searchAgents = vi.fn(async ({ limit = 25, pageToken }: { limit?: number; pageToken?: string } = {}) => {
       if (pageToken === 'tok_2') {
-        return { data: all.slice(10), previousPageToken: 'tok_1' };
+        return { data: all.slice(25), previousPageToken: 'tok_1' };
       }
       const data = all.slice(0, limit);
       return {
@@ -919,35 +919,35 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await screen.findByRole('button', { name: 'Chat with agent agent-00' });
-    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10 });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25 });
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, pageToken: 'tok_2' });
     });
-    await screen.findByRole('button', { name: 'Chat with agent agent-10' });
+    await screen.findByRole('button', { name: 'Chat with agent agent-25' });
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_1' });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, pageToken: 'tok_1' });
     });
     await screen.findByRole('button', { name: 'Chat with agent agent-00' });
 
     // A revisited page is served from the cache.
     const callsBeforeRevisit = searchAgents.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await screen.findByRole('button', { name: 'Chat with agent agent-10' });
+    await screen.findByRole('button', { name: 'Chat with agent agent-25' });
     expect(searchAgents).toHaveBeenCalledTimes(callsBeforeRevisit);
 
-    // PopoverSelect: open rows-per-page and pick 25
+    // PopoverSelect: open rows-per-page and pick 10 (away from default 25)
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
-    fireEvent.click(await screen.findByRole('option', { name: '25' }));
+    fireEvent.click(await screen.findByRole('option', { name: '10' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10 });
     });
   });
 
