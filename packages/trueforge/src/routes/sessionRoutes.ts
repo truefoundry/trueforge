@@ -300,8 +300,7 @@ export const listSessionArtifactsRoute = createRoute({
   path: '/{session_id}/artifacts',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session artifacts',
-  description:
-    'List artifacts with a version created in this session, most recently updated first. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.',
+  description: 'List artifacts with a version created in this session, most recently updated first.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_artifacts',
   request: {
