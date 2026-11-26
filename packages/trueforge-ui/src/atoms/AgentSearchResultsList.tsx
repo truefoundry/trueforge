@@ -61,7 +61,10 @@ export function AgentSearchResultsList({
           <span className="min-w-0 flex-1 truncate">{allOption.label}</span>
           <Icon
             name="check"
-            className={cn('ml-auto size-4 shrink-0', allOption.selected ? 'opacity-100' : 'opacity-0')}
+            className={cn(
+              'text-primary-button-hover ml-auto size-4 shrink-0',
+              allOption.selected ? 'opacity-100' : 'opacity-0',
+            )}
           />
         </button>
       ) : null}
@@ -99,7 +102,13 @@ export function AgentSearchResultsList({
                 onClick={() => onPick(agent)}
               >
                 <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-                <Icon name="check" className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')} />
+                <Icon
+                  name="check"
+                  className={cn(
+                    'text-primary-button-hover ml-auto size-4 shrink-0',
+                    selected ? 'opacity-100' : 'opacity-0',
+                  )}
+                />
               </button>
             );
           })}

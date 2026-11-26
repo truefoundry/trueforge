@@ -43,11 +43,11 @@ export function AgentSearchListPanel({
         setQuery={setQuery}
         placeholder={placeholder}
         iconSize={12}
-        // Figma: Gray 1 border (#e4e4e7), Gray 8 icon (#8c8c92 @ 12px), Gray/10 placeholder, #F0F7FF fill.
-        iconClassName="left-2 size-3 text-gray-550"
+        // Figma: Gray/250 border, #82A0CE icon @ 12px, #5E7BAA placeholder, #F0F7FF fill.
+        iconClassName="left-2 size-3 text-[#82A0CE]"
         inputClassName={cn(
-          'border-gray-200 bg-[#F0F7FF] pl-7 text-text-primary',
-          'placeholder:text-gray-400',
+          'border-gray-250 bg-[#F0F7FF] pl-7 text-text-primary',
+          'placeholder:text-[#5E7BAA]',
           'dark:border-gray-250 dark:bg-input-box-bg dark:placeholder:text-text-secondary/70',
         )}
       />
