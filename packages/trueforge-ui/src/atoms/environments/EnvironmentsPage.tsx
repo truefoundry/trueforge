@@ -422,7 +422,7 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
             className="min-h-full"
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="rounded-lg border border-border">
             <Table className="min-w-240 bg-card-bg">
               <TableHeader className="bg-card-bg">
                 <TableRow className="hover:bg-transparent">
