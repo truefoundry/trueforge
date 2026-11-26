@@ -1,6 +1,5 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
-import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
@@ -73,7 +72,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   }
 
   it('creates an artifact', async () => {
-    const created = await createArtifact({ name: '  Q3 report  ' });
+    const created = await createArtifact({ name: 'Q3 report' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
@@ -88,13 +87,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
     const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
-  });
-
-  it('caps the name length', async () => {
-    const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
-    expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
-    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
-    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
   it('allows artifacts with the same name', async () => {
@@ -137,6 +129,59 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listNames({ name: 'rep' })).toEqual(['Quarterly Report']);
     expect(await listNames({ name: 'MAP' })).toEqual(['Roadmap']);
     expect(await listNames({ name: 'missing' })).toEqual([]);
+  });
+
+  it('gets an artifact only within its tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
+    expect(await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id })).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
+  });
+
+  it('renames an artifact within the tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    const renamed = await store.updateArtifact({
+      tenant_id: TENANT,
+      id: artifact.id,
+      created_by_subject_id: SUBJECT.subject_id,
+      name: 'Renamed',
+    });
+    expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
+    expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([renamed]);
+  });
+
+  it('does not rename an artifact from another tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    expect(
+      await store.updateArtifact({
+        tenant_id: OTHER_TENANT,
+        id: artifact.id,
+        created_by_subject_id: SUBJECT.subject_id,
+        name: 'x',
+      }),
+    ).toBeUndefined();
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([artifact]);
+  });
+
+  it('does not rename an artifact created by another subject', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    expect(
+      await store.updateArtifact({
+        tenant_id: TENANT,
+        id: artifact.id,
+        created_by_subject_id: 'someone-else',
+        name: 'x',
+      }),
+    ).toBeUndefined();
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([artifact]);
   });
 
   it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {

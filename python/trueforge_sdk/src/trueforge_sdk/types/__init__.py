@@ -294,6 +294,7 @@ if typing.TYPE_CHECKING:
     from .turn_update_event_state import TurnUpdateEventState
     from .turn_user_event import TurnUserEvent
     from .turn_user_event_message import TurnUserEventMessage
+    from .update_artifact_response import UpdateArtifactResponse
     from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
@@ -601,6 +602,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnUpdateEventState": ".turn_update_event_state",
     "TurnUserEvent": ".turn_user_event",
     "TurnUserEventMessage": ".turn_user_event_message",
+    "UpdateArtifactResponse": ".update_artifact_response",
     "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
@@ -932,6 +934,7 @@ __all__ = [
     "TurnUpdateEventState",
     "TurnUserEvent",
     "TurnUserEventMessage",
+    "UpdateArtifactResponse",
     "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",

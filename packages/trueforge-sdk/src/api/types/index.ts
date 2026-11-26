@@ -286,6 +286,7 @@ export * from "./TurnUpdateEvent.js";
 export * from "./TurnUpdateEventState.js";
 export * from "./TurnUserEvent.js";
 export * from "./TurnUserEventMessage.js";
+export * from "./UpdateArtifactResponse.js";
 export * from "./User.js";
 export * from "./UserMcpAuthContinueEvent.js";
 export * from "./UserMcpAuthContinueInputEvent.js";
