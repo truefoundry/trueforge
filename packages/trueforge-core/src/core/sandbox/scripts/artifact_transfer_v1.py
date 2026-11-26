@@ -159,6 +159,8 @@ def _upload(request_path: str) -> tuple[dict, bool]:
             pass
     base_path = req["base_path"]
     files = req["files"]
+    if not isinstance(files, list) or not files:
+        raise ValueError("files must be a non-empty list")
     concurrency = max(1, min(int(req["concurrency"]), MAX_CONCURRENCY))
     pool = ThreadPoolExecutor(max_workers=concurrency)
     futures = [pool.submit(_upload_one, base_path, f) for f in files]

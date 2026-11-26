@@ -128,6 +128,12 @@ describe('artifact_transfer_v1.py', () => {
   it('exits 2 on a malformed request', () => {
     expect(run('validate', 'relative/dir').status).toBe(2);
   });
+
+  it('upload exits 2 on an empty file list', () => {
+    const requestPath = artifactUploadRequestPath({ transferDir, requestId: 'r1' });
+    writeFileSync(requestPath, buildArtifactUploadRequestFile({ concurrency: 2, base_path: makeReport(), files: [] }));
+    expect(run('upload', requestPath)).toEqual({ status: 2, output: undefined });
+  });
 });
 
 describe('Sandbox artifact transfer', () => {
