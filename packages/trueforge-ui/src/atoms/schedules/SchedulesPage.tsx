@@ -510,7 +510,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className={cn('min-h-0 flex-1 overflow-auto px-4', error != null ? 'flex flex-col' : undefined)}>
+        <div className={cn('min-h-0 flex-1 overflow-auto', error != null ? 'flex flex-col' : undefined)}>
           {showSkeleton ? (
             <div className="flex flex-col gap-2 py-1" role="status" aria-label="Loading schedules">
               {Array.from({ length: 5 }, (_, i) => (
