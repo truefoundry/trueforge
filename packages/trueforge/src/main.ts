@@ -663,11 +663,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     agentStore,
     artifactStore,
     artifacts:
-      configuration.ARTIFACTS === undefined
+      configuration.ARTIFACTS === undefined || configuration.S3_CONFIG === undefined
         ? undefined
         : {
             artifactStore,
-            transfer: createS3ArtifactObjectStore(configuration.ARTIFACTS.s3),
+            transfer: createS3ArtifactObjectStore(configuration.S3_CONFIG),
             limits: {
               max_files: configuration.ARTIFACT_MAX_FILES,
               max_total_bytes: configuration.ARTIFACT_MAX_TOTAL_BYTES,

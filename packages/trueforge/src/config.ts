@@ -194,25 +194,36 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
   }
 }
 
-const ArtifactsS3Schema = z
+const S3ConfigSchema = z
   .object({
     bucket: z.string().min(1),
     region: z.string().min(1).optional(),
     /** Prepended to every object key. */
-    prefix: z
-      .string()
-      .default('')
-      .transform(prefix => prefix.replace(/^\/+|\/+$/g, '')),
+    prefix: z.string().default(''),
     /** S3-compatible endpoint (e.g. MinIO); uses path-style addressing when set. */
     endpoint: z.url().optional(),
     presign_ttl_seconds: z.number().int().positive().default(300),
   })
   .strict();
 
-export type ArtifactsS3Config = z.infer<typeof ArtifactsS3Schema>;
+export type S3Config = z.infer<typeof S3ConfigSchema>;
+
+/** Parses `S3_CONFIG` JSON. Empty / unset → undefined. */
+export function parseS3Config(raw: string | undefined): S3Config | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    return S3ConfigSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable S3_CONFIG must be a JSON object with "bucket" and optional "region", "prefix", "endpoint", "presign_ttl_seconds" (e.g. {"bucket":"<bucket>","region":"us-east-1"})',
+      { cause: error },
+    );
+  }
+}
 
 const ArtifactsFeatureSchema = z.object({
-  s3: ArtifactsS3Schema,
   tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
 });
 
@@ -227,7 +238,7 @@ export function parseArtifactsFeature(raw: string | undefined): ArtifactsFeature
     return ArtifactsFeatureSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable ARTIFACTS must be a JSON object with "s3" (bucket, region, prefix, endpoint, presign_ttl_seconds) and per-tenant "tenants" entries (e.g. {"s3":{"bucket":"<bucket>","region":"us-east-1"},"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
       { cause: error },
     );
   }
@@ -855,7 +866,12 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
-   * Artifacts: JSON with the `s3` bucket for artifact files and per-tenant `tenants` (`enabled`: `off` | `on`).
+   * S3 bucket settings (`bucket`, `region`, `prefix`, `endpoint`, `presign_ttl_seconds`). Credentials come
+   * from the standard AWS chain. Required when `ARTIFACTS` is set. Env: `S3_CONFIG`.
+   */
+  S3_CONFIG: S3Config | undefined;
+  /**
+   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`); files are stored in `S3_CONFIG`.
    * A tenant that is on gets `push_artifact` by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
   ARTIFACTS: ArtifactsFeature | undefined;
@@ -1318,6 +1334,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
     defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
+  S3_CONFIG: parseS3Config(getEnv('S3_CONFIG', { required: false })),
   ARTIFACTS: parseArtifactsFeature(getEnv('ARTIFACTS', { required: false })),
   ARTIFACT_MAX_FILES: parsePositiveInt({
     envKey: 'ARTIFACT_MAX_FILES',
@@ -1630,6 +1647,13 @@ export function artifactsEnabledForTenant(tenantId: string, config: ServerConfig
   return config.ARTIFACTS?.tenants[tenantId]?.enabled === 'on';
 }
 
+/** Artifact files live in S3, so `ARTIFACTS` requires `S3_CONFIG`. */
+export function assertArtifactsStorage(config: ServerConfiguration = configuration): void {
+  if (config.ARTIFACTS !== undefined && config.S3_CONFIG === undefined) {
+    throw new Error('ARTIFACTS is set but S3_CONFIG is not. Set S3_CONFIG to the bucket for artifact files.');
+  }
+}
+
 /** The tenant's routing entry when that tenant has model routing on. */
 export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenantId: string) {
   const tenant = routing?.tenants[tenantId];
@@ -1730,6 +1754,8 @@ if (isTrueFoundryModeEnabled(configuration)) {
     }
   }
 }
+
+assertArtifactsStorage(configuration);
 
 if (!configuration.STANDALONE && configuration.TRUEFORGE_API_KEY.trim() === '') {
   throw new Error('TRUEFORGE_API_KEY must not be empty when STANDALONE=false.');

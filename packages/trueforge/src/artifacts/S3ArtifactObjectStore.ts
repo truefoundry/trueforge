@@ -1,6 +1,6 @@
 import { HeadObjectCommand, NotFound, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { ArtifactsS3Config } from '../config';
+import type { S3Config } from '../config';
 import type { ArtifactObject, ArtifactUploadTransfer } from './pushArtifact';
 
 /** Artifact files in S3. The sandbox uploads with presigned PUTs; the server only signs and verifies. */
@@ -52,7 +52,7 @@ export class S3ArtifactObjectStore implements ArtifactUploadTransfer {
   }
 }
 
-export function createS3ArtifactObjectStore(config: ArtifactsS3Config): S3ArtifactObjectStore {
+export function createS3ArtifactObjectStore(config: S3Config): S3ArtifactObjectStore {
   return new S3ArtifactObjectStore({
     client: new S3Client({
       ...(config.region !== undefined ? { region: config.region } : {}),

@@ -1,9 +1,11 @@
 import { DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
-import type { ServerConfiguration } from '../../../src/config';
-import {
+import type { ArtifactsFeature, ServerConfiguration } from '../../../src/config';
+import configuration, {
+  assertArtifactsStorage,
   buildRedisStandaloneUrl,
   getPublicUiBasePath,
   parseArtifactsFeature,
+  parseS3Config,
   parseTrueFoundryModelRouting,
 } from '../../../src/config';
 import {
@@ -214,29 +216,65 @@ describe('buildRedisStandaloneUrl', () => {
   });
 });
 
+describe('parseS3Config', () => {
+  it('returns undefined when unset', () => {
+    expect(parseS3Config(undefined)).toBeUndefined();
+    expect(parseS3Config('  ')).toBeUndefined();
+  });
+
+  it('reads the bucket with defaults', () => {
+    expect(parseS3Config(JSON.stringify({ bucket: 'b' }))).toEqual({
+      bucket: 'b',
+      prefix: '',
+      presign_ttl_seconds: 300,
+    });
+  });
+
+  it.each([
+    ['missing bucket', {}],
+    ['unknown key', { bucket: 'b', extra: 1 }],
+  ])('rejects %s', (_name, value) => {
+    expect(() => parseS3Config(JSON.stringify(value))).toThrow('S3_CONFIG');
+  });
+});
+
 describe('parseArtifactsFeature', () => {
   it('returns undefined when unset', () => {
     expect(parseArtifactsFeature(undefined)).toBeUndefined();
     expect(parseArtifactsFeature('  ')).toBeUndefined();
   });
 
-  it('reads the S3 settings with defaults and the per-tenant flag', () => {
-    const parsed = parseArtifactsFeature(
-      JSON.stringify({
-        s3: { bucket: 'b', prefix: '/trueforge/' },
-        tenants: { internal: { enabled: 'on' }, other: {} },
-      }),
-    );
-    expect(parsed?.s3).toEqual({ bucket: 'b', prefix: 'trueforge', presign_ttl_seconds: 300 });
-    expect(parsed?.tenants).toEqual({ internal: { enabled: 'on' }, other: { enabled: 'off' } });
+  it('reads the per-tenant flag', () => {
+    expect(parseArtifactsFeature(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }))).toEqual({
+      tenants: { internal: { enabled: 'on' }, other: { enabled: 'off' } },
+    });
   });
 
-  it.each([
-    ['missing s3', { tenants: {} }],
-    ['missing bucket', { s3: {}, tenants: {} }],
-    ['bad flag value', { s3: { bucket: 'b' }, tenants: { a: { enabled: 'yes' } } }],
-  ])('rejects %s', (_name, value) => {
-    expect(() => parseArtifactsFeature(JSON.stringify(value))).toThrow('ARTIFACTS');
+  it('rejects a bad flag value', () => {
+    expect(() => parseArtifactsFeature(JSON.stringify({ tenants: { a: { enabled: 'yes' } } }))).toThrow('ARTIFACTS');
+  });
+});
+
+describe('assertArtifactsStorage', () => {
+  const artifacts: ArtifactsFeature = { tenants: { a: { enabled: 'on' } } };
+
+  it('requires S3_CONFIG when ARTIFACTS is set', () => {
+    expect(() => assertArtifactsStorage({ ...configuration, ARTIFACTS: artifacts, S3_CONFIG: undefined })).toThrow(
+      'S3_CONFIG',
+    );
+  });
+
+  it('passes when ARTIFACTS is unset or S3_CONFIG is set', () => {
+    expect(() =>
+      assertArtifactsStorage({ ...configuration, ARTIFACTS: undefined, S3_CONFIG: undefined }),
+    ).not.toThrow();
+    expect(() =>
+      assertArtifactsStorage({
+        ...configuration,
+        ARTIFACTS: artifacts,
+        S3_CONFIG: { bucket: 'b', prefix: '', presign_ttl_seconds: 300 },
+      }),
+    ).not.toThrow();
   });
 });
 
