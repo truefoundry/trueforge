@@ -591,7 +591,7 @@ export class SessionsClient {
     }
 
     /**
-     * List artifacts with a version created in this session, most recently updated first. Allowed for the creator, a manager of the bound named agent, or a subject with a session access grant.
+     * List artifacts with a version created in this session, most recently updated first.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListArtifactsSessionsRequest} request
