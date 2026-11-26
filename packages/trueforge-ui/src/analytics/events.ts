@@ -12,6 +12,11 @@ export const AnalyticsEvents = {
   Attachment: {
     PICKED: 'trueforge.agent.attachment_picked',
   },
+  Composer: {
+    ASSISTANT_SELECTED: 'trueforge.composer.assistant_selected',
+    AGENT_SELECTED: 'trueforge.composer.agent_selected',
+  },
+
   Session: {
     NEW: 'trueforge.agent.session_new',
     SELECTED: 'trueforge.agent.session_selected',
