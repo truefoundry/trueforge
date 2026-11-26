@@ -241,6 +241,34 @@
   color: var(--text-primary);
 }
 
+/* Sticky table header: keep white fill; soft under-shadow when rows scroll beneath. */
+@keyframes aui-table-sticky-shadow {
+  from {
+    box-shadow: none;
+  }
+  to {
+    box-shadow: 0 0.125rem 0.375rem rgb(0 0 0 / 0.08);
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  .aui-theme-root thead.aui-table-sticky-header th {
+    animation-name: aui-table-sticky-shadow;
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(nearest);
+    animation-range: 0 0.5rem;
+  }
+}
+
+/* Fallback when scroll-driven animations are unavailable. */
+@supports not (animation-timeline: scroll()) {
+  .aui-theme-root thead.aui-table-sticky-header th {
+    box-shadow: 0 0.0625rem 0.25rem rgb(0 0 0 / 0.06);
+  }
+}
+
 .aui-theme-root:not(.dark) .aui-shell-nav-selected,
 .aui-theme-root:not(.dark) .aui-shell-nav-selected:hover {
   background-color: var(--color-indigo-500);

@@ -29,8 +29,8 @@ export function TableHeader({ className, ...props }: TableHeaderProps) {
   return (
     <thead
       className={cn(
-        // Opaque card surface on sticky th so scrolling rows do not show through.
-        'bg-card-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card-bg',
+        // Opaque white sticky head; shadow on scroll via `.aui-table-sticky-header` in styles.css.
+        'aui-table-sticky-header bg-card-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card-bg',
         className,
       )}
       {...props}
