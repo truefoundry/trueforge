@@ -117,7 +117,7 @@ async function toolNamesSentToModel(input: {
     title: 'Main',
     tracing: NOOP_AGENT_TRACING,
     logger: silentLogger,
-    capabilities: input.capabilities,
+    ...(input.capabilities ? { capabilities: input.capabilities } : {}),
     definition: {
       toolSets: input.toolSets ?? [],
     },
@@ -130,7 +130,7 @@ async function toolNamesSentToModel(input: {
         routed: false,
       }),
     context: [{ role: 'user', content: 'hi' }],
-    sandbox: input.sandbox,
+    ...(input.sandbox ? { sandbox: input.sandbox } : {}),
   });
   for await (const event of thread.execute({ signal: new AbortController().signal })) {
     void event;
@@ -150,7 +150,7 @@ describe('AgentThread deferred meta tools', () => {
     const toolSets = preloads.map((preload, i) => makeMockIMCPServer({ name: `server-${i}`, preload }));
     const names = await toolNamesSentToModel({
       toolSets,
-      sandbox: sandbox ? makeStubPublicSandbox() : undefined,
+      ...(sandbox ? { sandbox: makeStubPublicSandbox() } : {}),
     });
     for (const metaTool of META_TOOL_NAMES) {
       expect(names.includes(metaTool)).toBe(expected);
