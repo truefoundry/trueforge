@@ -420,7 +420,7 @@ export function AgentLibraryRow({
   const tryButton = (
     <PermissionGuard allowed={canUseAgent}>
       <Button.Secondary type="button" aria-label={`Chat with agent ${agent.name}`} size="large" onClick={onTry}>
-        <Icon name="play" className="size-3.5" />
+        <Icon name="message-square-more" className="size-3.5" />
         Chat
       </Button.Secondary>
     </PermissionGuard>

@@ -43,8 +43,8 @@ export const sidebarCompactNavButtonClassName = cn(
 /** Soft selected chrome for chat-history rows (and similar lists). */
 export const shellSelectedClassName = 'aui-shell-selected';
 
-/** Solid indigo selected chrome for sidebar nav items only (not chat history). */
-export const shellNavSelectedClassName = 'aui-shell-nav-selected';
+/** Solid indigo selected chrome for sidebar nav — same 0.5rem radius as chat-history active. */
+export const shellNavSelectedClassName = 'aui-shell-nav-selected rounded-[0.5rem]';
 
 /** Active icon-rail control: nav selected chrome + primary text on hover. */
 export const shellRailSelectedClassName = cn(
