@@ -19,6 +19,10 @@ function compaction(): AgentStepPart {
   return { type: 'data', name: 'thread.context_compaction' };
 }
 
+function switchModel(): AgentStepPart {
+  return { type: 'data', name: 'thread.switch_model' };
+}
+
 describe('computeAgentStepsSplit', () => {
   it('treats pure text as final immediately while running', () => {
     const parts = [text('hello world')];
@@ -51,6 +55,13 @@ describe('computeAgentStepsSplit', () => {
 
   it('treats context compaction as an agent step for the trailing-text holdback', () => {
     const parts = [compaction(), text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(false);
+    expect(result.cutIndex).toBe(parts.length);
+  });
+
+  it('treats thread.switch_model as an agent step for the trailing-text holdback', () => {
+    const parts = [switchModel(), text('hi')];
     const result = computeAgentStepsSplit(parts, true);
     expect(result.hasFinal).toBe(false);
     expect(result.cutIndex).toBe(parts.length);
