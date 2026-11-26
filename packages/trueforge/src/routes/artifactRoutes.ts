@@ -51,7 +51,7 @@ export const updateArtifactRoute = createRoute({
   path: '/{artifact_id}/update',
   tags: [OpenApiTag.ARTIFACTS],
   summary: 'Update an artifact',
-  description: 'Rename an artifact. Only the artifact creator may update it.',
+  description: 'Update an artifact.',
   'x-fern-sdk-group-name': ['artifacts'],
   'x-fern-sdk-method-name': 'update',
   request: {
