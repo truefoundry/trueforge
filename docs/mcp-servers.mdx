@@ -46,6 +46,59 @@ The catalog entries under **Settings → Connectors** (Linear, Notion, GitHub, a
   [Quickstart FAQ](/quickstart#faq).
 </Info>
 
+## Per-request headers (`x-tfg-mcp-headers`)
+
+On a turn, `x-tfg-mcp-headers` forwards extra HTTP headers to named MCP servers. The JSON object is keyed by each MCP server's name. One common use is passing the end user's credentials so the server acts as that user.
+
+The header is not stored. Send it on every request that runs or resumes the turn — create-turn and create-turn-events (approvals, answers, MCP auth continue). If you omit it after a pause, later MCP calls run without those overrides. If you include `Authorization` for a server, that token is used instead of the connector's OAuth login.
+
+<CodeGroup>
+```typescript TypeScript wrap
+const mcpHeaders = JSON.stringify({
+  'orders-api': { Authorization: 'Bearer <user-token>' },
+});
+
+// Create turn
+const stream = await client.sessions.createTurnStream(
+  session.id,
+  { input: [{ type: 'user.message', content: 'Look up my orders.' }] },
+  { headers: { 'x-tfg-mcp-headers': mcpHeaders } },
+);
+
+// Resume a paused turn (approvals, answers, MCP auth continue)
+await client.sessions.createTurnEvents(
+  session.id,
+  turnId,
+  { events: [{ type: 'user.mcp_auth_continue' }] },
+  { headers: { 'x-tfg-mcp-headers': mcpHeaders } },
+);
+```
+
+```python Python wrap
+import json
+
+mcp_headers = json.dumps({
+    "orders-api": {"Authorization": "Bearer <user-token>"},
+})
+
+# Create turn
+with client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Look up my orders."}],
+    request_options={"additional_headers": {"x-tfg-mcp-headers": mcp_headers}},
+) as stream:
+    ...
+
+# Resume a paused turn (approvals, answers, MCP auth continue)
+client.sessions.create_turn_events(
+    session_id=session.data.id,
+    turn_id=turn_id,
+    events=[{"type": "user.mcp_auth_continue"}],
+    request_options={"additional_headers": {"x-tfg-mcp-headers": mcp_headers}},
+)
+```
+</CodeGroup>
+
 ## In-chat authentication
 
 If a server uses OAuth and the user has not yet authorized it, the turn pauses and the chat UI shows a **Connect** button. The user completes OAuth in a popup and continues the conversation — the agent does not fail.

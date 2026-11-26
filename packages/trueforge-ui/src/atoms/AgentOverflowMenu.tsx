@@ -149,7 +149,7 @@ export function AgentOverflowMenu({
         trigger={
           <button
             type="button"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-8 w-6' })}
             aria-label={`Actions for ${agentName}`}
           >
             <Icon name="ellipsis-vertical" />

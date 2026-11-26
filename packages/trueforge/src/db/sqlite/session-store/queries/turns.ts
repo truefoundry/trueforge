@@ -3,7 +3,11 @@ import {
   type LegacyTurnInputItem,
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import { type TurnRecord, type TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import {
+  MAIN_THREAD_ID,
+  type TurnRecord,
+  type TurnSnapshot,
+} from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -39,6 +43,7 @@ import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/tru
 import type {
   AgentThreadSnapshot,
   ContextMessage,
+  ModelSnapshot,
   SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
@@ -122,6 +127,7 @@ export interface CreateTurnInput {
   }[];
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
+  main_thread_model: ModelSnapshot | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -679,6 +685,8 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         append_id: number;
       }[] = [];
 
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
+
       for (const parent of prevThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         const completion = appendCompletionByThread.get(parent.thread_id);
@@ -686,6 +694,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           ...parent.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
           pending_mcp_auth: false,
+          model: specModel(parent.thread_id) ?? parent.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -750,7 +759,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: null,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,

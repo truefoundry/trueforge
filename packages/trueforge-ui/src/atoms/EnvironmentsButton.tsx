@@ -9,8 +9,8 @@ import { isEnvironmentsChromeEnabled } from '../server/serverChrome.js';
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarRailButtonClassName,
 } from './lib/buttonClasses.js';
@@ -50,7 +50,7 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
                 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
                 shellHoverClassName,
               ),
-          open && (compact ? shellRailSelectedClassName : shellSelectedClassName),
+          open && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {

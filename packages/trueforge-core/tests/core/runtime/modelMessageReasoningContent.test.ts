@@ -64,6 +64,7 @@ describe('AgentThread model.message reasoning_content', () => {
     };
 
     const thread = new AgentThread({
+      lastUsedModel: null,
       threadId: 'main',
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,

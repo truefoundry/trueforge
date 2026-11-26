@@ -119,7 +119,7 @@ describe('SchedulesPage', () => {
     expect(within(scheduleNameCell).getByText('demo-agent')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Showing 1')).toBeInTheDocument();
-    expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
+    expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 25 }));
     // Agent catalog loads only when the filter opens (infinite scroll), not on mount.
     expect(searchAgents).not.toHaveBeenCalled();
   });
@@ -209,7 +209,7 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 25 }),
       );
     });
     expect(screen.queryByRole('heading', { name: 'Agent Schedules' })).not.toBeInTheDocument();
@@ -242,21 +242,21 @@ describe('SchedulesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
 
     await waitFor(() => {
-      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 25 }));
     });
     expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await waitFor(() => {
-      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-1', limit: 10 }));
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-1', limit: 25 }));
     });
   });
 
   it('does not apply the previous page cursor while a new page size is loading', async () => {
     let resolveSized: (page: { data: Schedule[] }) => void = () => undefined;
     const listSchedules = vi.fn(async (params: { limit?: number; pageToken?: string }) => {
-      if (params.limit === 25) {
+      if (params.limit === 10) {
         return new Promise<{ data: Schedule[] }>(resolve => {
           resolveSized = resolve;
         });
@@ -267,7 +267,7 @@ describe('SchedulesPage', () => {
 
     expect(await screen.findByText('daily-digest')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
-    fireEvent.click(screen.getByRole('option', { name: '25' }));
+    fireEvent.click(screen.getByRole('option', { name: '10' }));
 
     const nextPage = screen.getByRole('button', { name: 'Next page' });
     expect(nextPage).toBeDisabled();
@@ -276,7 +276,7 @@ describe('SchedulesPage', () => {
     await act(async () => {
       resolveSized({ data: sampleSchedules });
     });
-    expect(listSchedules.mock.calls.some(([params]) => params?.limit === 25 && params.pageToken === 'page-2')).toBe(
+    expect(listSchedules.mock.calls.some(([params]) => params?.limit === 10 && params.pageToken === 'page-2')).toBe(
       false,
     );
   });
@@ -326,7 +326,7 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 25 }),
       );
     });
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
@@ -350,7 +350,7 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 25 }),
       );
     });
     expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily');
@@ -488,7 +488,7 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 25 }),
       );
     });
     expect(new URL(window.location.href).searchParams.get('scheduleId')).toBeNull();

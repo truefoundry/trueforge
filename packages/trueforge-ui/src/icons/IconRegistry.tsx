@@ -61,6 +61,8 @@ import {
   LogOut,
   Maximize2,
   Menu,
+  MessageCircle,
+  MessageSquareMore,
   MessageSquareText,
   Minimize2,
   Monitor,
@@ -95,6 +97,7 @@ import {
   Type,
   UserCog,
   Users,
+  Wand,
   Wrench,
   X,
 } from 'lucide-react';
@@ -243,6 +246,8 @@ const defaults: Record<string, IconEntry> = {
   'book-text': BookText,
   'clock-7': Clock7,
   'layers-2': Layers2,
+  'message-circle': MessageCircle,
+  'message-square-more': MessageSquareMore,
   'message-square-text': MessageSquareText,
   'book-open': BookOpen,
   funnel: ListFilter,
@@ -252,6 +257,7 @@ const defaults: Record<string, IconEntry> = {
   'user-cog': UserCog,
   users: Users,
   lightbulb: Lightbulb,
+  wand: Wand,
   // Skills (settings, composer attach, agent config / overview).
   'scroll-text': ScrollText,
 

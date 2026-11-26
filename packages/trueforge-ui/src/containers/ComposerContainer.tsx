@@ -18,6 +18,7 @@ import { partitionDroppedFiles } from '../utils/partitionDroppedFiles.js';
 import { ApprovalNavContainer } from './ApprovalNavContainer.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
+import { ComposerAssistantAgentsPickerContainer } from './ComposerAssistantAgentsPickerContainer.js';
 import { CustomActionContainer } from './CustomActionContainer.js';
 import { McpAuthContainer } from './McpAuthContainer.js';
 import { useToasterOptional } from './ToasterContainer.js';
@@ -282,6 +283,21 @@ function ComposerWithOptionalDraft({
   return <ComposerBody placeholder={placeholder} connectedToBanner={connectedToBanner} />;
 }
 
+function ComposerWithAssistantPicker({
+  placeholder,
+  connectedToBanner = false,
+}: {
+  placeholder: string;
+  connectedToBanner?: boolean;
+}) {
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <ComposerAssistantAgentsPickerContainer />
+      <ComposerWithOptionalDraft placeholder={placeholder} connectedToBanner={connectedToBanner} />
+    </div>
+  );
+}
+
 export function ComposerContainer({
   placeholder = 'Ask anything... (Shift+Enter for new line)',
 }: ComposerContainerProps) {
@@ -300,11 +316,11 @@ export function ComposerContainer({
     ) : null;
 
   if (pauseChrome == null) {
-    return <ComposerWithOptionalDraft placeholder={placeholder} />;
+    return <ComposerWithAssistantPicker placeholder={placeholder} />;
   }
 
-  // Approval sits flush on the composer. Ask User keeps a small gap. MCP tucks the
-  // composer over the card’s bottom edge (screenshot stack).
+  // Pause stacks stay flush against the composer shell — do not insert the
+  // Assistant/Agents picker between chrome and input (breaks connectedToBanner / -mt offsets).
   if (pauseView.kind === 'approval') {
     return (
       <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="flex w-full flex-col">

@@ -4,7 +4,9 @@ import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry
 import { useEffect, useRef } from 'react';
 
 import {
+  chatAutoModelDefaultPending,
   type DraftPreferenceKind,
+  markChatAutoModelDefaulted,
   persistedMemoryEnabled,
   persistedWebSearchEnabled,
   recoverMemoryAfterCapabilityAvailable,
@@ -16,7 +18,7 @@ import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
-import { AUTO_MODEL, keepsAutoModel } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort } from './reasoningEffort.js';
 import { skillFamilyId } from './SkillVersionSelector.js';
@@ -244,6 +246,8 @@ export function DraftSpecPreferenceBridge() {
   // the server: the tenant switch gates turning web search on, not keeping it on.
   const editsStoredSpec = preferenceKind === 'chat' ? draftSessionId != null : boundAgentId != null;
   const previousModelNameRef = useRef<string | null>(null);
+  // When storage can't persist the marker, this stops the switch from re-forcing Auto over later picks.
+  const autoModelDefaultAppliedRef = useRef(false);
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
@@ -345,6 +349,27 @@ export function DraftSpecPreferenceBridge() {
     isPlainDraft,
     preferenceKind,
     webSearchEnabled,
+    updateAgentSpec,
+  ]);
+
+  useEffect(() => {
+    // One-time: the first time Auto is enabled for this user, switch the New Chat draft to it.
+    if (!isPlainDraft || preferenceKind !== 'chat' || editsStoredSpec) return;
+    if (!canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
+    if (capabilities?.auto.status !== 'enabled' || autoModelDefaultAppliedRef.current) return;
+    if (!chatAutoModelDefaultPending()) return;
+    autoModelDefaultAppliedRef.current = true;
+    markChatAutoModelDefaulted(agentSpec);
+    if (agentSpec.model.name !== AUTO_MODEL) {
+      updateAgentSpec({ model: AUTO_MODEL_PATCH });
+    }
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    capabilities?.auto.status,
+    editsStoredSpec,
+    isPlainDraft,
+    preferenceKind,
     updateAgentSpec,
   ]);
 
