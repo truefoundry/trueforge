@@ -63,8 +63,8 @@ function getSelectionHint({
   atLimit: boolean;
 }): string {
   if (selectedCount === 0) return ' With none selected, Auto stays unavailable.';
-  if (hasUnavailable && dirty) return ' Remove the models marked "Not visible to you" to save.';
-  if (belowMinimum && dirty) return ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`;
+  if (hasUnavailable && dirty) return ' Remove the models marked "Not visible to you" to update.';
+  if (belowMinimum && dirty) return ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to update.`;
   if (atLimit) return ' Remove one to add another.';
   return '';
 }
@@ -124,7 +124,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
 
   useEffect(() => {
     if (!open) return;
-    // On click, not mousedown: closing the list moves Save up, which would swallow the click that was aimed at it.
+    // On click, not mousedown: closing the list moves Update up, which would swallow the click that was aimed at it.
     const handleOutsideClick = (event: MouseEvent) => {
       if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
       close();
@@ -133,7 +133,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [open, close]);
 
-  // Saved models the admin can't see stay listed and flagged; the server rejects them, so they must be removed to save.
+  // Saved models the admin can't see stay listed and flagged; the server rejects them, so they must be removed to update.
   // Nothing is flagged until the listing loads.
   const listed = useMemo(() => new Set(models.map(model => model.name)), [models]);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
@@ -165,7 +165,6 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
     },
     [close],
   );
-  const handleReset = useCallback(() => setSelected(candidateModels), [candidateModels]);
   const handleSave = useCallback(() => onSave(selected), [onSave, selected]);
 
   return (
@@ -292,17 +291,14 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
       <p className="mt-2 text-xs text-text-secondary">{`${String(selected.length)} of ${String(MAX_CANDIDATE_MODELS)} selected.${hint}`}</p>
 
       {dirty ? (
-        <div className="mt-3 flex justify-end gap-2">
-          <Button.Secondary size="small" type="button" disabled={saving} onClick={handleReset}>
-            Reset
-          </Button.Secondary>
+        <div className="mt-3 flex justify-end">
           <Button.Primary
             size="small"
             type="button"
             disabled={saving || belowMinimum || hasUnavailable}
             onClick={handleSave}
           >
-            Save
+            Update
           </Button.Primary>
         </div>
       ) : null}

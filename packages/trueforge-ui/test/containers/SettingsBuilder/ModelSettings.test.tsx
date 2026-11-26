@@ -357,7 +357,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(option('acct/haiku')).toHaveAttribute('aria-selected', 'false');
       expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'false');
       expect(screen.getByText(/0 of 10 selected\. With none selected, Auto stays unavailable\./)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
     });
 
     it('puts the picker in the same card as the Auto switch, with no heading of its own', async () => {
@@ -407,17 +407,17 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
       await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
       const callsBeforeSave = getCapabilities.mock.calls.length;
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
       await waitFor(() =>
         expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: chosen } }),
       );
       await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
-      await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Update' })).toBeNull());
       expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
     });
 
-    it('holds Save back until at least four models are chosen', async () => {
+    it('holds Update back until at least four models are chosen', async () => {
       renderAutoSettings({
         auto: { status: 'enabled' },
         modelNames: fiveModels,
@@ -426,12 +426,12 @@ describe('ModelSettings Auto mode switch', () => {
 
       await openPicker();
       for (const name of fiveModels.slice(0, 3)) fireEvent.click(option(name));
-      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-      expect(screen.getByText(/Pick at least 4 to save\./)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Pick at least 4 to update\./)).toBeInTheDocument();
 
       fireEvent.click(option('acct/gemini'));
-      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-      expect(screen.queryByText(/Pick at least 4 to save\./)).toBeNull();
+      expect(screen.getByRole('button', { name: 'Update' })).toBeEnabled();
+      expect(screen.queryByText(/Pick at least 4 to update\./)).toBeNull();
     });
 
     it('stops at ten models and frees a slot when one is removed', async () => {
@@ -465,14 +465,14 @@ describe('ModelSettings Auto mode switch', () => {
       });
 
       fireEvent.click(await screen.findByRole('button', { name: 'Remove acct/haiku' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
       await waitFor(() =>
         expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: [] } }),
       );
     });
 
-    it('flags a saved model the admin cannot see and holds Save until it is removed', async () => {
+    it('flags a saved model the admin cannot see and holds Update until it is removed', async () => {
       const saved = ['acct/haiku', 'acct/hidden'];
       const next = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
       const updateConfiguration = vi.fn(async () => withModels(next));
@@ -491,31 +491,15 @@ describe('ModelSettings Auto mode switch', () => {
       await openPicker();
       for (const name of ['acct/sonnet', 'acct/opus', 'acct/gemini']) fireEvent.click(option(name));
       // Five picks, but the server would refuse the one the admin cannot use.
-      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-      expect(screen.getByText(/Remove the models marked "Not visible to you" to save\./)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Remove the models marked "Not visible to you" to update\./)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Remove acct/hidden' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
       await waitFor(() =>
         expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: next } }),
       );
-    });
-
-    it('restores the saved selection on Reset', async () => {
-      renderAutoSettings({
-        auto: { status: 'enabled' },
-        modelNames,
-        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration: vi.fn() },
-      });
-
-      await openPicker();
-      fireEvent.click(option('acct/sonnet'));
-      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-
-      expect(screen.queryByRole('button', { name: 'Remove acct/sonnet' })).toBeNull();
-      expect(screen.getByRole('button', { name: 'Remove acct/haiku' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     });
 
     it('closes the dropdown on Escape', async () => {
@@ -530,7 +514,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.queryByRole('listbox')).toBeNull();
     });
 
-    it('closes the dropdown on an outside click, and Save still works while it is open', async () => {
+    it('closes the dropdown on an outside click, and Update still works while it is open', async () => {
       const chosen = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
       const updateConfiguration = vi.fn(async () => withModels(chosen));
       renderAutoSettings({
@@ -541,7 +525,7 @@ describe('ModelSettings Auto mode switch', () => {
 
       await openPicker();
       for (const name of chosen) fireEvent.click(option(name));
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
       await waitFor(() => expect(updateConfiguration).toHaveBeenCalled());
 
       await openPicker();

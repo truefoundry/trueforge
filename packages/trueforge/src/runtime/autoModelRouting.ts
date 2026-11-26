@@ -19,10 +19,10 @@ export async function listAutoCandidateModels({
 
 /** Each routing category in admin-facing words, as defined in `DEFAULT_ROUTING_QUESTION`. */
 const ROUTING_CATEGORY_LABELS: Record<RoutingCategory, string> = {
-  direct: 'simple tasks that need no tools',
-  fixed_steps: 'tool tasks with predefined steps',
-  adaptive: 'tasks that need reasoning or adapt to tool results',
-  frontier: 'hard, open-ended tasks',
+  direct: 'routine',
+  fixed_steps: 'tool-driven',
+  adaptive: 'adaptive',
+  frontier: 'frontier',
 };
 
 /** Error message naming the categories no candidate model serves, or undefined when all are covered. */
@@ -31,7 +31,11 @@ export function describeUncoveredCandidateCategories(candidateModels: readonly M
   if (uncovered.length === 0) {
     return undefined;
   }
-  return `The selected models don't cover every kind of task Auto handles. Add a model for: ${uncovered
-    .map(category => ROUTING_CATEGORY_LABELS[category])
-    .join(', ')}.`;
+  const tiers = uncovered.map(category => ROUTING_CATEGORY_LABELS[category]);
+  const [onlyTier] = tiers;
+  const ask =
+    onlyTier !== undefined && tiers.length === 1
+      ? `Add a model for the ${onlyTier} tier.`
+      : `Add a model for each of these tiers: ${new Intl.ListFormat('en').format(tiers)}.`;
+  return `The selected models don't cover every tier. ${ask}`;
 }

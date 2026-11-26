@@ -288,8 +288,7 @@ describe('settings configuration router', () => {
         expect(noFrontier.status).toBe(400);
         expect(await noFrontier.json()).toEqual({
           error: {
-            message:
-              "The selected models don't cover every kind of task Auto handles. Add a model for: hard, open-ended tasks.",
+            message: "The selected models don't cover every tier. Add a model for the frontier tier.",
           },
         });
 
@@ -302,7 +301,7 @@ describe('settings configuration router', () => {
         expect(await onlyFrontier.json()).toEqual({
           error: {
             message:
-              "The selected models don't cover every kind of task Auto handles. Add a model for: simple tasks that need no tools, tool tasks with predefined steps, tasks that need reasoning or adapt to tool results.",
+              "The selected models don't cover every tier. Add a model for each of these tiers: routine, tool-driven, and adaptive.",
           },
         });
         expect(await savedList(store)).toEqual([]);
