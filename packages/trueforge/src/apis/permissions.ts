@@ -7,6 +7,7 @@ import type { Context } from 'hono';
 import type { Authorizer, GetPermissionsInput } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
+import type { IArtifactStore } from '../db/artifactStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { IScheduleStore } from '../db/scheduleStore';
 import { listPermissionsRoute } from '../routes/permissionRoutes';
@@ -18,6 +19,7 @@ export interface PermissionsRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
+  artifactStore: IArtifactStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -51,12 +53,19 @@ export function createPermissionsRouter<TTransaction>(deps: PermissionsRouterDep
         resourceIds,
         store: deps.sandboxEnvironmentStore,
       };
-    } else {
+    } else if (resourceType === 'session') {
       input = {
         resourceType: 'session',
         requestContext,
         resourceIds,
         store: deps.sessionStore,
+      };
+    } else {
+      input = {
+        resourceType: 'artifact',
+        requestContext,
+        resourceIds,
+        store: deps.artifactStore,
       };
     }
 

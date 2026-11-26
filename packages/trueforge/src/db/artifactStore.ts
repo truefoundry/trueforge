@@ -1,4 +1,4 @@
-import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { GetOwnedIdsInput, Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { newId } from '../utils/id';
 
@@ -86,4 +86,6 @@ export interface IArtifactStore {
    */
   createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
   getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
+  /** Subset of `ids` in the tenant created by `subject_id`. */
+  getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]>;
 }

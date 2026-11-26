@@ -3575,7 +3575,8 @@
           "schedule",
           "session",
           "tenant",
-          "sandbox_environment"
+          "sandbox_environment",
+          "artifact"
         ],
         "type": "string"
       },

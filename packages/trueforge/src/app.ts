@@ -638,6 +638,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         scheduleStore: deps.scheduleStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         sessionStore: deps.sessionStore,
+        artifactStore: deps.artifactStore,
         resolveRequestContext,
       }),
       authMiddleware,
