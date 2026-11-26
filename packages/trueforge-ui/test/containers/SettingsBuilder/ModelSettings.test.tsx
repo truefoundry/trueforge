@@ -549,16 +549,6 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.queryByRole('listbox')).toBeNull();
     });
 
-    it('shows the server reason when the allowed models cannot route', async () => {
-      renderAutoSettings({
-        auto: { status: 'disabled', reason: 'Auto mode has no usable models selected.' },
-        modelNames,
-        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration: vi.fn() },
-      });
-
-      expect(await screen.findByRole('status')).toHaveTextContent('Auto mode has no usable models selected.');
-    });
-
     it('hides the list while the tenant has Auto turned off', async () => {
       renderAutoSettings({
         auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },

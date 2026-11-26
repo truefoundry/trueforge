@@ -1,7 +1,17 @@
 'use client';
 
-import { useIsFetching, useQuery } from '@tanstack/react-query';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react';
 
 import { displayModelLabel, groupModelsByProvider, ProviderMark } from '../../atoms/draft/DraftModelCatalogPanel.js';
 import { modelMatchesQuery, normalizeModelSearchText } from '../../atoms/draft/modelSearch.js';
@@ -13,7 +23,7 @@ import { Skeleton } from '../../atoms/primitives/Skeleton.js';
 import { Icon } from '../../icons/Icon.js';
 import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
-import { useOptionalServer, useServerCapabilities } from '../../server/ServerContext.js';
+import { useOptionalServer } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
 /** Mirrors the server's limits on `candidate_models` (an empty list is also allowed). */
@@ -31,6 +41,51 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
   return left.length === right.length && left.every(name => right.includes(name));
 }
 
+type CandidateOptionProps = {
+  name: string;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: (name: string) => void;
+};
+
+/** The line under the counter: what stops the admin from saving, or what to do next. */
+function getSelectionHint({
+  selectedCount,
+  hasUnavailable,
+  dirty,
+  belowMinimum,
+  atLimit,
+}: {
+  selectedCount: number;
+  hasUnavailable: boolean;
+  dirty: boolean;
+  belowMinimum: boolean;
+  atLimit: boolean;
+}): string {
+  if (selectedCount === 0) return ' With none selected, Auto stays unavailable.';
+  if (hasUnavailable && dirty) return ' Remove the models marked "Not visible to you" to save.';
+  if (belowMinimum && dirty) return ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`;
+  if (atLimit) return ' Remove one to add another.';
+  return '';
+}
+
+/** One row of the dropdown. Memoized so picking a model only re-renders the rows whose state changed. */
+const CandidateOption = memo(({ name, checked, disabled, onToggle }: CandidateOptionProps) => (
+  <button
+    type="button"
+    role="option"
+    aria-selected={checked}
+    aria-label={name}
+    disabled={disabled}
+    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-ghost-button-hover disabled:pointer-events-none disabled:opacity-50"
+    onClick={() => onToggle(name)}
+  >
+    <Checkbox checked={checked} />
+    <span className="min-w-0 flex-1 truncate font-normal">{displayModelLabel(name)}</span>
+  </button>
+));
+CandidateOption.displayName = 'CandidateOption';
+
 /**
  * Picker for the models Auto may choose from: searchable, grouped by provider, picks shown as removable chips. The
  * draft stays local until saved; remount with a new `key` to reset it from the saved list. The list opens in the page
@@ -38,7 +93,6 @@ function sameSelection({ left, right }: { left: readonly string[]; right: readon
  */
 const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCandidateListProps) => {
   const server = useOptionalServer();
-  const capabilities = useServerCapabilities();
   const queryClient = useServerQueryClient();
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,62 +117,59 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
     [models, needle],
   );
 
-  const close = () => {
+  const close = useCallback(() => {
     setOpen(false);
     setQuery('');
-  };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     // On click, not mousedown: closing the list moves Save up, which would swallow the click that was aimed at it.
     const handleOutsideClick = (event: MouseEvent) => {
       if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
-      setOpen(false);
-      setQuery('');
+      close();
     };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
-  }, [open]);
+  }, [open, close]);
 
   // Saved models the admin can't see stay listed and flagged; the server rejects them, so they must be removed to save.
   // Nothing is flagged until the listing loads.
-  const listed = new Set(models.map(model => model.name));
+  const listed = useMemo(() => new Set(models.map(model => model.name)), [models]);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
   const isListingKnown = modelsQuery.isSuccess;
-  const hasUnavailable = isListingKnown && selected.some(name => !listed.has(name));
+  const hasUnavailable = useMemo(
+    () => isListingKnown && selected.some(name => !listed.has(name)),
+    [isListingKnown, selected, listed],
+  );
 
-  const dirty = !sameSelection({ left: selected, right: candidateModels });
+  const dirty = useMemo(() => !sameSelection({ left: selected, right: candidateModels }), [selected, candidateModels]);
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
   // Empty is saveable (it clears the list); 1 to 3 is not.
   const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
-  // The reason is stale while a save is in flight and while capabilities refresh after it.
-  const capabilitiesRefreshing = useIsFetching({ queryKey: queryKeys.capabilities() }, queryClient) > 0;
-  const routingUnavailableReason =
-    !saving && !capabilitiesRefreshing && capabilities?.auto.status === 'disabled'
-      ? capabilities.auto.reason
-      : undefined;
 
-  const hint =
-    selected.length === 0
-      ? ' With none selected, Auto stays unavailable.'
-      : hasUnavailable && dirty
-        ? ' Remove the models marked "Not visible to you" to save.'
-        : belowMinimum && dirty
-          ? ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to save.`
-          : atLimit
-            ? ' Remove one to add another.'
-            : '';
+  const hint = getSelectionHint({ selectedCount: selected.length, hasUnavailable, dirty, belowMinimum, atLimit });
 
-  const toggle = (name: string) =>
-    setSelected(current => (current.includes(name) ? current.filter(item => item !== name) : [...current, name]));
+  const toggle = useCallback(
+    (name: string) =>
+      setSelected(current => (current.includes(name) ? current.filter(item => item !== name) : [...current, name])),
+    [],
+  );
+  const handleComboboxClick = useCallback(() => (open ? close() : setOpen(true)), [open, close]);
+  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value), []);
+  const handlePopupKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      close();
+    },
+    [close],
+  );
+  const handleReset = useCallback(() => setSelected(candidateModels), [candidateModels]);
+  const handleSave = useCallback(() => onSave(selected), [onSave, selected]);
 
   return (
     <div>
-      {routingUnavailableReason ? (
-        <p role="status" className="mb-3 text-xs text-failure-bg">
-          {routingUnavailableReason}
-        </p>
-      ) : null}
-
       <div ref={rootRef}>
         {modelsQuery.isPending ? (
           <Skeleton data-testid="auto-model-candidate-list-skeleton" className="h-8 w-full rounded-md" />
@@ -157,7 +208,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
               aria-controls={open ? listboxId : undefined}
               disabled={saving}
               className="flex h-6 min-w-24 flex-1 items-center justify-between gap-2 px-1.5 text-left text-[0.8125rem] text-text-secondary outline-none disabled:cursor-not-allowed"
-              onClick={() => (open ? close() : setOpen(true))}
+              onClick={handleComboboxClick}
             >
               <span className="truncate">{selected.length === 0 ? 'Select models' : 'Add models'}</span>
               <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
@@ -168,11 +219,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
         {open ? (
           <div
             className="aui-popup-enter mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-border bg-card-bg text-text-primary"
-            onKeyDown={event => {
-              if (event.key !== 'Escape') return;
-              event.stopPropagation();
-              close();
-            }}
+            onKeyDown={handlePopupKeyDown}
           >
             <div className="border-b border-border px-3 py-2">
               <label className="relative block">
@@ -183,7 +230,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
                 <input
                   type="search"
                   value={query}
-                  onChange={event => setQuery(event.target.value)}
+                  onChange={handleSearchChange}
                   placeholder="Search models"
                   aria-label="Search models"
                   className={auiInputClass('h-8 py-1 pl-7 pr-2')}
@@ -215,21 +262,15 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
                       <span className="truncate">{section.name}</span>
                     </div>
                     {section.models.map(model => {
-                      const checked = selected.includes(model.name);
+                      const checked = selectedSet.has(model.name);
                       return (
-                        <button
+                        <CandidateOption
                           key={model.name}
-                          type="button"
-                          role="option"
-                          aria-selected={checked}
-                          aria-label={model.name}
+                          name={model.name}
+                          checked={checked}
                           disabled={atLimit && !checked}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-ghost-button-hover disabled:pointer-events-none disabled:opacity-50"
-                          onClick={() => toggle(model.name)}
-                        >
-                          <Checkbox checked={checked} />
-                          <span className="min-w-0 flex-1 truncate font-normal">{displayModelLabel(model.name)}</span>
-                        </button>
+                          onToggle={toggle}
+                        />
                       );
                     })}
                   </div>
@@ -252,14 +293,14 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
 
       {dirty ? (
         <div className="mt-3 flex justify-end gap-2">
-          <Button.Secondary size="small" type="button" disabled={saving} onClick={() => setSelected(candidateModels)}>
+          <Button.Secondary size="small" type="button" disabled={saving} onClick={handleReset}>
             Reset
           </Button.Secondary>
           <Button.Primary
             size="small"
             type="button"
             disabled={saving || belowMinimum || hasUnavailable}
-            onClick={() => onSave(selected)}
+            onClick={handleSave}
           >
             Save
           </Button.Primary>

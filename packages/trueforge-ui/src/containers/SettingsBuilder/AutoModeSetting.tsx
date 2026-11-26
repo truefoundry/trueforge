@@ -55,7 +55,7 @@ const AutoModeSetting = () => {
           toaster?.showSuccess({ title: enabled ? 'Auto model routing turned on' : 'Auto model routing turned off' });
           track(AnalyticsEvents.Settings.AUTO_MODE_TENANT_TOGGLED, { enabled });
         } else {
-          toaster?.showSuccess({ title: 'Auto models updated' });
+          toaster?.showSuccess({ title: 'Models updated' });
           track(AnalyticsEvents.Settings.AUTO_MODE_CANDIDATE_MODELS_SAVED, { model_count: candidateModels.length });
         }
       },
