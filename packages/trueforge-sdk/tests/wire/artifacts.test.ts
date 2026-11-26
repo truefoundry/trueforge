@@ -13,16 +13,12 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     created_at: "2024-01-15T09:30:00Z",
-                    created_by_agent_id: "created_by_agent_id",
-                    created_by_session_id: "created_by_session_id",
                     created_by_subject: {
                         subject_display_name: "subject_display_name",
                         subject_id: "subject_id",
                         subject_type: "subject_type",
                     },
-                    entry_point: "entry_point",
                     id: "id",
-                    latest_version: 1,
                     name: "name",
                     updated_at: "2024-01-15T09:30:00Z",
                 },
@@ -42,16 +38,12 @@ describe("ArtifactsClient", () => {
             data: [
                 {
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                    createdByAgentId: "created_by_agent_id",
-                    createdBySessionId: "created_by_session_id",
                     createdBySubject: {
                         subjectDisplayName: "subject_display_name",
                         subjectId: "subject_id",
                         subjectType: "subject_type",
                     },
-                    entryPoint: "entry_point",
                     id: "id",
-                    latestVersion: 1,
                     name: "name",
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },

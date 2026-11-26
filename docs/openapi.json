@@ -338,32 +338,11 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by_agent_id": {
-            "description": "Registry agent of the creating session. Null when the session used an inline agent spec.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "created_by_session_id": {
-            "type": "string"
-          },
           "created_by_subject": {
             "$ref": "#/components/schemas/Subject"
           },
-          "entry_point": {
-            "description": "Latest version's default file to render, as a path relative to the version. Null before the first version.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "id": {
             "type": "string"
-          },
-          "latest_version": {
-            "description": "Latest version.",
-            "type": "integer"
           },
           "name": {
             "type": "string"
@@ -376,11 +355,7 @@
         "required": [
           "id",
           "name",
-          "latest_version",
-          "entry_point",
           "created_by_subject",
-          "created_by_session_id",
-          "created_by_agent_id",
           "created_at",
           "updated_at"
         ],
@@ -8069,17 +8044,6 @@
             "required": false,
             "schema": {
               "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          },
-          {
-            "description": "When set, only artifacts created in this session are returned.",
-            "in": "query",
-            "name": "created_by_session_id",
-            "required": false,
-            "schema": {
-              "description": "When set, only artifacts created in this session are returned.",
-              "minLength": 1,
               "type": "string"
             }
           },

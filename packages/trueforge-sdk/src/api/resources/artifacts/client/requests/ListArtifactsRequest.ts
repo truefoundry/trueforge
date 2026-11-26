@@ -9,8 +9,6 @@ export interface ListArtifactsRequest {
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
-    /** When set, only artifacts created in this session are returned. */
-    createdBySessionId?: string;
     /** Case-insensitive substring match on artifact name. */
     name?: string;
 }

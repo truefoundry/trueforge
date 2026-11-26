@@ -15,7 +15,6 @@ const AGENT_ID = 'agent-1';
 const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
   created_by_subject_id: SUBJECT.subject_id,
-  created_by_session_id: undefined,
   name: undefined,
   limit: 10,
   page_token: undefined,
@@ -30,14 +29,13 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   async function createArtifact({
     tenantId = TENANT,
     name = 'Q3 report',
-    sessionId = 'session-1',
     agentId = AGENT_ID,
-  }: { tenantId?: string; name?: string; sessionId?: string; agentId?: string | null } = {}) {
+  }: { tenantId?: string; name?: string; agentId?: string | null } = {}) {
     return getStore().createArtifact({
       tenant_id: tenantId,
       name,
       created_by_subject: SUBJECT,
-      created_by_session_id: sessionId,
+      created_by_session_id: 'session-1',
       created_by_agent_id: agentId,
     });
   }
@@ -131,13 +129,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(second.data).toHaveLength(1);
     expect(second.pagination.next_page_token).toBeUndefined();
     expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(names);
-  });
-
-  it('filters the list by session', async () => {
-    await createArtifact({ name: 'one', sessionId: 'session-1' });
-    await createArtifact({ name: 'two', sessionId: 'session-2' });
-    expect(await listNames({ created_by_session_id: 'session-2' })).toEqual(['two']);
-    expect(await listNames({ created_by_session_id: 'session-3' })).toEqual([]);
   });
 
   it('filters the list by case-insensitive name substring', async () => {

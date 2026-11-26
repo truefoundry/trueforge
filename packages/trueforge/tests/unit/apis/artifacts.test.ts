@@ -33,14 +33,6 @@ describe('artifacts router', () => {
       created_by_agent_id: 'agent-1',
     });
     reportId = report.id;
-    await artifactStore.createVersion({
-      tenant_id: report.tenant_id,
-      artifact_id: report.id,
-      files_metadata: { entry_point: 'report/index.html', total_bytes: 1, root_path: 'uploads/report' },
-      created_by_subject: report.created_by_subject,
-      created_by_session_id: 'session-1',
-      created_by_agent_id: 'agent-1',
-    });
     await artifactStore.createArtifact({
       ...mine,
       name: 'Roadmap',
@@ -65,15 +57,8 @@ describe('artifacts router', () => {
     const second = ListArtifactsResponseSchema.parse(
       await (await app.request(`/?limit=1&page_token=${first.pagination.next_page_token ?? ''}`)).json(),
     );
-    expect([...first.data, ...second.data].map(a => [a.name, a.entry_point, a.created_by_agent_id]).sort()).toEqual([
-      ['Q3 Report', 'report/index.html', 'agent-1'],
-      ['Roadmap', null, null],
-    ]);
+    expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(['Q3 Report', 'Roadmap']);
     expect([...first.data, ...second.data].find(a => a.name === 'Q3 Report')?.id).toBe(reportId);
-  });
-
-  it('filters by created_by_session_id', async () => {
-    expect(await listTitles('created_by_session_id=session-2')).toEqual(['Roadmap']);
   });
 
   it('filters by name substring', async () => {

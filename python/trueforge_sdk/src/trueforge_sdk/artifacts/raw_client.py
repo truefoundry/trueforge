@@ -26,7 +26,6 @@ class RawArtifactsClient:
         *,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
-        created_by_session_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Artifact, ListArtifactsResponse]:
@@ -40,9 +39,6 @@ class RawArtifactsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
-
-        created_by_session_id : typing.Optional[str]
-            When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
             Case-insensitive substring match on artifact name.
@@ -61,7 +57,6 @@ class RawArtifactsClient:
             params={
                 "limit": limit,
                 "page_token": page_token,
-                "created_by_session_id": created_by_session_id,
                 "name": name,
             },
             request_options=request_options,
@@ -84,7 +79,6 @@ class RawArtifactsClient:
                     _get_next = lambda: self.list(
                         limit=limit,
                         page_token=_parsed_next,
-                        created_by_session_id=created_by_session_id,
                         name=name,
                         request_options=request_options,
                     )
@@ -130,7 +124,6 @@ class AsyncRawArtifactsClient:
         *,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
-        created_by_session_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Artifact, ListArtifactsResponse]:
@@ -144,9 +137,6 @@ class AsyncRawArtifactsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
-
-        created_by_session_id : typing.Optional[str]
-            When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
             Case-insensitive substring match on artifact name.
@@ -165,7 +155,6 @@ class AsyncRawArtifactsClient:
             params={
                 "limit": limit,
                 "page_token": page_token,
-                "created_by_session_id": created_by_session_id,
                 "name": name,
             },
             request_options=request_options,
@@ -190,7 +179,6 @@ class AsyncRawArtifactsClient:
                         return await self.list(
                             limit=limit,
                             page_token=_parsed_next,
-                            created_by_session_id=created_by_session_id,
                             name=name,
                             request_options=request_options,
                         )

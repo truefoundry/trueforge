@@ -30,7 +30,6 @@ class ArtifactsClient:
         *,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
-        created_by_session_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Artifact, ListArtifactsResponse]:
@@ -44,9 +43,6 @@ class ArtifactsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
-
-        created_by_session_id : typing.Optional[str]
-            When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
             Case-insensitive substring match on artifact name.
@@ -74,13 +70,7 @@ class ArtifactsClient:
         for page in response.iter_pages():
             yield page
         """
-        return self._raw_client.list(
-            limit=limit,
-            page_token=page_token,
-            created_by_session_id=created_by_session_id,
-            name=name,
-            request_options=request_options,
-        )
+        return self._raw_client.list(limit=limit, page_token=page_token, name=name, request_options=request_options)
 
 
 class AsyncArtifactsClient:
@@ -103,7 +93,6 @@ class AsyncArtifactsClient:
         *,
         limit: typing.Optional[int] = 25,
         page_token: typing.Optional[str] = None,
-        created_by_session_id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Artifact, ListArtifactsResponse]:
@@ -117,9 +106,6 @@ class AsyncArtifactsClient:
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
-
-        created_by_session_id : typing.Optional[str]
-            When set, only artifacts created in this session are returned.
 
         name : typing.Optional[str]
             Case-insensitive substring match on artifact name.
@@ -157,9 +143,5 @@ class AsyncArtifactsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
-            limit=limit,
-            page_token=page_token,
-            created_by_session_id=created_by_session_id,
-            name=name,
-            request_options=request_options,
+            limit=limit, page_token=page_token, name=name, request_options=request_options
         )
