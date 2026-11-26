@@ -855,10 +855,8 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
-   * Artifacts: JSON with the `s3` bucket artifact files are stored in (`bucket`, optional `region`, `prefix`,
-   * `endpoint`, `presign_ttl_seconds` default 300; credentials from the standard AWS chain) and per-tenant
-   * `tenants` entries (`enabled`: `off` | `on`). A tenant that is on gets the `push_artifact` tool by default.
-   * Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
+   * Artifacts: JSON with the `s3` bucket for artifact files and per-tenant `tenants` (`enabled`: `off` | `on`).
+   * A tenant that is on gets `push_artifact` by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
   ARTIFACTS: ArtifactsFeature | undefined;
   /** Max files in one artifact version. Env: `ARTIFACT_MAX_FILES`. Default 25. */

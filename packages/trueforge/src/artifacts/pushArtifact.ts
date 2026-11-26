@@ -17,7 +17,7 @@ import type { IArtifactStore } from '../db/artifactStore';
 import { ArtifactNameSchema } from '../schemas/artifact';
 import { checkArtifactPush, type ArtifactPushLimits } from './pushChecks';
 
-export const ARTIFACTS_SERVER_ID = 'artifacts';
+const ARTIFACTS_SERVER_ID = 'artifacts';
 export const PUSH_ARTIFACT_TOOL_NAME = 'push_artifact';
 const UPLOAD_CONCURRENCY = 4;
 
@@ -57,10 +57,10 @@ export interface ArtifactUploadTransfer {
 export interface ArtifactPushStores {
   artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifact' | 'createVersion'>;
   transfer: ArtifactUploadTransfer;
+  limits: ArtifactPushLimits;
 }
 
 export interface PushArtifactDeps extends ArtifactPushStores {
-  limits: ArtifactPushLimits;
   sandbox: Pick<HarnessSandbox, 'validateArtifactDir' | 'uploadArtifactFiles'>;
   tenant_id: string;
   session_id: string;
@@ -101,7 +101,6 @@ class PushArtifactTools extends LocalToolMCP {
 
   private async push(input: PushArtifactInput) {
     const deps = this.#deps;
-    const sandbox = deps.sandbox;
     let target: { type: 'existing'; id: string } | { type: 'new'; name: string };
     if (input.artifact_id !== undefined) {
       const artifact = await deps.artifactStore.getArtifact({ tenant_id: deps.tenant_id, id: input.artifact_id });
@@ -120,7 +119,7 @@ class PushArtifactTools extends LocalToolMCP {
 
     let metadata: SandboxMetadata;
     try {
-      const validated = await sandbox.validateArtifactDir(input.dir);
+      const validated = await deps.sandbox.validateArtifactDir(input.dir);
       metadata = { sandboxInfo: validated.sandboxInfo, sandboxCreated: validated.sandboxCreated };
       const check = checkArtifactPush({
         validated: validated.result,
@@ -157,7 +156,7 @@ class PushArtifactTools extends LocalToolMCP {
           return { relative_path: file.relative_path, url, headers };
         }),
       );
-      const uploaded = await sandbox.uploadArtifactFiles({
+      const uploaded = await deps.sandbox.uploadArtifactFiles({
         requestId: pushId,
         request: { concurrency: UPLOAD_CONCURRENCY, base_path: input.dir, files },
       });

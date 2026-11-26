@@ -709,7 +709,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     };
   }
 
-  /** Measures every file under `dir` (size + sha256); rejects symlinks and non-regular files. */
+  /** Measures every regular file under `dir` (size + sha256); symlinks and special files are skipped. */
   async validateArtifactDir(dir: string): Promise<ArtifactTransferRun<ArtifactValidateResult>> {
     return this.runArtifactTransferScript({
       schema: ArtifactValidateResultSchema,

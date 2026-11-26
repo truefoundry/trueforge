@@ -267,7 +267,7 @@ export {
 export type { OutboundFetch, OutboundFetchOptions } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
-export type { ArtifactUploadRequest, ArtifactUploadResult, ArtifactValidateResult } from './sandbox/artifactTransfer';
+export type { ArtifactValidateResult } from './sandbox/artifactTransfer';
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
@@ -301,7 +301,7 @@ export type {
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
-export type { ArtifactTransferRun, HarnessSandbox, SandboxInfo } from './sandbox/Sandbox';
+export type { HarnessSandbox, SandboxInfo } from './sandbox/Sandbox';
 export {
   SandboxError,
   SandboxFileNotFoundError,

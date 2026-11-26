@@ -665,7 +665,14 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     artifacts:
       configuration.ARTIFACTS === undefined
         ? undefined
-        : { artifactStore, transfer: createS3ArtifactObjectStore(configuration.ARTIFACTS.s3) },
+        : {
+            artifactStore,
+            transfer: createS3ArtifactObjectStore(configuration.ARTIFACTS.s3),
+            limits: {
+              max_files: configuration.ARTIFACT_MAX_FILES,
+              max_total_bytes: configuration.ARTIFACT_MAX_TOTAL_BYTES,
+            },
+          },
     authenticator,
     authorizer,
     decisionModel,

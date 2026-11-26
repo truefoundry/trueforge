@@ -6,14 +6,14 @@ export interface ArtifactPushLimits {
   max_total_bytes: number;
 }
 
-export interface ArtifactPushFile {
+interface ArtifactPushFile {
   // Relative to the pushed directory; also the object key suffix.
   relative_path: string;
   size_bytes: number;
   sha256_b64: string;
 }
 
-export type ArtifactPushCheckResult =
+type ArtifactPushCheckResult =
   { ok: true; files: ArtifactPushFile[]; entry_point: string; total_bytes: number } | { ok: false; errors: string[] };
 
 function isSafeRelativePath(path: string): boolean {

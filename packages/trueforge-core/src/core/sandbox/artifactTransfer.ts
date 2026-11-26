@@ -11,7 +11,6 @@ export const ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS = 300;
 
 export interface ArtifactUploadRequest {
   concurrency: number;
-  // Absolute sandbox dir the relative paths are read from.
   base_path: string;
   files: { relative_path: string; url: string; headers: Record<string, string> }[];
 }

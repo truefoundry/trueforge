@@ -575,10 +575,6 @@ function createTurnResolver(deps: {
         : [
             pushArtifactCapability({
               ...artifacts.stores,
-              limits: {
-                max_files: configuration.ARTIFACT_MAX_FILES,
-                max_total_bytes: configuration.ARTIFACT_MAX_TOTAL_BYTES,
-              },
               sandbox: turnSandbox.sandbox,
               tenant_id,
               session_id: sessionId,

@@ -142,7 +142,7 @@ export interface SandboxProvider<TEnvironment = undefined> {
   getSkillsDir(sandboxId: string): string;
   /** Path the skill downloader script is written to before it runs. */
   getSkillDownloaderPath(sandboxId: string): string;
-  /** Directory holding the artifact transfer script and its per-run request dirs. */
+  /** Directory holding the artifact transfer script and its upload request files. */
   getArtifactTransferDir(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;

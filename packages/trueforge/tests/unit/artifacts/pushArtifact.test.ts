@@ -1,10 +1,10 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
+import type { ArtifactValidateResult } from '@truefoundry/trueforge-core/core';
+import type { ArtifactTransferRun } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import type {
-  ArtifactTransferRun,
   ArtifactUploadRequest,
   ArtifactUploadResult,
-  ArtifactValidateResult,
-} from '@truefoundry/trueforge-core/core';
+} from '@truefoundry/trueforge-core/core/sandbox/artifactTransfer';
 import { NOOP_AGENT_TRACING } from '@truefoundry/trueforge-core/core/tracing/NoopAgentTracing';
 import { createLogger } from 'winston';
 import {
