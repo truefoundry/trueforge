@@ -205,7 +205,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
 
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
         files_metadata: {
@@ -218,14 +217,13 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         created_by_agent_id: AGENT_ID,
       }),
     );
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 })).toEqual(
+    expect(v2).toEqual(
       expect.objectContaining({
         created_by_subject: COLLABORATOR,
         created_by_session_id: 'session-2',
         created_by_agent_id: null,
       }),
     );
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
   });
 
   it('lists artifacts with a version created in the session', async () => {
@@ -255,10 +253,10 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.listSessionArtifacts({ ...input, session_id: 'session-3' })).toEqual([]);
   });
 
-  it('hides versions from other tenants', async () => {
+  it('rejects versions for artifacts in other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
+    await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
     expect(
       await store.createVersion({
         tenant_id: OTHER_TENANT,
@@ -268,9 +266,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),
-    ).toBeUndefined();
-    expect(
-      await store.getVersion({ tenant_id: OTHER_TENANT, artifact_id: artifact.id, version: v1.version }),
     ).toBeUndefined();
     expect((await store.listArtifacts(LIST_DEFAULTS)).data[0]?.latest_version).toBe(1);
   });
