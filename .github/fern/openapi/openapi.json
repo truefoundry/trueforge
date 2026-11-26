@@ -10625,17 +10625,6 @@
               "minLength": 1,
               "type": "string"
             }
-          },
-          {
-            "description": "Case-insensitive substring match on artifact name.",
-            "in": "query",
-            "name": "name",
-            "required": false,
-            "schema": {
-              "description": "Case-insensitive substring match on artifact name.",
-              "minLength": 1,
-              "type": "string"
-            }
           }
         ],
         "responses": {

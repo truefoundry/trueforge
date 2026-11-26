@@ -594,7 +594,6 @@ export class SessionsClient {
      * List artifacts with a version created in this session, most recently updated first.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueForge.ListArtifactsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.ForbiddenError}
@@ -607,21 +606,15 @@ export class SessionsClient {
      */
     public listArtifacts(
         session_id: string,
-        request: TrueForge.ListArtifactsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.ListSessionArtifactsResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__listArtifacts(session_id, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__listArtifacts(session_id, requestOptions));
     }
 
     private async __listArtifacts(
         session_id: string,
-        request: TrueForge.ListArtifactsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.ListSessionArtifactsResponse>> {
-        const { name } = request;
-        const _queryParams: Record<string, unknown> = {
-            name,
-        };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -636,11 +629,7 @@ export class SessionsClient {
             ),
             method: "GET",
             headers: _headers,
-            queryString: core.url
-                .queryBuilder()
-                .addMany(_queryParams)
-                .mergeAdditional(requestOptions?.queryParams)
-                .build(),
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
             maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
             abortSignal: requestOptions?.abortSignal,

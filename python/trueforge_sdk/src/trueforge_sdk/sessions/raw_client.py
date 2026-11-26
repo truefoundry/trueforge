@@ -503,11 +503,7 @@ class RawSessionsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def list_artifacts(
-        self,
-        *,
-        session_id: str,
-        name: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ListSessionArtifactsResponse]:
         """
         List artifacts with a version created in this session, most recently updated first.
@@ -516,9 +512,6 @@ class RawSessionsClient:
         ----------
         session_id : str
             Session identifier.
-
-        name : typing.Optional[str]
-            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -531,9 +524,6 @@ class RawSessionsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/artifacts",
             method="GET",
-            params={
-                "name": name,
-            },
             request_options=request_options,
         )
         try:
@@ -2437,11 +2427,7 @@ class AsyncRawSessionsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def list_artifacts(
-        self,
-        *,
-        session_id: str,
-        name: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ListSessionArtifactsResponse]:
         """
         List artifacts with a version created in this session, most recently updated first.
@@ -2450,9 +2436,6 @@ class AsyncRawSessionsClient:
         ----------
         session_id : str
             Session identifier.
-
-        name : typing.Optional[str]
-            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2465,9 +2448,6 @@ class AsyncRawSessionsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/artifacts",
             method="GET",
-            params={
-                "name": name,
-            },
             request_options=request_options,
         )
         try:

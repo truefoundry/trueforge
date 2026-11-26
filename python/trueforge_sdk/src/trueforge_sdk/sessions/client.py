@@ -295,11 +295,7 @@ class SessionsClient:
         return _response.data
 
     def list_artifacts(
-        self,
-        *,
-        session_id: str,
-        name: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> ListSessionArtifactsResponse:
         """
         List artifacts with a version created in this session, most recently updated first.
@@ -308,9 +304,6 @@ class SessionsClient:
         ----------
         session_id : str
             Session identifier.
-
-        name : typing.Optional[str]
-            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -332,7 +325,7 @@ class SessionsClient:
             session_id="session_id",
         )
         """
-        _response = self._raw_client.list_artifacts(session_id=session_id, name=name, request_options=request_options)
+        _response = self._raw_client.list_artifacts(session_id=session_id, request_options=request_options)
         return _response.data
 
     def cancel(
@@ -1265,11 +1258,7 @@ class AsyncSessionsClient:
         return _response.data
 
     async def list_artifacts(
-        self,
-        *,
-        session_id: str,
-        name: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> ListSessionArtifactsResponse:
         """
         List artifacts with a version created in this session, most recently updated first.
@@ -1278,9 +1267,6 @@ class AsyncSessionsClient:
         ----------
         session_id : str
             Session identifier.
-
-        name : typing.Optional[str]
-            Case-insensitive substring match on artifact name.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1310,9 +1296,7 @@ class AsyncSessionsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_artifacts(
-            session_id=session_id, name=name, request_options=request_options
-        )
+        _response = await self._raw_client.list_artifacts(session_id=session_id, request_options=request_options)
         return _response.data
 
     async def cancel(

@@ -2279,7 +2279,7 @@ await client.sessions.update("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listArtifacts</a>(session_id, { ...params }) -> TrueForge.ListSessionArtifactsResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listArtifacts</a>(session_id) -> TrueForge.ListSessionArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2323,14 +2323,6 @@ await client.sessions.listArtifacts("session_id");
 <dd>
 
 **session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.ListArtifactsSessionsRequest` 
     
 </dd>
 </dl>
