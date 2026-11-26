@@ -319,13 +319,13 @@ export function ComposerContainer({
     return <ComposerWithAssistantPicker placeholder={placeholder} />;
   }
 
-  // Approval sits flush on the composer. Ask User keeps a small gap. MCP tucks the
-  // composer over the card’s bottom edge (screenshot stack).
+  // Pause stacks stay flush against the composer shell — do not insert the
+  // Assistant/Agents picker between chrome and input (breaks connectedToBanner / -mt offsets).
   if (pauseView.kind === 'approval') {
     return (
       <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="flex w-full flex-col">
         {pauseChrome}
-        <ComposerWithAssistantPicker placeholder={placeholder} connectedToBanner />
+        <ComposerWithOptionalDraft placeholder={placeholder} connectedToBanner />
       </div>
     );
   }
@@ -335,7 +335,7 @@ export function ComposerContainer({
       <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="relative flex w-full flex-col">
         <div className="pb-2">{pauseChrome}</div>
         <div className="relative z-10 -mt-3">
-          <ComposerWithAssistantPicker placeholder={placeholder} />
+          <ComposerWithOptionalDraft placeholder={placeholder} />
         </div>
       </div>
     );
@@ -345,7 +345,7 @@ export function ComposerContainer({
     <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="flex w-full flex-col">
       {pauseChrome}
       <div className="relative z-10 -mt-1">
-        <ComposerWithAssistantPicker placeholder={placeholder} />
+        <ComposerWithOptionalDraft placeholder={placeholder} />
       </div>
     </div>
   );

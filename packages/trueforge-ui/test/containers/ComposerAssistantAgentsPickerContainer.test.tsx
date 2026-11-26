@@ -241,4 +241,32 @@ describe('ComposerAssistantAgentsPickerContainer', () => {
     const assistant = await screen.findByRole('menuitem', { name: /Assistant/ });
     expect(assistant).toHaveAttribute('aria-checked', 'true');
   });
+
+  it('does not remount when reselecting the already-active Assistant mode', async () => {
+    const track = vi.fn();
+    renderPicker({ track });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat mode: Assistant' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Assistant/ }));
+
+    expect(track).not.toHaveBeenCalledWith(AnalyticsEvents.Composer.ASSISTANT_SELECTED);
+    expect(screen.getByLabelText('Shell mode')).toHaveTextContent('draft');
+  });
+
+  it('does not remount when reselecting the already-active agent', async () => {
+    const track = vi.fn();
+    renderPicker({ track });
+
+    await openAgentsSubmenu();
+    fireEvent.click(await screen.findByRole('option', { name: 'alpha-bot' }));
+    await waitFor(() => expect(search).toBe('?try_agent_name=alpha-bot'));
+    expect(track).toHaveBeenCalledTimes(1);
+
+    await openAgentsSubmenu();
+    fireEvent.click(await screen.findByRole('option', { name: 'alpha-bot' }));
+
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Shell mode')).toHaveTextContent('alpha-bot');
+    expect(search).toBe('?try_agent_name=alpha-bot');
+  });
 });

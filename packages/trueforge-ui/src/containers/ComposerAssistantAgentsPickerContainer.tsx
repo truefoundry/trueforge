@@ -55,12 +55,16 @@ export function ComposerAssistantAgentsPickerContainer() {
   const disabled = isRunning;
 
   const handleSelectAssistant = () => {
+    // Already on plain New Chat — do not remount / clear the draft.
+    if (selection.kind === 'assistant') return;
     track(AnalyticsEvents.Composer.ASSISTANT_SELECTED);
     shell.openDraft();
   };
 
   const handleSelectAgent = (agent: AgentLibraryEntry) => {
     const agentId = libraryAgentId(agent);
+    // Same agent already selected — keep the current Try chat mounted.
+    if (selection.kind === 'agent' && selection.agentId === agentId) return;
     track(AnalyticsEvents.Composer.AGENT_SELECTED, {
       agent_id: agentId,
       agent_name: agent.name,
