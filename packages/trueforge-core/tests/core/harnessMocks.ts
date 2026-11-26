@@ -84,6 +84,7 @@ export function makeStubPublicSandbox(): Sandbox {
     getFileUploadsDir: () => '/tmp/uploads',
     getSkillsDir: () => '/opt/tfy/skills',
     getSkillDownloaderPath: () => '/opt/tfy/skill_downloader.py',
+    getArtifactTransferDir: () => '/opt/tfy/artifact-transfer',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
     createCodeModeTransport: jest.fn(),

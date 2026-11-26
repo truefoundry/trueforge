@@ -18,6 +18,7 @@ describe('TFYSandboxProvider layout', () => {
       provider.getFileUploadsDir(),
       provider.getSkillsDir(),
       provider.getSkillDownloaderPath(),
+      provider.getArtifactTransferDir(),
     ];
     for (const path of layout) {
       expect(path.startsWith('/')).toBe(false);

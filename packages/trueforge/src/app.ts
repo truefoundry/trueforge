@@ -29,6 +29,7 @@ import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
 import { createUsersRouter } from './apis/users';
+import type { ArtifactPushStores } from './artifacts/pushArtifact';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { areCatalogSettingsAvailable, resolveRequestContext, type RequestContext } from './auth/identity';
@@ -341,6 +342,8 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   artifactStore: IArtifactStore;
+  /** `push_artifact` stores; undefined when no direct-upload object store is configured. */
+  artifacts: ArtifactPushStores | undefined;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
@@ -659,6 +662,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     createTurnsRouter({
       accessControlStore: deps.accessControlStore,
       activeTurns: deps.activeTurns,
+      artifacts: deps.artifacts,
       authorizer: deps.authorizer,
       decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,

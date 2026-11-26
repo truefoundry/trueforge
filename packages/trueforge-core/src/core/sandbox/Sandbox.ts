@@ -15,11 +15,25 @@ import {
 } from '../runtime/DeferredTool';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
+import {
+  ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
+  artifactTransferScriptPath,
+  artifactUploadRequestPath,
+  ArtifactUploadResultSchema,
+  ArtifactValidateResultSchema,
+  buildArtifactUploadCommand,
+  buildArtifactUploadRequestFile,
+  buildArtifactValidateCommand,
+  type ArtifactUploadRequest,
+  type ArtifactUploadResult,
+  type ArtifactValidateResult,
+} from './artifactTransfer';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
+import { sandboxScripts } from './sandboxScripts.gen';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { dirname, join, relative } from 'node:path/posix';
 import type { ISkillMounter } from './skills/ISkillMounter';
@@ -77,6 +91,13 @@ function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, st
     GIT_CONFIG_KEY_0: 'credential.helper',
     GIT_CONFIG_VALUE_0: `store --file ${credentialsPath}`,
   };
+}
+
+export interface ArtifactTransferRun<T> {
+  result: T;
+  sandboxInfo: SandboxInfo;
+  // True on the call that created the sandbox.
+  sandboxCreated: boolean;
 }
 
 export interface SandboxStoredFile {
@@ -688,6 +709,78 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     };
   }
 
+  /** Measures every file under `dir` (size + sha256); rejects symlinks and non-regular files. */
+  async validateArtifactDir(dir: string): Promise<ArtifactTransferRun<ArtifactValidateResult>> {
+    return this.runArtifactTransferScript({
+      schema: ArtifactValidateResultSchema,
+      command: transferDir => buildArtifactValidateCommand({ transferDir, dir }),
+      requestFile: undefined,
+      timeoutSeconds: undefined,
+    });
+  }
+
+  /**
+   * Uploads files to presigned URLs from the sandbox. The request file holds the URLs; it is
+   * deleted when the script reads it and again after the run.
+   */
+  async uploadArtifactFiles(input: {
+    requestId: string;
+    request: ArtifactUploadRequest;
+  }): Promise<ArtifactTransferRun<ArtifactUploadResult>> {
+    return this.runArtifactTransferScript({
+      schema: ArtifactUploadResultSchema,
+      requestFile: transferDir => ({
+        remotePath: artifactUploadRequestPath({ transferDir, requestId: input.requestId }),
+        content: buildArtifactUploadRequestFile(input.request),
+      }),
+      command: transferDir =>
+        buildArtifactUploadCommand({
+          transferDir,
+          requestPath: artifactUploadRequestPath({ transferDir, requestId: input.requestId }),
+        }),
+      timeoutSeconds: ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
+    });
+  }
+
+  private async runArtifactTransferScript<T>(input: {
+    schema: z.ZodType<T>;
+    requestFile: ((transferDir: string) => { remotePath: string; content: Buffer }) | undefined;
+    command: (transferDir: string) => string;
+    timeoutSeconds: number | undefined;
+  }): Promise<ArtifactTransferRun<T>> {
+    const { sandboxInfo, sandboxCreated } = await this.ensureReadySandbox();
+    const sandboxId = this.providerSandboxId(sandboxInfo.sandbox_id);
+    const transferDir = this.provider.getArtifactTransferDir(sandboxId);
+    await this.provider.uploadFile({
+      sandboxId,
+      remotePath: artifactTransferScriptPath(transferDir),
+      content: Buffer.from(sandboxScripts.artifactTransfer, 'utf-8'),
+    });
+    const requestFile = input.requestFile?.(transferDir);
+    if (requestFile !== undefined) {
+      await this.provider.uploadFile({ sandboxId, ...requestFile });
+    }
+    const run = await this.provider.exec({
+      sandboxId,
+      command: input.command(transferDir),
+      timeoutSeconds: input.timeoutSeconds,
+    });
+    if (!run.success) {
+      throw new Error(run.error);
+    }
+    // Exit 1 still prints a result (validation or a transfer failed); anything else is a script error.
+    if (run.response.exitCode !== 0 && run.response.exitCode !== 1) {
+      throw new Error(`artifact transfer failed (exit code ${String(run.response.exitCode)}): ${run.response.result}`);
+    }
+    let output: unknown;
+    try {
+      output = JSON.parse(run.response.result);
+    } catch (e) {
+      throw new Error(`artifact transfer returned invalid output: ${run.response.result}`, { cause: e });
+    }
+    return { result: input.schema.parse(output), sandboxInfo, sandboxCreated: sandboxCreated !== undefined };
+  }
+
   /**
    * Upload the MCP client Python script to the sandbox on the first tool call.
    * The sandbox filesystem is persistent within a session, so this only needs to run once.
@@ -715,13 +808,19 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
     const skillsDir = this.provider.getSkillsDir(sandboxId);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
+    const artifactTransferDir = this.provider.getArtifactTransferDir(sandboxId);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
 
     this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
     const install = this.mcpClientInstall;
 
-    const dirs = [shellEscape(fileUploadsDir), shellEscape(toolResultDumpDir), shellEscape(skillsDir)];
+    const dirs = [
+      shellEscape(fileUploadsDir),
+      shellEscape(toolResultDumpDir),
+      shellEscape(skillsDir),
+      shellEscape(artifactTransferDir),
+    ];
     if (install !== undefined) {
       const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
       dirs.push(shellEscape(pythonPath));

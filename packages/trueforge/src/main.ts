@@ -661,6 +661,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     activeTurns,
     agentStore,
     artifactStore,
+    // TODO: pass the S3 object store's presign/verify once it is available.
+    artifacts: undefined,
     authenticator,
     authorizer,
     decisionModel,

@@ -110,6 +110,7 @@ const app = createServerApp({
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
   artifactStore: new SqliteArtifactStore(db),
+  artifacts: undefined,
   tokenStore,
   sessionStore,
   accessControlStore: new SqliteAccessControlStore(db),

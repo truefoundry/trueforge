@@ -662,7 +662,7 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   // Cwd-relative: SRT cwd is the sandbox root. Init mkdir/ln and the agent prompt must not use
   // host-absolute paths — those contain spaces under macOS Application Support and lose quoting.
-  //   uploads, skills, tool-results, skill_downloader.py, .git-credentials, .venv
+  //   uploads, skills, tool-results, skill_downloader.py, .git-credentials, .venv, artifact-transfer
   //   mcp-client/mcp_client.py
   getToolResultDumpDir(): string {
     return 'tool-results';
@@ -682,6 +682,10 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   getSkillDownloaderPath(): string {
     return 'skill_downloader.py';
+  }
+
+  getArtifactTransferDir(): string {
+    return 'artifact-transfer';
   }
 
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {

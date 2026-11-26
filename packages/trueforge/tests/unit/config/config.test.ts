@@ -1,6 +1,11 @@
 import { DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
 import type { ServerConfiguration } from '../../../src/config';
-import { buildRedisStandaloneUrl, getPublicUiBasePath, parseTrueFoundryModelRouting } from '../../../src/config';
+import {
+  buildRedisStandaloneUrl,
+  getPublicUiBasePath,
+  parseArtifactsFeature,
+  parseTrueFoundryModelRouting,
+} from '../../../src/config';
 import {
   hasTrueFoundrySandboxProviderConfig,
   resolveTrueFoundrySandboxProviderConfig,
@@ -206,6 +211,22 @@ describe('buildRedisStandaloneUrl', () => {
 
   it('leaves IPv4 hosts unbracketed', () => {
     expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379/0');
+  });
+});
+
+describe('parseArtifactsFeature', () => {
+  it('returns undefined when unset', () => {
+    expect(parseArtifactsFeature(undefined)).toBeUndefined();
+    expect(parseArtifactsFeature('  ')).toBeUndefined();
+  });
+
+  it('reads the per-tenant flag, defaulting a listed tenant to off', () => {
+    const parsed = parseArtifactsFeature(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }));
+    expect(parsed?.tenants).toEqual({ internal: { enabled: 'on' }, other: { enabled: 'off' } });
+  });
+
+  it('rejects malformed JSON', () => {
+    expect(() => parseArtifactsFeature('{"tenants": {"a": {"enabled": "yes"}}}')).toThrow('ARTIFACTS');
   });
 });
 

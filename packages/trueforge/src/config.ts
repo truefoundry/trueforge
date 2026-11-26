@@ -194,6 +194,27 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
   }
 }
 
+const ArtifactsFeatureSchema = z.object({
+  tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
+});
+
+export type ArtifactsFeature = z.infer<typeof ArtifactsFeatureSchema>;
+
+/** Parses `ARTIFACTS` JSON. Empty / unset → undefined (artifacts off everywhere). */
+export function parseArtifactsFeature(raw: string | undefined): ArtifactsFeature | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    return ArtifactsFeatureSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      { cause: error },
+    );
+  }
+}
+
 /**
  * Parses `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` JSON.
  * Empty / unset → `{}` (no filtering).
@@ -816,6 +837,15 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
+   * Per-tenant artifacts feature flag: JSON `{"tenants":{"<tenant_id>":{"enabled":"on"}}}`. A tenant that is on
+   * gets the `push_artifact` tool by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
+   */
+  ARTIFACTS: ArtifactsFeature | undefined;
+  /** Max files in one artifact version. Env: `ARTIFACT_MAX_FILES`. Default 25. */
+  ARTIFACT_MAX_FILES: number;
+  /** Max total bytes in one artifact version. Env: `ARTIFACT_MAX_TOTAL_BYTES`. Default 25 MB. */
+  ARTIFACT_MAX_TOTAL_BYTES: number;
+  /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
    */
@@ -1270,6 +1300,17 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
     defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
+  ARTIFACTS: parseArtifactsFeature(getEnv('ARTIFACTS', { required: false })),
+  ARTIFACT_MAX_FILES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_FILES',
+    raw: getEnv('ARTIFACT_MAX_FILES'),
+    defaultValue: 25,
+  }),
+  ARTIFACT_MAX_TOTAL_BYTES: parsePositiveInt({
+    envKey: 'ARTIFACT_MAX_TOTAL_BYTES',
+    raw: getEnv('ARTIFACT_MAX_TOTAL_BYTES'),
+    defaultValue: 25 * 1024 * 1024,
+  }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
     raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
@@ -1564,6 +1605,11 @@ export function trueFoundryModelRouting(
   config: ServerConfiguration = configuration,
 ): TrueFoundryModelRouting | undefined {
   return isTrueFoundryModeEnabled(config) ? config.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+}
+
+/** True when the artifacts feature flag is on for the tenant. */
+export function artifactsEnabledForTenant(tenantId: string, config: ServerConfiguration = configuration): boolean {
+  return config.ARTIFACTS?.tenants[tenantId]?.enabled === 'on';
 }
 
 /** The tenant's routing entry when that tenant has model routing on. */
