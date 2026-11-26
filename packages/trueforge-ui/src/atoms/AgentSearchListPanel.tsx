@@ -42,10 +42,9 @@ export function AgentSearchListPanel({
         query={query}
         setQuery={setQuery}
         placeholder={placeholder}
-        iconName="search-solid"
+        // Figma: Weight 900, Solid, 12px; field colors from design.
         iconSize={12}
-        // Figma: solid search Weight 900 @ 12px, #CEE0F8 border, #82A0CE icon, #5E7BAA placeholder, #F0F7FF fill.
-        iconClassName="left-2 size-3 text-[#82A0CE]"
+        iconClassName="left-2 size-3 font-[900] stroke-[2.5] text-[#82A0CE]"
         inputClassName={cn(
           'border-[#CEE0F8] bg-[#F0F7FF] pl-7 text-text-primary',
           'placeholder:text-[#5E7BAA]',

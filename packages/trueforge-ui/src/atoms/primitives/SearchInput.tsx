@@ -8,10 +8,8 @@ type SearchInputProps = {
   className?: string;
   inputClassName?: string;
   iconClassName?: string;
-  /** Lucide SVG size in CSS pixels (icon `size` prop). */
+  /** Icon size in CSS pixels (passed to Lucide `size`). */
   iconSize?: number;
-  /** Icon registry name. Default outline `search`; use `search-solid` for Figma solid. */
-  iconName?: string;
 };
 
 const SearchInput = ({
@@ -22,12 +20,11 @@ const SearchInput = ({
   inputClassName,
   iconClassName,
   iconSize,
-  iconName = 'search',
 }: SearchInputProps) => {
   return (
     <label className={cn('relative block', className)}>
       <Icon
-        name={iconName}
+        name="search"
         size={iconSize}
         className={cn(
           'text-text-secondary pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2',
