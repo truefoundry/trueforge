@@ -63,16 +63,17 @@ describe('artifact_transfer_v1.py', () => {
     });
   });
 
-  it.each([
-    ['file symlink', (dir: string) => symlinkSync('/etc/passwd', join(dir, 'passwd.txt')), 'symlinks'],
-    ['dir symlink', (dir: string) => symlinkSync('/etc', join(dir, 'etc')), 'symlinks'],
-  ])('validate rejects a %s', (_name, addLink, expected) => {
+  it('validate skips file and dir symlinks', () => {
     const report = makeReport();
-    addLink(report);
+    symlinkSync('/etc/passwd', join(report, 'passwd.txt'));
+    symlinkSync('/etc', join(report, 'etc'));
     const { status, output } = run('validate', report);
-    expect(status).toBe(1);
-    expect(output).toMatchObject({ success: false, exit_code: 1, files: [] });
-    expect(String(output?.['error'])).toContain(expected);
+    expect(status).toBe(0);
+    expect(output).toMatchObject({ success: true, error: null });
+    expect((output?.['files'] as { relative_path: string }[]).map(f => f.relative_path)).toEqual([
+      'img/chart.png',
+      'index.html',
+    ]);
   });
 
   it('validate rejects a missing dir', () => {

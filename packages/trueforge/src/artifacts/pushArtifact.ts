@@ -143,7 +143,8 @@ class PushArtifactTools extends LocalToolMCP {
                 created_by_agent_id: deps.agent_id,
               })
             ).id;
-      const rootPath = `artifacts/${deps.tenant_id}/${artifactId}/${randomUUID()}`;
+      const pushId = randomUUID();
+      const rootPath = `artifacts/${deps.tenant_id}/${artifactId}/${pushId}`;
       const keyOf = (relativePath: string) => `${rootPath}/${relativePath}`;
 
       const files = await Promise.all(
@@ -157,7 +158,7 @@ class PushArtifactTools extends LocalToolMCP {
         }),
       );
       const uploaded = await sandbox.uploadArtifactFiles({
-        requestId: randomUUID(),
+        requestId: pushId,
         request: { concurrency: UPLOAD_CONCURRENCY, base_path: input.dir, files },
       });
       if (!uploaded.result.success) {

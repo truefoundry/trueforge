@@ -8,6 +8,7 @@ uploaded objects afterwards.
 Usage:
   artifact_transfer_v1.py validate <dir>
       -> {"mode", "success", "exit_code", "error", "files": [{relative_path, size_bytes, sha256_b64}]}
+      (regular files only; symlinks and special files are skipped)
   artifact_transfer_v1.py upload <request.json>
       request: {"concurrency", "base_path", "files": [{relative_path, url, headers}], "created_at"}
       -> {"mode", "success", "exit_code", "files": [{path, status, error}]}   (never URLs)
@@ -73,20 +74,19 @@ def _open_nofollow(path: str) -> int:
 
 
 def _measure(root: str, path: str) -> tuple[dict | None, str | None]:
-    """Returns (file, None), (None, error) or (None, None) for a directory."""
+    """Returns (file, None), (None, error), or (None, None) for entries that are skipped."""
     relative_path = os.path.relpath(path, root)
     try:
-        if stat.S_ISDIR(os.lstat(path).st_mode):
+        if not stat.S_ISREG(os.lstat(path).st_mode):
+            # Symlinks and special files are not pushed.
             return None, None
         fd = _open_nofollow(path)
     except OSError as e:
-        if os.path.islink(path):
-            return None, f"symlinks are not allowed: {relative_path}"
         return None, f"cannot read {relative_path}: {e.strerror}"
     try:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
-            return None, f"not a regular file: {relative_path}"
+            return None, None
         digest = hashlib.sha256()
         read = 0
         while chunk := os.read(fd, READ_CHUNK):
@@ -103,12 +103,12 @@ def _measure(root: str, path: str) -> tuple[dict | None, str | None]:
 def _validate(directory: str) -> tuple[dict, bool]:
     if not os.path.isabs(directory):
         raise ValueError("dir must be an absolute path")
-    if os.path.islink(directory) or not os.path.isdir(directory):
+    if not os.path.isdir(directory):
         return {"error": f"not a directory: {directory}", "files": []}, False
     files = []
-    # Symlinked dirs land in dirnames but are not followed; _measure rejects them.
-    for parent, dirnames, filenames in os.walk(directory, followlinks=False):
-        for name in dirnames + filenames:
+    # followlinks=False: symlinked dirs are listed in dirnames but never entered.
+    for parent, _dirnames, filenames in os.walk(directory, followlinks=False):
+        for name in filenames:
             file, error = _measure(directory, os.path.join(parent, name))
             if error is not None:
                 return {"error": error, "files": []}, False
