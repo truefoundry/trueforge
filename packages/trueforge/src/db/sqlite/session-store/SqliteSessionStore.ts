@@ -176,6 +176,7 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
       capability_states: input.capability_states,
       last_activity_timestamp_ms: Date.now(),
       update_session_title_if_not_exist: input.update_session_title_if_not_exist,
+      main_thread_model: input.main_thread_model,
       mcp_servers: null,
       sandbox_info: null,
     });

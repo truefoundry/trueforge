@@ -39,6 +39,7 @@ const EXPECTED_LLM_INPUT = [
 describe('orchestration: mocked LLM and no tools', () => {
   it('sends a user message and finishes the thread with a text reply', async () => {
     const thread = new AgentThread({
+      lastUsedModel: null,
       definition: {
         instruction: INSTRUCTION,
         messages: undefined,

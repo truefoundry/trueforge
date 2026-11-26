@@ -31,6 +31,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
     hasApplicableApprovalPolicy: jest.fn(() => false),
   };
   const input: AgentThreadConstructorInput = {
+    lastUsedModel: null,
     definition: {
       instruction: undefined,
       messages: [{ role: 'user', content: 'continue' }],

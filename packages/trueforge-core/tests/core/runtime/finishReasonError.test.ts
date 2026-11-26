@@ -45,6 +45,7 @@ async function runUntilDone({
     createNonStream: jest.fn(),
   };
   const thread = new AgentThread({
+    lastUsedModel: null,
     threadId: 'main',
     title: 'Main',
     tracing: NOOP_AGENT_TRACING,

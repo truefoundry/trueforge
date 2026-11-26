@@ -165,6 +165,7 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
 
     const assistant = makeAssistantWithReplayFields();
     const thread = new AgentThread({
+      lastUsedModel: null,
       threadId: 'main',
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,

@@ -4,7 +4,11 @@ import {
   type SessionLastTurnDetails,
   type SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import { type TurnRecord, type TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
+import {
+  MAIN_THREAD_ID,
+  type TurnRecord,
+  type TurnSnapshot,
+} from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -40,6 +44,7 @@ import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/tru
 import type {
   AgentThreadSnapshot,
   ContextMessage,
+  ModelSnapshot,
   SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
@@ -118,6 +123,7 @@ export interface CreateTurnInput {
   }[];
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
+  main_thread_model: ModelSnapshot | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -692,6 +698,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
       const turnThreadRows: TurnThreadInsertRow[] = [];
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
 
       for (const pt of prevThreadRows) {
         const newIds = newIdsByThread.get(pt.thread_id) ?? [];
@@ -703,6 +710,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
           // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
+          model: specModel(pt.thread_id) ?? pt.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -723,7 +731,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: null,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,
