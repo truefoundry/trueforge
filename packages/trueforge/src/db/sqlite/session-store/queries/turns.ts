@@ -685,6 +685,8 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         append_id: number;
       }[] = [];
 
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
+
       for (const parent of prevThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         const completion = appendCompletionByThread.get(parent.thread_id);
@@ -692,9 +694,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           ...parent.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
           pending_mcp_auth: false,
-          ...(parent.thread_id === MAIN_THREAD_ID && input.main_thread_model !== null
-            ? { model: input.main_thread_model }
-            : {}),
+          model: specModel(parent.thread_id) ?? parent.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -759,7 +759,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.thread_id === MAIN_THREAD_ID && input.main_thread_model !== null ? input.main_thread_model : null,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,

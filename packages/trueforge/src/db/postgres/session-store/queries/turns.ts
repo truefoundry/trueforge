@@ -698,6 +698,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
       const turnThreadRows: TurnThreadInsertRow[] = [];
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
 
       for (const pt of prevThreadRows) {
         const newIds = newIdsByThread.get(pt.thread_id) ?? [];
@@ -709,9 +710,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
           // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
-          ...(pt.thread_id === MAIN_THREAD_ID && input.main_thread_model !== null
-            ? { model: input.main_thread_model }
-            : {}),
+          model: specModel(pt.thread_id) ?? pt.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -732,7 +731,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.thread_id === MAIN_THREAD_ID && input.main_thread_model !== null ? input.main_thread_model : null,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,
