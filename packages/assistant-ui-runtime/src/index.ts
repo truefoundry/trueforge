@@ -221,6 +221,7 @@ export type {
   SkillSelectorEntry,
   Subject,
   SubscribeToTurnRequest,
+  TenantAutoModelRouting,
   TenantConfiguration,
   TenantConfigurationSwitch,
   TerminalTurnState,

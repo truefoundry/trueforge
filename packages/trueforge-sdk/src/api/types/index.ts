@@ -16,6 +16,7 @@ export * from "./AskUserQuestionsConfig.js";
 export * from "./AutoCapability.js";
 export * from "./AutoCapabilityStatus.js";
 export * from "./AutoModelRoutingConfiguration.js";
+export * from "./AutoModelRoutingConfigurationPatch.js";
 export * from "./AvailableMcpServer.js";
 export * from "./AvailableModel.js";
 export * from "./AvailableModelProvider.js";

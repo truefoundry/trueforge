@@ -145,7 +145,7 @@ describe('DraftModelSelector', () => {
   });
 
   it('lists Auto when the server offers it, disabled with its reason while the tenant has it off', async () => {
-    const reason = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
+    const reason = 'Auto mode is turned off for this tenant - it can be turned back on in settings.';
     const base = createMockAgentUIServer();
     renderSelector(
       {},

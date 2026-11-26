@@ -105,9 +105,9 @@ function ReasoningEffortEditTrigger({
   );
 }
 
-type ProviderSection = { name: string; logo?: string; models: ModelSelection[] };
+export type ProviderSection = { name: string; logo?: string; models: ModelSelection[] };
 
-function groupModelsByProvider(models: ModelSelection[]): ProviderSection[] {
+export function groupModelsByProvider(models: ModelSelection[]): ProviderSection[] {
   const sections: ProviderSection[] = [];
   const byProvider = new Map<string, ProviderSection>();
   for (const model of models) {

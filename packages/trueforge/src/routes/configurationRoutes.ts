@@ -33,7 +33,7 @@ export const patchConfigurationRoute = createRoute({
   tags: [OpenApiTag.CONFIGURATION],
   summary: 'Update the tenant configuration',
   description:
-    'Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.',
+    'Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.',
   'x-fern-sdk-group-name': ['settings', 'configuration'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -49,7 +49,8 @@ export const patchConfigurationRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description:
+        'Invalid request body, a candidate model the caller cannot access, or candidate models that leave a routing category without a model.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
