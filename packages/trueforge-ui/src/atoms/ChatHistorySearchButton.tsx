@@ -168,9 +168,11 @@ function ChatHistorySearchResultRow({
         'transition-colors hover:bg-ghost-button-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
       )}
       onClick={() => {
-        // Await select so an in-flight getSession finishes while the row (and parent refs) are live.
+        // Capture the pick id select() is about to claim so an older finally cannot close
+        // over a newer in-flight pick (double-click / second result).
+        const pickId = selectionRef.current + 1;
         void select().finally(() => {
-          onPicked();
+          if (selectionRef.current === pickId) onPicked();
         });
       }}
     >
@@ -224,11 +226,16 @@ export function ChatHistorySearchButton({
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
-      // Cancel any getSession still resolving after the popup closes (Escape / X / backdrop).
+      // Dismiss (Escape / X / backdrop) cancels in-flight opens. Pick-close must not bump —
+      // an older select().finally would otherwise cancel a newer pick.
       selectionRef.current += 1;
     }
     setOpen(next);
     if (next) track(AnalyticsEvents.Session.HISTORY_SEARCH_OPENED);
+  };
+
+  const closeAfterPick = () => {
+    setOpen(false);
   };
 
   const sectionLabel = query.trim().length === 0 ? 'Recent chats' : 'Results';
@@ -267,7 +274,7 @@ export function ChatHistorySearchButton({
                       selectionRef={selectionRef}
                       runtimeKeyRef={runtimeKeyRef}
                       onThreadOpen={onThreadOpen}
-                      onPicked={() => handleOpenChange(false)}
+                      onPicked={closeAfterPick}
                     />
                   </ThreadListItemByIndexProvider>
                 );
