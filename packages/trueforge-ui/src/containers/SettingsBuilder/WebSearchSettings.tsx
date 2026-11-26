@@ -55,21 +55,15 @@ const WebSearchSettings = () => {
   const providersQuery = useQuery(
     {
       queryKey: queryKeys.settings.webSearchProviders(),
-      queryFn: () =>
-        webSearchCatalog == null
-          ? Promise.reject(new Error('Web search catalog is not configured.'))
-          : webSearchCatalog.listWebSearchProviders(),
-      enabled: webSearchCatalog != null,
-    },
-    queryClient,
-  );
-  const catalogQuery = useQuery(
-    {
-      queryKey: queryKeys.settings.webSearchProviderCatalog(),
-      queryFn: () =>
-        webSearchCatalog == null
-          ? Promise.reject(new Error('Web search catalog is not configured.'))
-          : webSearchCatalog.getWebSearchProviderCatalog(),
+      queryFn: async () => {
+        if (webSearchCatalog == null) throw new Error('Web search catalog is not configured.');
+        // Read together so a failed list never leaves catalog entries offered as unconfigured.
+        const [providers, catalog] = await Promise.all([
+          webSearchCatalog.listWebSearchProviders(),
+          webSearchCatalog.getWebSearchProviderCatalog(),
+        ]);
+        return { providers, catalog };
+      },
       enabled: webSearchCatalog != null,
     },
     queryClient,
@@ -78,9 +72,9 @@ const WebSearchSettings = () => {
   // `null` until the tenant switch loads, so the control is not rendered half-known.
   const tenantEnabled = configurationQuery.data?.webSearch.enabled ?? null;
   const tenantPending = configuration != null && configurationQuery.isPending;
-  const providers = providersQuery.data ?? EMPTY_PROVIDERS;
-  const catalog = catalogQuery.data ?? EMPTY_CATALOG;
-  const loading = providersQuery.isPending || catalogQuery.isPending;
+  const providers = providersQuery.data?.providers ?? EMPTY_PROVIDERS;
+  const catalog = providersQuery.data?.catalog ?? EMPTY_CATALOG;
+  const loading = providersQuery.isPending;
   const [tenantBusy, setTenantBusy] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,8 +86,8 @@ const WebSearchSettings = () => {
 
   const loadError = configurationQuery.isError
     ? getErrorMessage(configurationQuery.error, 'Failed to load the web search setting')
-    : providersQuery.isError || catalogQuery.isError
-      ? getErrorMessage(providersQuery.error ?? catalogQuery.error, 'Failed to load web search providers')
+    : providersQuery.isError
+      ? getErrorMessage(providersQuery.error, 'Failed to load web search providers')
       : null;
 
   const handleTenantToggle = async (next: boolean) => {
@@ -102,6 +96,8 @@ const WebSearchSettings = () => {
     setError(null);
     try {
       const saved = await configuration.updateConfiguration({ webSearch: { enabled: next } });
+      // A read already in flight may carry the pre-save value and must not overwrite it.
+      await queryClient.cancelQueries({ queryKey: queryKeys.settings.configuration() });
       queryClient.setQueryData(queryKeys.settings.configuration(), saved);
       toaster?.showSuccess({ title: saved.webSearch.enabled ? 'Web search turned on' : 'Web search turned off' });
       track(AnalyticsEvents.Settings.WEB_SEARCH_TENANT_TOGGLED, { enabled: saved.webSearch.enabled });

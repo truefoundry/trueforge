@@ -55,21 +55,15 @@ const MemorySettings = () => {
   const providersQuery = useQuery(
     {
       queryKey: queryKeys.settings.memoryProviders(),
-      queryFn: () =>
-        memoryCatalog == null
-          ? Promise.reject(new Error('Memory catalog is not configured.'))
-          : memoryCatalog.listMemoryProviders(),
-      enabled: memoryCatalog != null,
-    },
-    queryClient,
-  );
-  const catalogQuery = useQuery(
-    {
-      queryKey: queryKeys.settings.memoryProviderCatalog(),
-      queryFn: () =>
-        memoryCatalog == null
-          ? Promise.reject(new Error('Memory catalog is not configured.'))
-          : memoryCatalog.getMemoryProviderCatalog(),
+      queryFn: async () => {
+        if (memoryCatalog == null) throw new Error('Memory catalog is not configured.');
+        // Read together so a failed list never leaves catalog entries offered as unconfigured.
+        const [providers, catalog] = await Promise.all([
+          memoryCatalog.listMemoryProviders(),
+          memoryCatalog.getMemoryProviderCatalog(),
+        ]);
+        return { providers, catalog };
+      },
       enabled: memoryCatalog != null,
     },
     queryClient,
@@ -78,9 +72,9 @@ const MemorySettings = () => {
   // `null` until the tenant switch loads, so the control is not rendered half-known.
   const tenantEnabled = configurationQuery.data?.memory.enabled ?? null;
   const tenantPending = configuration != null && configurationQuery.isPending;
-  const providers = providersQuery.data ?? EMPTY_PROVIDERS;
-  const catalog = catalogQuery.data ?? EMPTY_CATALOG;
-  const loading = providersQuery.isPending || catalogQuery.isPending;
+  const providers = providersQuery.data?.providers ?? EMPTY_PROVIDERS;
+  const catalog = providersQuery.data?.catalog ?? EMPTY_CATALOG;
+  const loading = providersQuery.isPending;
   const [tenantBusy, setTenantBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -91,8 +85,8 @@ const MemorySettings = () => {
 
   const loadError = configurationQuery.isError
     ? getErrorMessage(configurationQuery.error, 'Failed to load the memory setting')
-    : providersQuery.isError || catalogQuery.isError
-      ? getErrorMessage(providersQuery.error ?? catalogQuery.error, 'Failed to load memory providers')
+    : providersQuery.isError
+      ? getErrorMessage(providersQuery.error, 'Failed to load memory providers')
       : null;
 
   const hasConfiguredProvider = providers.length > 0;
@@ -112,6 +106,8 @@ const MemorySettings = () => {
     setError(null);
     try {
       const saved = await configuration.updateConfiguration({ memory: { enabled: next } });
+      // A read already in flight may carry the pre-save value and must not overwrite it.
+      await queryClient.cancelQueries({ queryKey: queryKeys.settings.configuration() });
       queryClient.setQueryData(queryKeys.settings.configuration(), saved);
       // The agent Memory toggle locks and unlocks with this switch.
       refreshCapabilities?.();
