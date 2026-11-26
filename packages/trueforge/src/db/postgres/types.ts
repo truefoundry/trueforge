@@ -668,6 +668,7 @@ export interface ArtifactVersionTable {
   version: number;
   files_metadata: JSONColumnType<ArtifactVersionMetadata, ArtifactVersionMetadata, ArtifactVersionMetadata>;
   created_at: Date;
+  created_by_subject: JSONColumnType<Subject, Subject, Subject>;
   created_by_session_id: string;
   created_by_agent_id: string | null;
 }

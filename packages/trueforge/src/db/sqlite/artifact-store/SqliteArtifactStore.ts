@@ -55,6 +55,7 @@ function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
     'artifact_version.artifact_id' as const,
     'artifact_version.version' as const,
     jsonText<ArtifactVersionMetadata>(eb.ref('artifact_version.files_metadata')).as('files_metadata'),
+    jsonText<Subject>(eb.ref('artifact_version.created_by_subject')).as('created_by_subject'),
     'artifact_version.created_by_session_id' as const,
     'artifact_version.created_by_agent_id' as const,
     'artifact_version.created_at' as const,
@@ -62,7 +63,11 @@ function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
 }
 
 function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
-  return { ...row, files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata) };
+  return {
+    ...row,
+    files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
+  };
 }
 
 export class SqliteArtifactStore implements IArtifactStore {
@@ -134,6 +139,7 @@ export class SqliteArtifactStore implements IArtifactStore {
           artifact_id: artifact.id,
           version,
           files_metadata: jsonbBind(input.files_metadata),
+          created_by_subject: jsonbBind(input.created_by_subject),
           created_by_session_id: input.created_by_session_id,
           created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,

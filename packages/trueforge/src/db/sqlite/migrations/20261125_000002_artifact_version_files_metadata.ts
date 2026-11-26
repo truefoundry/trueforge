@@ -12,6 +12,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         version INTEGER NOT NULL,
         files_metadata BLOB NOT NULL,
         created_at TEXT NOT NULL,
+        created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_by_agent_id TEXT,
         PRIMARY KEY (artifact_id, version),
@@ -25,6 +26,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         version,
         files_metadata,
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       )
@@ -37,6 +39,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           'storage_prefix', 'artifacts/' || a.tenant_id || '/' || v.artifact_id || '/' || v.version
         )),
         v.created_at,
+        v.created_by_subject,
         v.created_by_session_id,
         v.created_by_agent_id
       FROM artifact_version v
@@ -58,6 +61,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         entry_point TEXT NOT NULL,
         total_bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL,
+        created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_by_agent_id TEXT,
         PRIMARY KEY (artifact_id, version),
@@ -72,6 +76,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         entry_point,
         total_bytes,
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       )
@@ -81,6 +86,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         json_extract(files_metadata, '$.entry_point'),
         json_extract(files_metadata, '$.total_bytes'),
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       FROM artifact_version
