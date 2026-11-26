@@ -64,7 +64,7 @@ const shellSurfaceBgClassName = 'bg-card-bg';
 
 const sidebarNavButtonClassName = cn(
   sidebarButtonRadiusClassName,
-  'h-8 w-full !justify-start px-2.5 text-sm font-normal text-sidebar-text shadow-none',
+  'h-8 w-full !justify-start px-2.5 text-sm leading-5 font-normal text-sidebar-text shadow-none',
   shellHoverClassName,
 );
 
@@ -245,7 +245,7 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
       aria-current={newChatSelected ? 'page' : undefined}
       className={auiButtonClass({
         variant: 'ghost',
-        className: cn(navButtonClass, newChatSelected && selectedClass),
+        className: cn(navButtonClass, 'aui-shell-new-chat', newChatSelected && selectedClass),
       })}
       onClick={handleNewChat}
     >
@@ -328,7 +328,7 @@ function CollapsedRailExpandButton({ onExpand }: { onExpand: () => void }): Reac
       onBlur={() => setShowExpand(false)}
     >
       {showExpand ? (
-        <Icon name="panel-left-open" className="size-5" />
+        <Icon name="panel-left-open" className="size-3.5" />
       ) : (
         <BrandLogo linked={false} variant={chrome.collapsedVariant} className={brandLogoClassName} />
       )}
@@ -400,7 +400,7 @@ function SidebarRail({
                 })}
                 onClick={() => onCollapsedChange(true)}
               >
-                <Icon name="panel-left-close" />
+                <Icon name="panel-left-close" className="size-3.5" />
               </button>
             </>
           )}
@@ -605,54 +605,75 @@ function SidebarLayoutBody({ className }: { className?: string }) {
               )}
 
               <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-                {settingsOpen ? (
-                  <Suspense
-                    fallback={
-                      <div
-                        className="flex h-full items-center justify-center"
-                        role="status"
-                        aria-live="polite"
-                        aria-busy="true"
-                      >
-                        <Spinner size={28} className="text-text-primary" />
-                        <span className="sr-only">Loading</span>
-                      </div>
-                    }
-                  >
-                    <TruefoundrySettingsBuilder {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})} />
-                  </Suspense>
-                ) : showDesktopOnlyNotice ? (
-                  <DesktopOnlyNotice />
-                ) : sessionsOpen ? (
-                  <SessionsPage />
-                ) : libraryOpen && shell?.libraryAgentId != null ? (
-                  <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
-                ) : libraryOpen ? (
-                  <AgentsLibrary
-                    onSelectAgent={closeMobileNav}
-                    {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})}
-                  />
-                ) : schedulesOpen ? (
-                  <Suspense
-                    fallback={
-                      <div
-                        className="flex h-full items-center justify-center"
-                        role="status"
-                        aria-live="polite"
-                        aria-busy="true"
-                      >
-                        <Spinner size={28} className="text-text-primary" />
-                        <span className="sr-only">Loading</span>
-                      </div>
-                    }
-                  >
-                    <SchedulesPage />
-                  </Suspense>
-                ) : isIdle ? (
-                  <SelectAgentEmptyState />
-                ) : (
-                  <Thread />
-                )}
+                <div
+                  key={
+                    settingsOpen
+                      ? 'settings'
+                      : showDesktopOnlyNotice
+                        ? 'desktop-only'
+                        : sessionsOpen
+                          ? 'sessions'
+                          : libraryOpen && shell?.libraryAgentId != null
+                            ? `agent:${shell.libraryAgentId}`
+                            : libraryOpen
+                              ? 'library'
+                              : schedulesOpen
+                                ? 'schedules'
+                                : isIdle
+                                  ? 'idle'
+                                  : 'thread'
+                  }
+                  className="h-full min-h-0 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150 motion-reduce:animate-none"
+                >
+                  {settingsOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
+                    >
+                      <TruefoundrySettingsBuilder {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})} />
+                    </Suspense>
+                  ) : showDesktopOnlyNotice ? (
+                    <DesktopOnlyNotice />
+                  ) : sessionsOpen ? (
+                    <SessionsPage />
+                  ) : libraryOpen && shell?.libraryAgentId != null ? (
+                    <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+                  ) : libraryOpen ? (
+                    <AgentsLibrary
+                      onSelectAgent={closeMobileNav}
+                      {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})}
+                    />
+                  ) : schedulesOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
+                    >
+                      <SchedulesPage />
+                    </Suspense>
+                  ) : isIdle ? (
+                    <SelectAgentEmptyState />
+                  ) : (
+                    <Thread />
+                  )}
+                </div>
               </div>
             </div>
           </div>

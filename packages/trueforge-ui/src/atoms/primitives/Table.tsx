@@ -57,7 +57,10 @@ export type TableHeadProps = React.ThHTMLAttributes<HTMLTableCellElement>;
 export function TableHead({ className, ...props }: TableHeadProps) {
   return (
     <th
-      className={cn('text-text-secondary p-3 text-left text-xs font-normal tracking-wide uppercase', className)}
+      className={cn(
+        'text-text-secondary h-10 px-3 py-0 text-left text-xs font-normal tracking-wide uppercase',
+        className,
+      )}
       {...props}
     />
   );
@@ -69,7 +72,7 @@ export function TableCell({ className, ...props }: TableCellProps) {
   return (
     <td
       className={cn(
-        'text-text-secondary relative px-3 py-3',
+        'text-text-secondary relative h-[3.625rem] px-3 py-0 align-middle',
         // Inset row divider (aligns with cell padding); shown for non-last body rows via TableBody.
         'after:bg-border after:pointer-events-none after:absolute after:right-0 after:bottom-0 after:left-0 after:hidden after:h-px',
         'first:after:left-3 last:after:right-3',

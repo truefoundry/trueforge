@@ -304,7 +304,7 @@ function ThreadListItemRow({
       <ThreadListRow
         title={displayTitle}
         active={id === mainThreadId && !sidebarNavOpen}
-        agentName={agentName}
+        {...(agentName != null && !threadListItemIsMutable(custom) ? { showTryAgentIcon: true } : {})}
         {...(lastTurnStatus == null ? {} : { lastTurnStatus })}
         {...(activityAt == null ? {} : { lastMessageAt: activityAt })}
         onSelect={() => {

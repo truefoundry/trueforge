@@ -119,7 +119,7 @@ function ScheduleRowActions({
 }) {
   const PermissionGuard = useSlot('PermissionGuard');
   return (
-    <div className="inline-flex items-center justify-end gap-1.5">
+    <div className="inline-flex items-center justify-end gap-1">
       <PermissionGuard allowed={canManage}>
         <Button.Secondary
           type="button"
@@ -137,10 +137,10 @@ function ScheduleRowActions({
         trigger={
           <button
             type="button"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'h-8 w-6' })}
             aria-label={`Actions for ${schedule.name}`}
           >
-            <Icon name="ellipsis" />
+            <Icon name="ellipsis-vertical" />
           </button>
         }
       >
@@ -509,43 +509,31 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         }
       />
 
-      <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
-        {showSkeleton ? (
-          <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-12 w-full rounded-md" />
-            ))}
-          </div>
-        ) : error != null ? (
-          <div role="alert" className="flex flex-1 flex-col items-center justify-center">
-            <EmptyScreen
-              title="Couldn't load schedules"
-              description={error}
-              className="h-auto min-h-0 flex-none py-0"
-            />
-          </div>
-        ) : schedules.length === 0 ? (
-          <EmptyScreen title="No Schedules Found" description="Create one to get started." className="min-h-full" />
-        ) : filtered.length === 0 ? (
-          <div className="flex min-h-full flex-col">
-            <EmptyScreen title="No Schedules Found" description="No schedules match your filters." className="flex-1" />
-            {hasPageNav ? (
-              <TableTokenPagination
-                pageSize={pageSize}
-                rowCount={0}
-                canPrev={previousPageToken != null}
-                canNext={nextPageToken != null}
-                onPrev={goPrev}
-                onNext={goNext}
-                pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
-                onPageSizeChange={size => {
-                  setPageSize(clampPageSize(size));
-                }}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className={cn('min-h-0 flex-1 overflow-auto', error != null ? 'flex flex-col' : undefined)}>
+          {showSkeleton ? (
+            <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-md" />
+              ))}
+            </div>
+          ) : error != null ? (
+            <div role="alert" className="flex flex-1 flex-col items-center justify-center">
+              <EmptyScreen
+                title="Couldn't load schedules"
+                description={error}
+                className="h-auto min-h-0 flex-none py-0"
               />
-            ) : null}
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-border">
+            </div>
+          ) : schedules.length === 0 ? (
+            <EmptyScreen title="No Schedules Found" description="Create one to get started." className="min-h-full" />
+          ) : filtered.length === 0 ? (
+            <EmptyScreen
+              title="No Schedules Found"
+              description="No schedules match your filters."
+              className="min-h-full"
+            />
+          ) : (
             <Table className="min-w-240 bg-card-bg">
               <TableHeader className="bg-card-bg">
                 <TableRow className="hover:bg-transparent">
@@ -627,22 +615,24 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 })}
               </TableBody>
             </Table>
-            {(filtered.length > 0 || hasPageNav) && (
-              <TableTokenPagination
-                pageSize={pageSize}
-                rowCount={filtered.length}
-                canPrev={previousPageToken != null}
-                canNext={nextPageToken != null}
-                onPrev={goPrev}
-                onNext={goNext}
-                pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
-                onPageSizeChange={size => {
-                  setPageSize(clampPageSize(size));
-                }}
-              />
-            )}
+          )}
+        </div>
+        {!showSkeleton && error == null && (filtered.length > 0 || hasPageNav) ? (
+          <div className="shrink-0 border-t border-border">
+            <TableTokenPagination
+              pageSize={pageSize}
+              rowCount={filtered.length}
+              canPrev={previousPageToken != null}
+              canNext={nextPageToken != null}
+              onPrev={goPrev}
+              onNext={goNext}
+              pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={size => {
+                setPageSize(clampPageSize(size));
+              }}
+            />
           </div>
-        )}
+        ) : null}
       </div>
 
       {drawer.kind === 'create' ? (
