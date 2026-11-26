@@ -42,6 +42,8 @@ export function AgentSearchListPanel({
         query={query}
         setQuery={setQuery}
         placeholder={placeholder}
+        // Keep focus on the Agents menuitem so ArrowUp can return to Assistant.
+        autoFocus={false}
         // Figma: Weight 900, Solid, 12px; field colors from design.
         iconSize={12}
         iconClassName="left-2 size-3 font-[900] stroke-[2.5] text-[#82A0CE]"

@@ -23,7 +23,7 @@ export type DropdownSubmenuProps = {
   side?: 'right' | 'left';
 };
 
-function clamp(value: number, min: number, max: number): number {
+function clamp({ value, min, max }: { value: number; min: number; max: number }): number {
   return Math.min(Math.max(value, min), max);
 }
 
@@ -49,11 +49,19 @@ function resolvePanelPosition({
 
   // Prefer aligning to the trigger top; if that clips the bottom, shift up so the panel stays on screen.
   const maxTop = window.innerHeight - VIEWPORT_MARGIN_PX - panelHeight;
-  const top = clamp(triggerRect.top, VIEWPORT_MARGIN_PX, Math.max(VIEWPORT_MARGIN_PX, maxTop));
+  const top = clamp({
+    value: triggerRect.top,
+    min: VIEWPORT_MARGIN_PX,
+    max: Math.max(VIEWPORT_MARGIN_PX, maxTop),
+  });
 
   return {
     top,
-    left: clamp(left, VIEWPORT_MARGIN_PX, window.innerWidth - VIEWPORT_MARGIN_PX - panelWidth),
+    left: clamp({
+      value: left,
+      min: VIEWPORT_MARGIN_PX,
+      max: window.innerWidth - VIEWPORT_MARGIN_PX - panelWidth,
+    }),
   };
 }
 

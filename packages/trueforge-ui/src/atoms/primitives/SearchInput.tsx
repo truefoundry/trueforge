@@ -10,6 +10,8 @@ type SearchInputProps = {
   iconClassName?: string;
   /** Icon size in CSS pixels (passed to Lucide `size`). */
   iconSize?: number;
+  /** When false, do not steal focus on mount (e.g. nested menu search). Default true. */
+  autoFocus?: boolean;
 };
 
 const SearchInput = ({
@@ -20,6 +22,7 @@ const SearchInput = ({
   inputClassName,
   iconClassName,
   iconSize,
+  autoFocus = true,
 }: SearchInputProps) => {
   return (
     <label className={cn('relative block', className)}>
@@ -40,7 +43,7 @@ const SearchInput = ({
           'border-input-border bg-input-box-bg text-text-primary placeholder:text-text-secondary/70 h-8 w-full rounded-md border py-1 pr-3 pl-8 text-sm outline-none',
           inputClassName,
         )}
-        autoFocus
+        autoFocus={autoFocus}
       />
     </label>
   );
