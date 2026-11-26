@@ -623,7 +623,8 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   }
 
   // Isolated container: image-absolute layout. GIT_CONFIG store --file needs an absolute path.
-  //   /opt/tf/{uploads,skills,tool-results,skill_downloader.py,.git-credentials,artifact-transfer}
+  //   /opt/tf/{uploads,skills,tool-results,skill_downloader.py,.git-credentials}
+  //   /opt/tfg/artifacts
   //   /opt/tfy/mcp-client/mcp_client.py  +  /usr/local/bin/mcp-client (image PATH; no layout bin)
   getToolResultDumpDir(): string {
     return join('/opt', 'tf', 'tool-results');
@@ -646,6 +647,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   }
 
   getArtifactTransferDir(): string {
-    return join('/opt', 'tf', 'artifact-transfer');
+    return join('/opt', 'tfg', 'artifacts');
   }
 }

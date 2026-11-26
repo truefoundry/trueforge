@@ -34,7 +34,7 @@ function makeSandbox(options: {
     getFileUploadsDir: () => '/tmp/uploads',
     getSkillsDir: () => '/opt/tfy/skills',
     getSkillDownloaderPath: () => '/opt/tfy/skill_downloader.py',
-    getArtifactTransferDir: () => '/opt/tfy/artifact-transfer',
+    getArtifactTransferDir: () => '/opt/tfg/artifacts',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
     createCodeModeTransport: () => {
