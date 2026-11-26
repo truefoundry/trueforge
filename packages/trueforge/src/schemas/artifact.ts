@@ -54,7 +54,7 @@ export const ListArtifactsResponseSchema = z
   })
   .openapi('ListArtifactsResponse');
 
-/** `artifact_version.artifact_version_metadata` jsonb only — not on wire responses. */
+/** `artifact_version.files_metadata` jsonb only — not on wire responses. */
 export const ArtifactVersionMetadataSchema = z
   .object({
     entry_point: z.string().describe('Default file to render, relative to the version files.'),
