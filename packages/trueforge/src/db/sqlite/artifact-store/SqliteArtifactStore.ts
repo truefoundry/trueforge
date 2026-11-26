@@ -49,7 +49,7 @@ function toArtifactRecord(row: {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
 }
 
-/** Table-qualified because `getVersion` joins `artifact`, which has columns with the same names. */
+/** Table-qualified: `getVersion` joins `artifact` (tenant scope), which also has `created_by_*` and `created_at`. */
 function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
   return [
     'artifact_version.artifact_id' as const,
