@@ -20,8 +20,8 @@ import { DesktopOnlyNotice } from '../atoms/DesktopOnlyNotice.js';
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarCompactNavButtonClassName,
 } from '../atoms/lib/buttonClasses.js';
@@ -236,7 +236,7 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
   };
 
   const navButtonClass = compact ? sidebarCompactNavButtonClassName : sidebarNavButtonClassName;
-  const selectedClass = compact ? shellRailSelectedClassName : shellSelectedClassName;
+  const selectedClass = compact ? shellRailSelectedClassName : shellNavSelectedClassName;
 
   const newChatButton = (
     <button
