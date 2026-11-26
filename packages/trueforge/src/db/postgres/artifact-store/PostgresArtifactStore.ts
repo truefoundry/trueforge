@@ -11,7 +11,6 @@ import {
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
 } from '../../artifactStore';
@@ -125,18 +124,6 @@ export class PostgresArtifactStore implements IArtifactStore {
         .execute();
       return toVersionRecord(row);
     });
-  }
-
-  async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('artifact_version')
-      .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
-      .selectAll('artifact_version')
-      .where('artifact.tenant_id', '=', input.tenant_id)
-      .where('artifact_version.artifact_id', '=', input.artifact_id)
-      .where('artifact_version.version', '=', input.version)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toVersionRecord(row);
   }
 
   /** Row lock so concurrent version writes for one artifact queue instead of racing. */

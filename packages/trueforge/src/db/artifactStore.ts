@@ -63,12 +63,6 @@ export interface CreateArtifactVersionInput {
   created_by_agent_id: string | null;
 }
 
-export interface GetArtifactVersionInput {
-  tenant_id: string;
-  artifact_id: string;
-  version: number;
-}
-
 /**
  * New artifact id and trimmed name. Throws `RangeError` when the trimmed name is empty or
  * longer than `MAX_TITLE_LENGTH`.
@@ -91,5 +85,4 @@ export interface IArtifactStore {
    * advances `latest_version`, `latest_entry_point` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
   createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
-  getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
 }
