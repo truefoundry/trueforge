@@ -22,6 +22,7 @@ export const AnalyticsEvents = {
     SELECTED: 'trueforge.agent.session_selected',
     DELETED: 'trueforge.agent.session_deleted',
     RENAMED: 'trueforge.agent.session_renamed',
+    HISTORY_SEARCH_OPENED: 'trueforge.agent.history_search_opened',
     SHARE_OPENED: 'trueforge.agent.session_share_opened',
     SHARE_LINK_COPIED: 'trueforge.agent.session_share_link_copied',
     SHARE_PERMISSION_CHANGED: 'trueforge.agent.session_share_permission_changed',

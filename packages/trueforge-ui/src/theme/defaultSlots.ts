@@ -42,6 +42,7 @@ import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
 import { AttachmentPreviewDialog } from '../atoms/AttachmentPreviewDialog.js';
 import { ChatFileDownload } from '../atoms/ChatFileDownload.js';
+import { ChatHistorySearchButton } from '../atoms/ChatHistorySearchButton.js';
 import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
 import { ComposerAssistantAgentsPicker } from '../atoms/ComposerAssistantAgentsPicker.js';
@@ -238,6 +239,7 @@ export const defaultSlots = {
   AttachmentPickerButton,
   ScrollToBottomButton,
   ThreadListRow,
+  ChatHistorySearchButton,
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,
