@@ -6,6 +6,7 @@ import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
 import { ContextCompactionCard } from '../atoms/adapters/ContextCompactionCardAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
+import { ThreadSwitchModelCard } from '../atoms/adapters/ThreadSwitchModelCardAdapter.js';
 
 import { StepTree, StepTreeItem } from '../atoms/agent-chat/StepTree.js';
 import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
@@ -225,6 +226,7 @@ export const defaultSlots = {
   AgentStepsCard,
   ReasoningCard,
   ContextCompactionCard,
+  ThreadSwitchModelCard,
   AskUserPrompt,
   McpAuthPrompt,
   AttachmentCard,

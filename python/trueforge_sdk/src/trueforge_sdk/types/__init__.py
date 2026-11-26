@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
     from .auto_capability import AutoCapability
     from .auto_capability_status import AutoCapabilityStatus
     from .auto_model_routing_configuration import AutoModelRoutingConfiguration
+    from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -128,6 +129,7 @@ if typing.TYPE_CHECKING:
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
+    from .list_session_artifacts_response import ListSessionArtifactsResponse
     from .list_session_events_response import ListSessionEventsResponse
     from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
@@ -293,6 +295,7 @@ if typing.TYPE_CHECKING:
     from .turn_update_event_state import TurnUpdateEventState
     from .turn_user_event import TurnUserEvent
     from .turn_user_event_message import TurnUserEventMessage
+    from .update_artifact_response import UpdateArtifactResponse
     from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
@@ -330,6 +333,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AutoCapability": ".auto_capability",
     "AutoCapabilityStatus": ".auto_capability_status",
     "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
+    "AutoModelRoutingConfigurationPatch": ".auto_model_routing_configuration_patch",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -434,6 +438,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
+    "ListSessionArtifactsResponse": ".list_session_artifacts_response",
     "ListSessionEventsResponse": ".list_session_events_response",
     "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
@@ -599,6 +604,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnUpdateEventState": ".turn_update_event_state",
     "TurnUserEvent": ".turn_user_event",
     "TurnUserEventMessage": ".turn_user_event_message",
+    "UpdateArtifactResponse": ".update_artifact_response",
     "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
@@ -660,6 +666,7 @@ __all__ = [
     "AutoCapability",
     "AutoCapabilityStatus",
     "AutoModelRoutingConfiguration",
+    "AutoModelRoutingConfigurationPatch",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",
@@ -764,6 +771,7 @@ __all__ = [
     "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
+    "ListSessionArtifactsResponse",
     "ListSessionEventsResponse",
     "ListSessionGrantsResponse",
     "ListSessionsOrder",
@@ -929,6 +937,7 @@ __all__ = [
     "TurnUpdateEventState",
     "TurnUserEvent",
     "TurnUserEventMessage",
+    "UpdateArtifactResponse",
     "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",

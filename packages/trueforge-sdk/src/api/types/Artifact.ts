@@ -4,15 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface Artifact {
     createdAt: Date;
-    /** Registry agent of the creating session. Null when the session used an inline agent spec. */
-    createdByAgentId: string | null;
-    createdBySessionId: string;
     createdBySubject: TrueForge.Subject;
-    /** Latest version's default file to render, as a path relative to the version. Null before the first version. */
-    entryPoint: string | null;
     id: string;
-    /** Latest version. */
-    latestVersion: number;
     name: string;
     updatedAt: Date;
 }
