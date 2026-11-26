@@ -600,7 +600,7 @@ client.artifacts.list()
 <dl>
 <dd>
 
-Rename an artifact. Only the artifact creator may update it.
+Update an artifact.
 </dd>
 </dl>
 </dd>

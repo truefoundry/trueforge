@@ -126,7 +126,7 @@ class RawArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[UpdateArtifactResponse]:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------
@@ -145,7 +145,7 @@ class RawArtifactsClient:
             Artifact updated.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/artifacts/update/{encode_path_param(artifact_id)}",
+            f"api/v1/artifacts/{encode_path_param(artifact_id)}/update",
             method="POST",
             json={
                 "name": name,
@@ -324,7 +324,7 @@ class AsyncRawArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[UpdateArtifactResponse]:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------
@@ -343,7 +343,7 @@ class AsyncRawArtifactsClient:
             Artifact updated.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/artifacts/update/{encode_path_param(artifact_id)}",
+            f"api/v1/artifacts/{encode_path_param(artifact_id)}/update",
             method="POST",
             json={
                 "name": name,

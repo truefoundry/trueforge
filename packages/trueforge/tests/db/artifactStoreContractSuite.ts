@@ -4,6 +4,11 @@ import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactSt
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
+const COLLABORATOR: Subject = {
+  subject_id: 'collaborator',
+  subject_type: 'user',
+  subject_display_name: 'collaborator',
+};
 const AGENT_ID = 'agent-1';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
@@ -37,18 +42,21 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   async function createVersion({
     artifactId,
     entryPoint,
+    subject = SUBJECT,
     sessionId = 'session-1',
     agentId = AGENT_ID,
   }: {
     artifactId: string;
     entryPoint: string;
+    subject?: Subject;
     sessionId?: string;
     agentId?: string | null;
   }) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      artifact_version_metadata: { entry_point: entryPoint, total_bytes: 100, storage_prefix: `uploads/${entryPoint}` },
+      files_metadata: { entry_point: entryPoint, total_bytes: 100, storage_prefix: `uploads/${entryPoint}` },
+      created_by_subject: subject,
       created_by_session_id: sessionId,
       created_by_agent_id: agentId,
     });
@@ -185,6 +193,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const v2 = await createVersion({
       artifactId: artifact.id,
       entryPoint: 'report/index.html',
+      subject: COLLABORATOR,
       sessionId: 'session-2',
       agentId: null,
     });
@@ -199,17 +208,22 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
-        artifact_version_metadata: {
+        files_metadata: {
           entry_point: 'index.html',
           total_bytes: 100,
           storage_prefix: 'uploads/index.html',
         },
+        created_by_subject: SUBJECT,
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),
     );
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 2 })).toEqual(
-      expect.objectContaining({ created_by_session_id: 'session-2', created_by_agent_id: null }),
+      expect.objectContaining({
+        created_by_subject: COLLABORATOR,
+        created_by_session_id: 'session-2',
+        created_by_agent_id: null,
+      }),
     );
     expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
   });
@@ -248,7 +262,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
-        artifact_version_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
+        files_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
+        created_by_subject: SUBJECT,
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,
       }),

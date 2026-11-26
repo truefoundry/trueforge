@@ -13,6 +13,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         entry_point TEXT NOT NULL,
         total_bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL,
+        created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_by_agent_id TEXT,
         PRIMARY KEY (artifact_id, version),
@@ -27,6 +28,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         entry_point,
         total_bytes,
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       )
@@ -36,6 +38,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         v.entry_point,
         v.total_bytes,
         v.created_at,
+        a.created_by_subject,
         a.created_by_session_id,
         a.created_by_agent_id
       FROM artifact_version v
@@ -53,5 +56,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     await sql`DROP INDEX IF EXISTS artifact_version_session_idx`.execute(trx);
     await sql`ALTER TABLE artifact_version DROP COLUMN created_by_agent_id`.execute(trx);
     await sql`ALTER TABLE artifact_version DROP COLUMN created_by_session_id`.execute(trx);
+    await sql`ALTER TABLE artifact_version DROP COLUMN created_by_subject`.execute(trx);
   });
 }

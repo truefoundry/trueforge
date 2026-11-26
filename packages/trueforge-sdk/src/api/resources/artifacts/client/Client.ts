@@ -138,7 +138,7 @@ export class ArtifactsClient {
     }
 
     /**
-     * Rename an artifact. Only the artifact creator may update it.
+     * Update an artifact.
      *
      * @param {string} artifact_id - Artifact identifier.
      * @param {TrueForge.UpdateArtifactRequest} request
@@ -179,7 +179,7 @@ export class ArtifactsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/artifacts/update/${core.url.encodePathParam(artifact_id, errors.TrueForgeError)}`,
+                `api/v1/artifacts/${core.url.encodePathParam(artifact_id, errors.TrueForgeError)}/update`,
             ),
             method: "POST",
             headers: _headers,
@@ -273,7 +273,7 @@ export class ArtifactsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/api/v1/artifacts/update/{artifact_id}",
+            "/api/v1/artifacts/{artifact_id}/update",
         );
     }
 }

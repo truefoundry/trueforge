@@ -34,7 +34,7 @@ describe('artifacts router', () => {
     id: string;
     body: unknown;
   }) {
-    return target.request(`/update/${id}`, {
+    return target.request(`/${id}/update`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
