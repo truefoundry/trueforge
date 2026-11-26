@@ -1,5 +1,4 @@
 import type { ArtifactValidateResult } from '@truefoundry/trueforge-core/core';
-import { normalize } from 'node:path/posix';
 
 export interface ArtifactPushLimits {
   max_files: number;
@@ -14,7 +13,7 @@ interface ArtifactPushFile {
 }
 
 type ArtifactPushCheckResult =
-  { ok: true; files: ArtifactPushFile[]; entry_point: string; total_bytes: number } | { ok: false; errors: string[] };
+  { ok: true; files: ArtifactPushFile[]; total_bytes: number } | { ok: false; errors: string[] };
 
 function isSafeRelativePath(path: string): boolean {
   return (
@@ -52,12 +51,11 @@ export function checkArtifactPush(input: {
   if (totalBytes > limits.max_total_bytes) {
     errors.push(`total size ${String(totalBytes)} bytes exceeds ${String(limits.max_total_bytes)} bytes`);
   }
-  const entryPoint = normalize(input.entry_point);
-  if (!files.some(f => f.relative_path === entryPoint)) {
+  if (!files.some(f => f.relative_path === input.entry_point)) {
     errors.push(`entry_point ${input.entry_point} is not a file in the directory`);
   }
   if (errors.length > 0) {
     return { ok: false, errors };
   }
-  return { ok: true, files, entry_point: entryPoint, total_bytes: totalBytes };
+  return { ok: true, files, total_bytes: totalBytes };
 }

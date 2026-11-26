@@ -148,6 +148,13 @@ describe('push_artifact', () => {
     expect(createdVersions[0]?.artifact_id).toBe('art-1');
   });
 
+  it('normalizes entry_point', async () => {
+    const { call, createdVersions } = setup();
+    const { isError } = await call({ name: 'R', dir: '/home/trueforge/report', entry_point: './index.html' });
+    expect(isError).toBe(false);
+    expect(createdVersions[0]?.files_metadata.entry_point).toBe('index.html');
+  });
+
   it.each<[string, Parameters<typeof setup>[0], Record<string, unknown>, string]>([
     ['missing name', {}, {}, 'name is required'],
     ['unknown artifact', {}, { artifact_id: 'nope' }, 'Artifact not found'],

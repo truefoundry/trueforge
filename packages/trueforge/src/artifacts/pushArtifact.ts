@@ -11,6 +11,7 @@ import {
   type ToolDefinition,
 } from '@truefoundry/trueforge-core/core';
 import { randomUUID } from 'node:crypto';
+import { normalize } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { IArtifactStore } from '../db/artifactStore';
@@ -30,7 +31,11 @@ const pushArtifactInputSchema = z
       .describe('Artifact to add a new version to. Omit to create a new artifact.'),
     name: ArtifactNameSchema.optional().describe('Name of the new artifact. Required when artifact_id is omitted.'),
     dir: z.string().min(1).describe('Absolute sandbox directory to push. Every file under it is uploaded.'),
-    entry_point: z.string().min(1).describe('Main file, relative to dir (e.g. index.html).'),
+    entry_point: z
+      .string()
+      .min(1)
+      .transform(p => normalize(p))
+      .describe('Main file, relative to dir (e.g. index.html).'),
   })
   .strict();
 
@@ -184,7 +189,7 @@ class PushArtifactTools extends LocalToolMCP {
       const version = await deps.artifactStore.createVersion({
         tenant_id: deps.tenant_id,
         artifact_id: artifactId,
-        files_metadata: { entry_point: check.entry_point, total_bytes: check.total_bytes, root_path: rootPath },
+        files_metadata: { entry_point: input.entry_point, total_bytes: check.total_bytes, root_path: rootPath },
         created_by_subject: deps.subject,
         created_by_session_id: deps.session_id,
         created_by_agent_id: deps.agent_id,

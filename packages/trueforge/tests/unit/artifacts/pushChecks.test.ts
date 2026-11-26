@@ -30,11 +30,10 @@ function errors(...args: Parameters<typeof check>): string {
 }
 
 describe('checkArtifactPush', () => {
-  it('returns the files, normalized entry point and total size', () => {
-    expect(check([file('index.html'), file('img/chart.png')], { entry_point: './index.html' })).toEqual({
+  it('returns the files and total size', () => {
+    expect(check([file('index.html'), file('img/chart.png')])).toEqual({
       ok: true,
       files: [file('index.html'), file('img/chart.png')],
-      entry_point: 'index.html',
       total_bytes: 200,
     });
   });
