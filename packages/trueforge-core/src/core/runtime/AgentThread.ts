@@ -554,12 +554,14 @@ export class AgentThread {
     }
 
     // Preloaded builtins (current time, sub-agents, and so on) are already on the tool list.
-    // Deferred discovery tools exist only when some server still has tools to discover.
-    const deferredServers = [...this.systemToolSets, ...(this.definition.toolSets ?? [])].filter(
-      toolSet => !toolSet.preload,
-    );
-    if (deferredServers.length > 0) {
-      this.deferredTool = new DeferredTool(deferredServers, { tracing: this.tracing, logger: input.logger });
+    // Meta tools: deferred servers, or Code Mode with user MCP servers (not builtins alone).
+    const userToolSets = this.definition.toolSets ?? [];
+    const toolSets = [...this.systemToolSets, ...userToolSets];
+    if (toolSets.some(s => !s.preload) || (this.sandbox && userToolSets.length > 0)) {
+      this.deferredTool = new DeferredTool(toolSets, {
+        tracing: this.tracing,
+        logger: input.logger,
+      });
     }
 
     this.instruction = this.buildInstruction(this.definition.instruction);
