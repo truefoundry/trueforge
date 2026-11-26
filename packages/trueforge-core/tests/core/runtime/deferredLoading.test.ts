@@ -175,4 +175,16 @@ describe('AgentThread deferred meta tools', () => {
     expect(names).toEqual(expect.arrayContaining(META_TOOL_NAMES));
     expect(names).toContain('get_current_datetime');
   });
+
+  it('does not offer them for a sandbox with only preloaded builtins and no user MCP', async () => {
+    const names = await toolNamesSentToModel({
+      capabilities: [currentDateTime({ tracing: NOOP_AGENT_TRACING })],
+      sandbox: makeStubPublicSandbox(),
+    });
+
+    expect(names).toContain('get_current_datetime');
+    for (const metaTool of META_TOOL_NAMES) {
+      expect(names.includes(metaTool)).toBe(false);
+    }
+  });
 });

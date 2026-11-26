@@ -554,11 +554,10 @@ export class AgentThread {
     }
 
     // Preloaded builtins (current time, sub-agents, and so on) are already on the tool list.
-    // The meta tools are only useful when a server is deferred, or for Code Mode, which reads
-    // preloaded servers' output schemas through get_tool_output_schema.
-    // Include system toolSets (e.g. TrueForge MCP) so deferred discovery covers them too.
-    const toolSets = [...this.systemToolSets, ...(this.definition.toolSets ?? [])];
-    if (toolSets.some(s => !s.preload) || (this.sandbox && toolSets.length > 0)) {
+    // Meta tools: deferred servers, or Code Mode with user MCP servers (not builtins alone).
+    const userToolSets = this.definition.toolSets ?? [];
+    const toolSets = [...this.systemToolSets, ...userToolSets];
+    if (toolSets.some(s => !s.preload) || (this.sandbox && userToolSets.length > 0)) {
       this.deferredTool = new DeferredTool(toolSets, {
         tracing: this.tracing,
         logger: input.logger,
