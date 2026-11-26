@@ -7,6 +7,8 @@ export type RoutingClusters = Record<RoutingCategory, Partial<Record<ReasoningEf
 /**
  * The router picks the cheapest pair the tenant has, by its gateway cost per token, and the thread runs at that effort.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
+ * `frontier` is min 54, above every `adaptive` pair. Only the root thread routes to it;
+ * subagents are never offered the category.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {
   direct: {
@@ -32,6 +34,18 @@ export const ROUTING_CLUSTERS: RoutingClusters = {
     medium: ['openai/gpt-6-1-sol'],
     high: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5', 'google/gemini-4-argon'],
     xhigh: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5'],
-    max: ['openai/gpt-6-1-sol', 'openai/gpt-6-sol', 'anthropic/claude-sonnet-5-5'],
+    max: ['openai/gpt-6-sol'],
+  },
+  frontier: {
+    medium: ['google/gemini-4-carbon', 'anthropic/claude-fable-5-2'],
+    high: ['anthropic/claude-fable-5-2'],
+    xhigh: ['anthropic/claude-opus-5-5', 'anthropic/claude-fable-5-2'],
+    max: [
+      'anthropic/claude-fable-5-2',
+      'google/gemini-4-carbon',
+      'anthropic/claude-opus-5-5',
+      'openai/gpt-6-1-sol',
+      'anthropic/claude-sonnet-5-5',
+    ],
   },
 };

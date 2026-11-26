@@ -1,5 +1,5 @@
 import type { PartState } from '@assistant-ui/core/react';
-import { CONTEXT_COMPACTION_DATA_NAME } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { CONTEXT_COMPACTION_DATA_NAME, EVENT_TYPE } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 export type AgentStepPart = {
   type: PartState['type'];
@@ -24,7 +24,8 @@ function isAgentStepPart(part: AgentStepPart): boolean {
   return (
     part.type === 'tool-call' ||
     part.type === 'reasoning' ||
-    (part.type === 'data' && part.name === CONTEXT_COMPACTION_DATA_NAME)
+    (part.type === 'data' &&
+      (part.name === CONTEXT_COMPACTION_DATA_NAME || part.name === EVENT_TYPE.THREAD_SWITCH_MODEL))
   );
 }
 
@@ -73,10 +74,11 @@ export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunnin
 
   const trailingChars = finalTexts.reduce((sum, t) => sum + t.content.length, 0);
 
-  // Hold the reply inside Agent steps only while a tool, reasoning block, or
-  // compaction still shares that accordion. A hidden part (an answered question)
-  // renders outside the accordion and splits the group, so earlier steps must not
-  // park a later short reply in a second accordion that has no steps of its own.
+  // Hold the reply inside Agent steps only while a tool, reasoning block,
+  // compaction, or model-switch still shares that accordion. A hidden part (an
+  // answered question) renders outside the accordion and splits the group, so
+  // earlier steps must not park a later short reply in a second accordion that
+  // has no steps of its own.
   const hasAgentStepsBeforeCut = hasContiguousAgentSteps(parts, cutIdx);
 
   const finalConfirmed = finalTexts.length > 0 && (!isRunning || trailingChars >= 500 || !hasAgentStepsBeforeCut);

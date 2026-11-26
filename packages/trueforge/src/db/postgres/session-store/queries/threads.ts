@@ -4,8 +4,10 @@ import type {
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
+  PatchThreadModelInput,
   RemoveThreadsInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import { SessionStoreInvariantError } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
@@ -16,6 +18,7 @@ import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { values } from '../sqlExpressions';
 import {
+  assertOwnedNonTerminalTurn,
   assertOwnedRunningTurn,
   classifyNonTerminalTurnThreadWriteFailure,
   classifyTurnFenceWriteFailure,
@@ -428,4 +431,34 @@ export async function getTurnThread(
     .where('turn_id', '=', turn_id)
     .where('thread_id', '=', thread_id)
     .executeTakeFirst();
+}
+
+/** patchThreadModel — fenced tx: assert a running or paused owned turn, then set `checkpoint.model`. */
+export async function patchThreadModel(db: DbOrTrx, input: PatchThreadModelInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await patchThreadModelInTransaction(db, input);
+    return;
+  }
+  await db.transaction().execute(trx => patchThreadModelInTransaction(trx, input));
+}
+
+async function patchThreadModelInTransaction(db: Transaction<Database>, input: PatchThreadModelInput): Promise<void> {
+  await assertOwnedNonTerminalTurn(db, {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  });
+  const result = await db
+    .updateTable('turn_thread')
+    .set({
+      checkpoint: jsonbSet<TurnThreadCheckpoint>(sql`checkpoint`, sql`'{model}'`, json(input.model)),
+      updated_at: sql`now()`,
+    })
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('thread_id', '=', input.thread_id)
+    .executeTakeFirst();
+  if (Number(result.numUpdatedRows) === 0) {
+    throw new SessionStoreInvariantError(`thread ${input.thread_id} not found in turn ${input.turn_id}`);
+  }
 }

@@ -157,6 +157,7 @@ describe('sessions HTTP agent binding', () => {
     app.route(
       '/',
       createTurnsRouter({
+        decisionModel: undefined,
         activeTurns: deps.activeTurns,
         authorizer: deps.authorizer,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -1052,7 +1053,11 @@ describe('sessions HTTP agent binding', () => {
 
     await configurationStore.upsertConfiguration({
       tenant_id: 'default',
-      manifest: { web_search: { enabled: false }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
+      manifest: {
+        web_search: { enabled: false },
+        memory: { enabled: false },
+        auto_model_routing: { enabled: true, candidate_models: [] },
+      },
     });
     try {
       // The agent was saved while web search was allowed, so its stored spec is grandfathered.
@@ -1070,7 +1075,11 @@ describe('sessions HTTP agent binding', () => {
     } finally {
       await configurationStore.upsertConfiguration({
         tenant_id: 'default',
-        manifest: { web_search: { enabled: true }, memory: { enabled: false }, auto_model_routing: { enabled: true } },
+        manifest: {
+          web_search: { enabled: true },
+          memory: { enabled: false },
+          auto_model_routing: { enabled: true, candidate_models: [] },
+        },
       });
     }
 

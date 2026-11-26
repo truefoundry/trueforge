@@ -1,5 +1,6 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
+import { AgentHarnessError } from '../core/errors';
 import type { ToolApprovalPolicy } from '../core/events/schema';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
@@ -15,6 +16,7 @@ import {
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import {
+  AUTO_MODEL,
   createModelRouter,
   type ModelRouterDeps,
   type RouteInput,
@@ -104,11 +106,12 @@ export class TurnResourceResolver<
   readonly #models = new Map<string, Promise<ResolvedModel>>();
   #sandbox?: HarnessSandbox | undefined;
   readonly maxParallelSubAgents?: number;
-  readonly routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
+  readonly autoModelRouterAvailable: boolean;
+  readonly #routeModel: ((route: RouteInput) => Promise<RoutedModel | undefined>) | undefined;
 
   constructor(
     protected readonly deps: {
-      /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
+      /** Model name → client and defaults. Called once per model name per turn; may load provider config. */
       llm: (model: string) => Promise<ResolvedModel>;
       /**
        * MCP id → connection. Spec servers use their name as the id.
@@ -144,7 +147,8 @@ export class TurnResourceResolver<
     if (deps.maxParallelSubAgents !== undefined) {
       this.maxParallelSubAgents = deps.maxParallelSubAgents;
     }
-    this.routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.#routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
+    this.autoModelRouterAvailable = this.#routeModel !== undefined;
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
@@ -239,7 +243,6 @@ export class TurnResourceResolver<
   async resolveAgentDefinition(input: {
     spec: AgentSpec;
     agent_info?: AgentInfo | undefined;
-    model: ModelSnapshot | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
@@ -286,24 +289,7 @@ export class TurnResourceResolver<
       ...(trueforgeToolSet === undefined ? [] : [{ systemToolSets: [trueforgeToolSet] }]),
       ...(agentInfo === undefined ? (this.deps.rootCapabilities?.() ?? []) : []),
     ];
-    // A routed or resumed snapshot wins, then a requested override, then the spec model.
-    const modelName = input.model?.name ?? agentInfo?.model ?? spec.model.name;
-    const resolvedModel = await this.getModel(modelName);
-    // The spec's params belong to its own model; another model runs on its defaults.
-    // A routed or saved snapshot replaces that effort, including an explicit none.
-    const baseParams =
-      modelName === spec.model.name
-        ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
-        : { ...resolvedModel.defaultModelParams, parallel_tool_calls: true };
-    const params = applySavedEffort(baseParams, input.model?.effort);
     return {
-      model: {
-        client: resolvedModel.modelClient,
-        name: modelName,
-        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
-        properties: resolvedModel.modelProperties,
-        params,
-      },
       definition: {
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
@@ -317,6 +303,37 @@ export class TurnResourceResolver<
         toolSets,
       },
       ...(extraCapabilities.length === 0 ? {} : { extraCapabilities }),
+    };
+  }
+
+  async resolveModel(input: {
+    spec: AgentSpec;
+    model: ModelSnapshot | undefined;
+    routingInput: RouteInput | undefined;
+  }): Promise<{ model: AgentModel; routed: boolean }> {
+    const { spec } = input;
+    const routed = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
+    const chosen = routed === undefined ? input.model : { name: routed.model, effort: routed.effort };
+    if (chosen === undefined && spec.model.name === AUTO_MODEL) {
+      throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
+    }
+    const name = chosen?.name ?? spec.model.name;
+    const resolvedModel = await this.getModel(name);
+    // The spec's params belong to its own model, and routing drops them; any other model runs on its defaults. A chosen
+    // effort replaces either.
+    const baseParams =
+      routed === undefined && name === spec.model.name
+        ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
+        : { ...resolvedModel.defaultModelParams };
+    return {
+      model: {
+        client: resolvedModel.modelClient,
+        name,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
+        properties: resolvedModel.modelProperties,
+        params: applySavedEffort(baseParams, chosen?.effort),
+      },
+      routed: routed !== undefined,
     };
   }
 

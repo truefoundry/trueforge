@@ -46,7 +46,6 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
-  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -80,7 +79,7 @@ import configuration, {
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { ICapabilitiesStore } from '../db/capabilitiesStore';
-import { isAutoEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
+import { getAutoModelRoutingForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -103,6 +102,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { listAutoCandidateModels } from '../runtime/autoModelRouting';
 import {
   eventIdTimestampMs,
   isLegacySequenceEntryId,
@@ -123,6 +123,7 @@ import {
 } from '../runtime/sessionResources';
 import { restoreTurnEventLog } from '../runtime/turnEventLogRestore';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
+import type { AutoModelRoutingConfiguration } from '../schemas/configuration';
 import { assertGatewayMetadataRequestHeaders, X_TFY_METADATA } from '../truefoundry/gatewayMetadata';
 import { X_TFG_MCP, X_TFG_MODELS, X_TFG_SKILLS, X_TFG_TOOLS } from '../truefoundry/inlineResources';
 import { newId } from '../utils/id';
@@ -205,6 +206,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
   accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
+  decisionModel: DecisionModel | undefined;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -247,7 +249,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
  */
 export type BeginTurnExecutionDeps<TTransaction> = Pick<
   TurnsRouterDeps<TTransaction>,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'decisionModel' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
   capabilitiesStore: ICapabilitiesStore;
@@ -345,6 +347,7 @@ async function executionDepsForCaller<TTransaction>(input: {
   const stores = await input.deps.resolveTurnExecutionStores(input);
   return {
     activeTurns: input.deps.activeTurns,
+    decisionModel: input.deps.decisionModel,
     eventSubscriptions: input.deps.eventSubscriptions,
     logger: input.deps.logger,
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
@@ -369,42 +372,30 @@ interface BeginTurnExecutionParams<TTransaction> {
 /** This turn's model routing inputs, or undefined when routing is off for the tenant or its Auto mode switch is off. */
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
-  isAutoAllowed: boolean;
+  autoModelRouting: AutoModelRoutingConfiguration;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
-  turnMetadata: TurnMetadata;
+  decisionModel: DecisionModel | undefined;
 }): ModelRouterDeps | undefined {
-  const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  if (routing === undefined || !input.isAutoAllowed) {
+  const { routing, tenant_id, modelProviderStore, decisionModel } = input;
+  if (routing === undefined || decisionModel === undefined) {
     return undefined;
   }
-  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
-  if (tenantRouting === undefined) {
+  const { enabled, candidate_models } = input.autoModelRouting;
+  const hasCandidates = candidate_models.length > 0;
+  if (!enabled || !hasCandidates) {
     return undefined;
   }
-  // Resolved on first use, so turns that route no thread skip the lookup.
-  let decisionModel: Promise<DecisionModel> | undefined;
-  const resolveDecisionModel = () => {
-    decisionModel ??= getModelDetails({
-      tenant_id,
-      name: tenantRouting.decision_model,
-      store: modelProviderStore,
-      turnMetadata,
-    }).then(resolved => ({
-      client: new OpenAIDecisionModel(resolved.providerConfig),
-      properties: { contextLength: resolved.modelProperties?.contextLength },
-    }));
-    decisionModel.catch(() => {
-      decisionModel = undefined;
-    });
-    return decisionModel;
-  };
+  if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
+    return undefined;
+  }
   return {
-    classifier: resolveDecisionModel,
+    classifier: () => Promise.resolve(decisionModel),
     question: {
       categories: routing.categories,
     },
-    listModels: () => modelProviderStore.listModels({ tenant_id }),
+    listModels: () =>
+      listAutoCandidateModels({ tenant_id, modelProviderStore, autoModelRouting: input.autoModelRouting }),
   };
 }
 
@@ -783,7 +774,7 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const [webSearchProvider, memoryCapability, isAutoAllowed] = await Promise.all([
+  const [webSearchProvider, memoryCapability, autoModelRouting] = await Promise.all([
     resolveWebSearchProvider({
       tenant_id: input.session.tenant_id,
       store: input.deps.webSearchProviderStore,
@@ -797,7 +788,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       agentStore: input.deps.agentStore,
       logger: input.deps.logger,
     }),
-    isAutoEnabledForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
+    getAutoModelRoutingForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
   ]);
   const sessionAgent = input.session.record.agent;
 
@@ -822,10 +813,10 @@ async function prepareTurnExecution<TTransaction>(input: {
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
       routing: trueFoundryModelRouting(),
-      isAutoAllowed,
+      autoModelRouting,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
-      turnMetadata,
+      decisionModel: input.deps.decisionModel,
     }),
     webSearchProvider,
     memoryCapability,

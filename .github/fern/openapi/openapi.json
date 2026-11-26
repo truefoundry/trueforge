@@ -423,14 +423,41 @@
       "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty until models are chosen.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
           "enabled": {
             "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "candidate_models"
         ],
+        "type": "object"
+      },
+      "AutoModelRoutingConfigurationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "AvailableMCPServer": {
@@ -1104,7 +1131,7 @@
         "additionalProperties": false,
         "properties": {
           "auto_model_routing": {
-            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
+            "$ref": "#/components/schemas/AutoModelRoutingConfigurationPatch"
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
@@ -3430,27 +3457,6 @@
           }
         ]
       },
-      "ModelSnapshot": {
-        "description": "Model and effort the new thread runs on.",
-        "properties": {
-          "effort": {
-            "description": "Reasoning effort for that model. Null when none was resolved.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "name": {
-            "description": "Resolved model name, `provider/model`.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "effort"
-        ],
-        "type": "object"
-      },
       "MoonshotModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -4586,6 +4592,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -4617,6 +4624,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -5346,9 +5356,6 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
-          "model": {
-            "$ref": "#/components/schemas/ModelSnapshot"
-          },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"
           },
@@ -5477,6 +5484,70 @@
         "required": [
           "status",
           "error"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventModel"
+          },
+          "thread_id": {
+            "description": "Thread the model was selected for.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Model routing chose the model a thread runs on, before its first model call.",
+            "enum": [
+              "thread.switch_model"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "model"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventModel": {
+        "description": "The chosen model and its parameters.",
+        "properties": {
+          "name": {
+            "description": "Name of the chosen model, `provider/model`.",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ThreadSwitchModelEventParams"
+          }
+        },
+        "required": [
+          "name",
+          "params"
+        ],
+        "type": "object"
+      },
+      "ThreadSwitchModelEventParams": {
+        "description": "Model parameters chosen with the model.",
+        "properties": {
+          "reasoning_effort": {
+            "description": "Reasoning effort chosen for the model.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reasoning_effort"
         ],
         "type": "object"
       },
@@ -6279,6 +6350,7 @@
             "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "thread.switch_model": "#/components/schemas/ThreadSwitchModelEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
@@ -6304,6 +6376,9 @@
           },
           {
             "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadSwitchModelEvent"
           },
           {
             "$ref": "#/components/schemas/ThreadDoneEvent"
@@ -11664,7 +11739,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.",
+        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11694,7 +11769,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, a candidate model the caller cannot access, or candidate models that leave a routing category without a model."
           },
           "401": {
             "content": {
