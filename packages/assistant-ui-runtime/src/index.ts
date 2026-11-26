@@ -60,6 +60,7 @@ export type {
 export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
 export { sessionListStartTimestamp } from './sessionListStartTimestamp.js';
 export { getSession } from './sessions.js';
+export { isThreadSwitchModelEvent } from './threadSwitchModel.js';
 export { messageHasPendingApprovals } from './toolApproval.js';
 export type { RespondToToolApprovalOptions } from './toolApproval.js';
 export { messageHasPendingResponses } from './toolResponse.js';
@@ -225,6 +226,7 @@ export type {
   TenantConfigurationSwitch,
   TerminalTurnState,
   ThreadCreatedEvent,
+  ThreadSwitchModelEvent,
   ToolApprovalPolicyAllowSession,
   ToolApprovalPolicyItem,
   ToolApprovalRequiredEvent,
