@@ -325,14 +325,13 @@ export class TurnResourceResolver<
       routed === undefined && name === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
         : { ...resolvedModel.defaultModelParams };
-    const params = applySavedEffort(baseParams, chosen?.effort);
     return {
       model: {
         client: resolvedModel.modelClient,
         name,
         ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         properties: resolvedModel.modelProperties,
-        params,
+        params: applySavedEffort(baseParams, chosen?.effort),
       },
       routed: routed !== undefined,
     };
