@@ -1284,6 +1284,105 @@ describe('foldPeerThreads', () => {
     expect(buildRootAssistantContentForIds(state, [])).toEqual([]);
   });
 
+  it('emits a thread.switch_model data part before the following model message', () => {
+    const state = new PeerThreadFoldState();
+    const switchEvent = {
+      type: EVENT_TYPE.THREAD_SWITCH_MODEL,
+      id: 'switch-1',
+      createdAt: '2026-10-26T12:52:50.000Z',
+      threadId: ROOT_THREAD_ID,
+      model: { name: 'openai/gpt-5.4', params: { reasoningEffort: 'medium' } },
+    } as const;
+
+    expect(ingestStreamEvent(state, switchEvent)).toBe(true);
+
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'm-after', threadId: ROOT_THREAD_ID, content: 'routed reply' }),
+      createdAt: '2026-10-26T12:52:51.000Z',
+    });
+
+    const parts = buildRootAssistantContentForIds(state, ['m-after']);
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).toEqual({
+      type: 'data',
+      name: EVENT_TYPE.THREAD_SWITCH_MODEL,
+      data: switchEvent,
+    });
+    expect(parts[1]).toEqual({ type: 'text', text: 'routed reply' });
+  });
+
+  it('does not attach a later thread.switch_model to an already finished turn', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'turn one' }),
+      createdAt: '2026-10-26T12:52:46.767Z',
+    });
+    ingestStreamEvent(state, {
+      type: EVENT_TYPE.THREAD_SWITCH_MODEL,
+      id: 'switch-next',
+      createdAt: '2026-10-26T12:52:52.306Z',
+      threadId: ROOT_THREAD_ID,
+      model: { name: 'openai/gpt-5.4', params: { reasoningEffort: 'low' } },
+    });
+
+    state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:46.773Z');
+    expect(buildRootAssistantContentForIds(state, ['m1'])).toEqual([{ type: 'text', text: 'turn one' }]);
+  });
+
+  it('emits thread.switch_model on a nested sub-agent message', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'root-msg',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'spawn-1',
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+            toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+          },
+        ],
+      }),
+    );
+
+    ingestTurnEvent(
+      state,
+      threadCreated({
+        id: 't-created',
+        threadId: 'child-1',
+        title: 'Research agent',
+        agentInfo: { type: 'dynamic', name: 'researcher', input: 'do research' },
+        parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+      }),
+    );
+
+    const switchEvent = {
+      type: EVENT_TYPE.THREAD_SWITCH_MODEL,
+      id: 'child-switch',
+      createdAt: '2026-10-26T12:52:50.000Z',
+      threadId: 'child-1',
+      model: { name: 'anthropic/claude-sonnet-4-6', params: { reasoningEffort: 'high' } },
+    } as const;
+    expect(ingestStreamEvent(state, switchEvent)).toBe(true);
+
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'child-msg', threadId: 'child-1', content: 'working' }),
+      createdAt: '2026-10-26T12:52:51.000Z',
+    });
+
+    const spawn = buildRootAssistantContent(state).find(part => part.type === 'tool-call');
+    if (spawn?.type !== 'tool-call') {
+      throw new Error('expected create_sub_agent tool-call');
+    }
+    expect(spawn.messages?.[0]?.content).toEqual([
+      { type: 'data', name: EVENT_TYPE.THREAD_SWITCH_MODEL, data: switchEvent },
+      { type: 'text', text: 'working' },
+    ]);
+  });
+
   it('maps toolCallIds to the model.message that first emitted them', () => {
     const state = new PeerThreadFoldState();
     ingestTurnEvent(

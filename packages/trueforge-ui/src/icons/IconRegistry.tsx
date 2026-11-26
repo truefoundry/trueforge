@@ -260,6 +260,7 @@ const defaults: Record<string, IconEntry> = {
   tag: Tag,
   link: Link2,
   wrench: Wrench,
+  wand: Wand,
   cpu: Cpu,
   cube: Box,
   'list-ol': ListOrdered,

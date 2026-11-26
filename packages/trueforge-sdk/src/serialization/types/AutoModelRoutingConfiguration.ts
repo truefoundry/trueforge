@@ -8,11 +8,16 @@ export const AutoModelRoutingConfiguration: core.serialization.ObjectSchema<
     serializers.AutoModelRoutingConfiguration.Raw,
     TrueForge.AutoModelRoutingConfiguration
 > = core.serialization.object({
+    candidateModels: core.serialization.property(
+        "candidate_models",
+        core.serialization.list(core.serialization.string()),
+    ),
     enabled: core.serialization.boolean(),
 });
 
 export declare namespace AutoModelRoutingConfiguration {
     export interface Raw {
+        candidate_models: string[];
         enabled: boolean;
     }
 }

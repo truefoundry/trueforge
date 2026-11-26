@@ -159,12 +159,13 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
 const RoutingDescriptionSchema = z.string().trim().min(1);
 
 const TrueFoundryModelRoutingSchema = z.object({
-  /** What each category means to the decision model; all three or none. */
+  /** What each category means to the decision model; `frontier` defaults when the other three are given. */
   categories: z
     .object({
       direct: RoutingDescriptionSchema,
       fixed_steps: RoutingDescriptionSchema,
       adaptive: RoutingDescriptionSchema,
+      frontier: RoutingDescriptionSchema.default(DEFAULT_ROUTING_QUESTION.categories.frontier),
     })
     .strict()
     .default(DEFAULT_ROUTING_QUESTION.categories),

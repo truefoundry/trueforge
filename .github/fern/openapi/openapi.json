@@ -423,14 +423,41 @@
       "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from. Empty until models are chosen.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
           "enabled": {
             "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "candidate_models"
         ],
+        "type": "object"
+      },
+      "AutoModelRoutingConfigurationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models auto routing may pick from.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "AvailableMCPServer": {
@@ -1104,7 +1131,7 @@
         "additionalProperties": false,
         "properties": {
           "auto_model_routing": {
-            "$ref": "#/components/schemas/AutoModelRoutingConfiguration"
+            "$ref": "#/components/schemas/AutoModelRoutingConfigurationPatch"
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryConfiguration"
@@ -11712,7 +11739,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.",
+        "description": "Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11742,7 +11769,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, a candidate model the caller cannot access, or candidate models that leave a routing category without a model."
           },
           "401": {
             "content": {

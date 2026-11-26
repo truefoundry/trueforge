@@ -5086,7 +5086,7 @@ client.settings.configuration.get()
 <dl>
 <dd>
 
-Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it.
+Updates the switches present in the body and leaves the rest. Turning web search off applies to new chats; chats already using it keep it. Auto candidate models must be models the caller has access to and, where model routing is on, cover every routing category.
 </dd>
 </dl>
 </dd>

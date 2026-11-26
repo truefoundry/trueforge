@@ -2,6 +2,8 @@
 
 import { useLayoutEffect, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { useFilePreview } from '../filePreview/FilePreviewContext.js';
@@ -39,6 +41,7 @@ export function FilePreviewHost() {
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const [reloadToken, setReloadToken] = useState(0);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [widthPx, setWidthPx] = useState<number | null>(readStoredPreviewWidth);
@@ -55,7 +58,10 @@ export function FilePreviewHost() {
   }, [placement, target, widthPx]);
 
   if (target == null) return null;
-  const canRetry = loaded.view.status === 'error';
+  const reload = () => {
+    track(AnalyticsEvents.FilePreview.RELOADED);
+    setReloadToken(token => token + 1);
+  };
 
   const handleDownload = () => {
     if (downloadBusy) return;
@@ -80,6 +86,7 @@ export function FilePreviewHost() {
       view={loaded.view}
       onClose={preview.close}
       onDownload={handleDownload}
+      onReload={reload}
       onEnterFullPage={() => preview.setPresentation('full')}
       onExitFullPage={() => preview.setPresentation('panel')}
       downloadBusy={downloadBusy}
@@ -92,7 +99,6 @@ export function FilePreviewHost() {
             },
           }
         : {})}
-      {...(canRetry ? { onRetry: () => setReloadToken(token => token + 1) } : {})}
     />
   );
 }

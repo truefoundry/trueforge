@@ -167,6 +167,7 @@ export type {
   McpServer as McpAuthServer,
 } from './atoms/adapters/McpAuthPromptAdapter.js';
 export type { ReasoningCardProps } from './atoms/adapters/ReasoningCardAdapter.js';
+export type { ThreadSwitchModelCardProps } from './atoms/adapters/ThreadSwitchModelCardAdapter.js';
 export { StepTree, StepTreeItem } from './atoms/agent-chat/StepTree.js';
 export type { StepTreeItemProps, StepTreeProps } from './atoms/agent-chat/StepTree.js';
 export { AttachmentCard, USER_MESSAGE_ATTACHMENT_PREVIEW_REM } from './atoms/AttachmentCard.js';

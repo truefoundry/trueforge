@@ -66,13 +66,6 @@ function isRoutingCategory(category: string): category is RoutingCategory {
   return Object.hasOwn(ROUTING_CLUSTERS, category);
 }
 
-/** True when every routing category has a model the user can be routed to. */
-export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean {
-  return Object.keys(ROUTING_CLUSTERS)
-    .filter(isRoutingCategory)
-    .every(category => selectModel({ category, models }) !== undefined);
-}
-
 export interface ModelRouterDeps {
   /** The decision model that categorises the task, e.g. Jev; called on every route. */
   classifier: () => Promise<DecisionModel>;
@@ -87,6 +80,8 @@ export interface RouteInput {
   input: string | DecisionInputMessage[];
   /** The caller writes this for a task or for a conversation. */
   instructions: string;
+  /** The categories the classifier may choose from; an answer outside them picks nothing. */
+  categories: readonly RoutingCategory[];
 }
 
 interface Outcome {
@@ -120,6 +115,7 @@ export function createModelRouter(
         input: route.input,
         question: deps.question,
         instructions: route.instructions,
+        categories: route.categories,
         contextLength: classifier.properties.contextLength,
       });
       isTruncated = request.isTruncated;
@@ -131,7 +127,7 @@ export function createModelRouter(
         return { reason: 'decision_error', routed: undefined, fields: { answers: decision.answers } };
       }
       const classified = { category: classification.category, ...classification.details };
-      if (!isRoutingCategory(classification.category)) {
+      if (!isRoutingCategory(classification.category) || !route.categories.includes(classification.category)) {
         return { reason: 'decision_error', routed: undefined, fields: classified };
       }
       const selection = selectModel({ category: classification.category, models: userModels });
