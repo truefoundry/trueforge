@@ -7,6 +7,7 @@ import {
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef, useState } from 'react';
 
+import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
@@ -64,6 +65,7 @@ function SaveAgentButtonContent({
   const adoptAgentSpec = useTrueForgeAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
+  const toaster = useToasterOptional();
   const agentId = shell?.mode.status === 'active' ? shell.mode.agentId : undefined;
   const { allows } = useResourcePermissions({
     resourceType: 'agent',
@@ -139,6 +141,10 @@ function SaveAgentButtonContent({
         agentSpec: draftSpec,
       });
       shell?.invalidateAgentsList();
+      toaster?.showSuccess({
+        title: intent === 'create' ? 'Agent saved' : 'Agent updated',
+        description: `“${normalizedName}” is saved.`,
+      });
       setOpen(false);
       setDescription('');
       setDraftSpec(null);

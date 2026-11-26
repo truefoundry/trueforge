@@ -16,6 +16,7 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const state = useNamedAgentHeaderState();
+  const hasUnsavedChanges = shell?.hasUnsavedAgentChanges === true;
   const threadTitle = useAuiState(s => s.threadListItem.title);
   if (state === null) return null;
 
@@ -47,11 +48,18 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
       <span className="truncate" title={displayName}>
         {displayName}
       </span>
-      {state.isEditing ? (
-        <Tooltip content="Try changes here, then choose Update agent to save." side="bottom">
+      {hasUnsavedChanges || state.isEditing ? (
+        <Tooltip
+          content={
+            hasUnsavedChanges
+              ? `Changes are not saved until you choose ${state.isEditing ? 'Update Agent' : 'Save Agent'}.`
+              : 'Try changes here, then choose Update agent to save.'
+          }
+          side="bottom"
+        >
           <span className="border-warning-bg/40 bg-warning-bg/10 text-warning-bg inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium">
             <Icon name="pencil" className="size-3" />
-            Editing
+            {hasUnsavedChanges ? 'Unsaved changes' : 'Editing'}
           </span>
         </Tooltip>
       ) : null}
