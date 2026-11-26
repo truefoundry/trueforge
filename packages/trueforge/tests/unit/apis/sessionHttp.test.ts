@@ -650,7 +650,7 @@ describe('sessions HTTP agent binding', () => {
       created_by_agent_id: null,
     });
 
-    const listed = await app.request(`/${session.id}/artifacts?name=rep`);
+    const listed = await app.request(`/${session.id}/artifacts`);
     expect(listed.status).toBe(200);
     const { data } = ListSessionArtifactsResponseSchema.parse(await listed.json());
     expect(data.map(a => a.id)).toEqual([artifact.id]);

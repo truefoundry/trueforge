@@ -130,7 +130,7 @@ export class SqliteArtifactStore implements IArtifactStore {
   }
 
   async listSessionArtifacts(input: ListSessionArtifactsInput): Promise<ArtifactRecord[]> {
-    let query = this.#db
+    const rows = await this.#db
       .selectFrom('artifact')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
@@ -142,11 +142,10 @@ export class SqliteArtifactStore implements IArtifactStore {
             .whereRef('artifact_version.artifact_id', '=', 'artifact.id')
             .where('artifact_version.created_by_session_id', '=', input.session_id),
         ),
-      );
-    if (input.name !== undefined) {
-      query = query.where(sql<boolean>`instr(lower(name), lower(${input.name})) > 0`);
-    }
-    const rows = await query.orderBy('updated_at', 'desc').orderBy('id').execute();
+      )
+      .orderBy('updated_at', 'desc')
+      .orderBy('id')
+      .execute();
     return rows.map(toArtifactRecord);
   }
 

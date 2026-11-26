@@ -52,8 +52,6 @@ export interface ListArtifactsInput {
 export interface ListSessionArtifactsInput {
   tenant_id: string;
   session_id: string;
-  /** Case-insensitive substring match. */
-  name: string | undefined;
 }
 
 export interface GetArtifactInput {

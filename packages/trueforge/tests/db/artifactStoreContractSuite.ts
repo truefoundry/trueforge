@@ -247,9 +247,8 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     await createVersion({ artifactId: shared.id, entryPoint: 'a.html' });
     await createVersion({ artifactId: shared.id, entryPoint: 'b.html' });
 
-    const input = { tenant_id: TENANT, session_id: 'session-1', name: undefined };
+    const input = { tenant_id: TENANT, session_id: 'session-1' };
     expect((await store.listSessionArtifacts(input)).map(a => a.id)).toEqual([shared.id, own.id]);
-    expect((await store.listSessionArtifacts({ ...input, name: 'REPORT' })).map(a => a.id)).toEqual([shared.id]);
     expect(await store.listSessionArtifacts({ ...input, session_id: 'session-3' })).toEqual([]);
   });
 

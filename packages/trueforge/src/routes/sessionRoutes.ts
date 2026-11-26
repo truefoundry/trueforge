@@ -5,7 +5,7 @@
  * Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { ListSessionArtifactsRequestQuerySchema, ListSessionArtifactsResponseSchema } from '../schemas/artifact';
+import { ListSessionArtifactsResponseSchema } from '../schemas/artifact';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
@@ -305,7 +305,6 @@ export const listSessionArtifactsRoute = createRoute({
   'x-fern-sdk-method-name': 'list_artifacts',
   request: {
     params: SessionIdParamsSchema,
-    query: ListSessionArtifactsRequestQuerySchema,
   },
   responses: {
     200: {

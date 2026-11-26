@@ -764,7 +764,6 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
 
   const listSessionArtifactsHandler: RouteHandler<typeof listSessionArtifactsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
@@ -788,7 +787,6 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     const artifacts = await deps.artifactStore.listSessionArtifacts({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
-      name: query.name,
     });
     return c.json({ data: artifacts.map(toWireArtifact) }, 200);
   };
