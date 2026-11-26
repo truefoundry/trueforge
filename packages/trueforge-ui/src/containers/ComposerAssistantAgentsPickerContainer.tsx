@@ -8,6 +8,7 @@ import type { ComposerAssistantAgentsPickerSelection } from '../atoms/ComposerAs
 import { libraryAgentId, useOptionalShellMode, type ShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { isNewChatView } from '../utils/isNewChatView.js';
 
 function selectionFromShell(mode: ShellMode): ComposerAssistantAgentsPickerSelection {
   // Try Agent is the only immutable binding with a display name for this picker.
@@ -34,6 +35,8 @@ export function ComposerAssistantAgentsPickerContainer() {
   const track = useTrackAnalytics();
   // Disable only while a turn streams so picking mid-flight cannot remount the runtime.
   const isRunning = useAuiState(s => s.thread.isRunning);
+  // History sessions and in-progress threads keep the docked composer without mode switching.
+  const showOnNewChatOnly = useAuiState(isNewChatView);
 
   if (shell == null || !shell.isComposerEnabled || !shell.isLibraryEnabled) {
     return null;
@@ -41,6 +44,10 @@ export function ComposerAssistantAgentsPickerContainer() {
 
   // New Agent / Edit keep their own chrome; this picker is for New Chat vs Try Agent.
   if (shell.mode.status === 'active' && shell.mode.isMutable && shell.mode.isCreateAgent) {
+    return null;
+  }
+
+  if (!showOnNewChatOnly) {
     return null;
   }
 

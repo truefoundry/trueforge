@@ -83,15 +83,27 @@ function renderPicker({
   server,
   track,
   isRunning = false,
+  remoteId = null as string | null,
+  messageCount = 0,
 }: {
   agentConfig?: AgentConfig;
   initialEntries?: string[];
   server?: AgentUIServer;
   track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
   isRunning?: boolean;
+  remoteId?: string | null;
+  messageCount?: number;
 } = {}) {
-  useAuiState.mockImplementation((selector: (state: { thread: { isRunning: boolean } }) => unknown) =>
-    selector({ thread: { isRunning } }),
+  useAuiState.mockImplementation((selector: (state: unknown) => unknown) =>
+    selector({
+      thread: {
+        isRunning,
+        isLoading: false,
+        messages: Array.from({ length: messageCount }, (_, index) => ({ id: `m-${index}` })),
+      },
+      threads: { isLoading: false },
+      threadListItem: { remoteId },
+    }),
   );
 
   const mockServer =
@@ -210,6 +222,11 @@ describe('ComposerAssistantAgentsPickerContainer', () => {
     unmount();
 
     renderPicker({ agentConfig: { mode: 'AgentLibrary' } });
+    expect(screen.queryByRole('button', { name: /Chat mode:/ })).not.toBeInTheDocument();
+  });
+
+  it('hides the picker on older history chats', () => {
+    renderPicker({ remoteId: 'session-from-history', messageCount: 2 });
     expect(screen.queryByRole('button', { name: /Chat mode:/ })).not.toBeInTheDocument();
   });
 
