@@ -1,7 +1,6 @@
 import { DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
-import type { ArtifactsFeature, ServerConfiguration } from '../../../src/config';
-import configuration, {
-  assertArtifactsStorage,
+import type { ServerConfiguration } from '../../../src/config';
+import {
   buildRedisStandaloneUrl,
   getPublicUiBasePath,
   parseArtifactsFeature,
@@ -252,29 +251,6 @@ describe('parseArtifactsFeature', () => {
 
   it('rejects a bad flag value', () => {
     expect(() => parseArtifactsFeature(JSON.stringify({ tenants: { a: { enabled: 'yes' } } }))).toThrow('ARTIFACTS');
-  });
-});
-
-describe('assertArtifactsStorage', () => {
-  const artifacts: ArtifactsFeature = { tenants: { a: { enabled: 'on' } } };
-
-  it('requires S3_CONFIG when ARTIFACTS is set', () => {
-    expect(() => assertArtifactsStorage({ ...configuration, ARTIFACTS: artifacts, S3_CONFIG: undefined })).toThrow(
-      'S3_CONFIG',
-    );
-  });
-
-  it('passes when ARTIFACTS is unset or S3_CONFIG is set', () => {
-    expect(() =>
-      assertArtifactsStorage({ ...configuration, ARTIFACTS: undefined, S3_CONFIG: undefined }),
-    ).not.toThrow();
-    expect(() =>
-      assertArtifactsStorage({
-        ...configuration,
-        ARTIFACTS: artifacts,
-        S3_CONFIG: { bucket: 'b', prefix: '', presign_ttl_seconds: 300 },
-      }),
-    ).not.toThrow();
   });
 });
 

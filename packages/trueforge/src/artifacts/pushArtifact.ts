@@ -108,7 +108,7 @@ class PushArtifactTools extends LocalToolMCP {
         return failure(`Artifact not found: ${input.artifact_id}`, undefined);
       }
       if (artifact.created_by_subject.subject_id !== deps.subject.subject_id) {
-        return failure('Only the artifact creator can push new versions.', undefined);
+        return failure('User does not have access to push to this artifact.', undefined);
       }
       target = { type: 'existing', id: artifact.id };
     } else if (input.name !== undefined) {

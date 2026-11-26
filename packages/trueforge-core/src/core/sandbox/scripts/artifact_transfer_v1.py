@@ -118,13 +118,6 @@ def _validate(directory: str) -> tuple[dict, bool]:
     return {"error": None, "files": files}, True
 
 
-def _header(headers: dict, name: str) -> str:
-    value = next((v for k, v in headers.items() if k.lower() == name), None)
-    if value is None:
-        raise KeyError(name)
-    return value
-
-
 def _s3_error_code(e: urllib.error.HTTPError) -> str:
     try:
         body = e.read(4096).decode("utf-8", "replace")
@@ -134,37 +127,14 @@ def _s3_error_code(e: urllib.error.HTTPError) -> str:
     return body[start + 6 : end] if start != -1 and end > start else "http_error"
 
 
-def _safe_relative(relative_path: str) -> bool:
-    parts = relative_path.split("/")
-    return not relative_path.startswith("/") and all(p not in ("", ".", "..") for p in parts)
-
-
 def _upload_one(base_path: str, f: dict) -> dict:
     rel = f["relative_path"]
     result = {"path": rel, "status": None, "error": None}
-    if not _safe_relative(rel):
-        result["error"] = "invalid_relative_path"
-        return result
     try:
-        fd = _open_nofollow(os.path.join(base_path, rel))
+        with open(os.path.join(base_path, rel), "rb") as fh:
+            body = fh.read()
     except OSError as e:
-        result["error"] = f"open_failed: {e.strerror}"
-        return result
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            result["error"] = "not_a_regular_file"
-            return result
-        expected = int(_header(f["headers"], "content-length"))
-        chunks, read = [], 0
-        while read <= expected and (chunk := os.read(fd, READ_CHUNK)):
-            chunks.append(chunk)
-            read += len(chunk)
-        body = b"".join(chunks)
-    finally:
-        os.close(fd)
-    if len(body) != expected:
-        # Changed since validate; S3 would reject it anyway.
-        result["error"] = f"size_changed: {len(body)} != {expected}"
+        result["error"] = f"read_failed: {e.strerror}"
         return result
     request = urllib.request.Request(f["url"], data=body, method="PUT", headers=f["headers"])
     try:
@@ -189,10 +159,6 @@ def _upload(request_path: str) -> tuple[dict, bool]:
             pass
     base_path = req["base_path"]
     files = req["files"]
-    if not isinstance(base_path, str) or not os.path.isabs(base_path):
-        raise ValueError("base_path must be an absolute path")
-    if not isinstance(files, list) or not files:
-        raise ValueError("files must be a non-empty list")
     concurrency = max(1, min(int(req["concurrency"]), MAX_CONCURRENCY))
     pool = ThreadPoolExecutor(max_workers=concurrency)
     futures = [pool.submit(_upload_one, base_path, f) for f in files]

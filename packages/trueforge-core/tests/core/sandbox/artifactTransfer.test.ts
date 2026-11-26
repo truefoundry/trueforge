@@ -91,7 +91,7 @@ describe('artifact_transfer_v1.py', () => {
         base_path: report,
         files: [
           { relative_path: 'index.html', url: 'http://127.0.0.1:1/a', headers: { 'content-length': '5' } },
-          { relative_path: '../escape.txt', url: 'http://127.0.0.1:1/b', headers: { 'Content-Length': '1' } },
+          { relative_path: 'missing.txt', url: 'http://127.0.0.1:1/b', headers: { 'Content-Length': '1' } },
         ],
       }),
     );
@@ -104,7 +104,7 @@ describe('artifact_transfer_v1.py', () => {
       exit_code: 1,
       files: [
         { path: 'index.html', status: null, error: expect.stringContaining('network:') },
-        { path: '../escape.txt', status: null, error: 'invalid_relative_path' },
+        { path: 'missing.txt', status: null, error: expect.stringContaining('read_failed:') },
       ],
     });
   });

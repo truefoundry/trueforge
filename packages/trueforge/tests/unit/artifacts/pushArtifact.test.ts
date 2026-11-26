@@ -155,7 +155,7 @@ describe('push_artifact', () => {
       'artifact created by someone else',
       { existing: artifactRecord({ created_by_subject: { ...SUBJECT, subject_id: 'u2' } }) },
       { artifact_id: 'art-1' },
-      'Only the artifact creator',
+      'does not have access to push to this artifact',
     ],
     [
       'sandbox validation error',

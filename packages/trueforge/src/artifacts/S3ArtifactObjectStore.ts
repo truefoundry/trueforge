@@ -3,7 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { S3Config } from '../config';
 import type { ArtifactObject, ArtifactUploadTransfer } from './pushArtifact';
 
-/** Artifact files in S3. The sandbox uploads with presigned PUTs; the server only signs and verifies. */
+/** S3 store for artifacts. */
 export class S3ArtifactObjectStore implements ArtifactUploadTransfer {
   readonly #client: S3Client;
   readonly #bucket: string;

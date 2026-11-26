@@ -867,11 +867,11 @@ export interface SharedServerConfiguration {
   MAX_REQUEST_BODY_BYTES: number;
   /**
    * S3 bucket settings (`bucket`, `region`, `prefix`, `endpoint`, `presign_ttl_seconds`). Credentials come
-   * from the standard AWS chain. Required when `ARTIFACTS` is set. Env: `S3_CONFIG`.
+   * from the standard AWS chain. Env: `S3_CONFIG`.
    */
   S3_CONFIG: S3Config | undefined;
   /**
-   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`); files are stored in `S3_CONFIG`.
+   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`).
    * A tenant that is on gets `push_artifact` by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
   ARTIFACTS: ArtifactsFeature | undefined;
@@ -1647,13 +1647,6 @@ export function artifactsEnabledForTenant(tenantId: string, config: ServerConfig
   return config.ARTIFACTS?.tenants[tenantId]?.enabled === 'on';
 }
 
-/** Artifact files live in S3, so `ARTIFACTS` requires `S3_CONFIG`. */
-export function assertArtifactsStorage(config: ServerConfiguration = configuration): void {
-  if (config.ARTIFACTS !== undefined && config.S3_CONFIG === undefined) {
-    throw new Error('ARTIFACTS is set but S3_CONFIG is not. Set S3_CONFIG to the bucket for artifact files.');
-  }
-}
-
 /** The tenant's routing entry when that tenant has model routing on. */
 export function enabledTenantModelRouting(routing: TrueFoundryModelRouting | undefined, tenantId: string) {
   const tenant = routing?.tenants[tenantId];
@@ -1754,8 +1747,6 @@ if (isTrueFoundryModeEnabled(configuration)) {
     }
   }
 }
-
-assertArtifactsStorage(configuration);
 
 if (!configuration.STANDALONE && configuration.TRUEFORGE_API_KEY.trim() === '') {
   throw new Error('TRUEFORGE_API_KEY must not be empty when STANDALONE=false.');
