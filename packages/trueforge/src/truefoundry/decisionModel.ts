@@ -1,7 +1,7 @@
 import type { DecisionModel } from '@truefoundry/trueforge-core/core';
 import { OpenAIDecisionModel } from '@truefoundry/trueforge-core/core';
 import configuration, { isTrueFoundryModeEnabled, trueFoundryModelRouting } from '../config';
-import { parseModelFqn } from '../runtime/sessionResources';
+import { parseModelFqn } from '../schemas/common';
 import { mapEnabledModels, resolveDefaultGatewayUrl } from './mapEnabledModels';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 

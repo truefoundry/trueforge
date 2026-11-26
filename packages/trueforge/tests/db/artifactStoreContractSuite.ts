@@ -55,7 +55,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      files_metadata: { entry_point: entryPoint, total_bytes: 100, storage_prefix: `uploads/${entryPoint}` },
+      files_metadata: { entry_point: entryPoint, total_bytes: 100, root_path: `uploads/${entryPoint}` },
       created_by_subject: subject,
       created_by_session_id: sessionId,
       created_by_agent_id: agentId,
@@ -210,7 +210,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         files_metadata: {
           entry_point: 'index.html',
           total_bytes: 100,
-          storage_prefix: 'uploads/index.html',
+          root_path: 'uploads/index.html',
         },
         created_by_subject: SUBJECT,
         created_by_session_id: 'session-1',
@@ -234,7 +234,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
-        files_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
+        files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/other' },
         created_by_subject: SUBJECT,
         created_by_session_id: 'session-1',
         created_by_agent_id: AGENT_ID,

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface ConfigurationManifestPatch {
-    autoModelRouting?: TrueForge.AutoModelRoutingConfiguration;
+    autoModelRouting?: TrueForge.AutoModelRoutingConfigurationPatch;
     memory?: TrueForge.MemoryConfiguration;
     webSearch?: TrueForge.WebSearchConfiguration;
 }
