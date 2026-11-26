@@ -469,8 +469,15 @@ const THREAD_LIST_VIEWPORT_SLOT = 'aui_thread-list-viewport';
 /** How close to the bottom (px) before the next sessions page is fetched. */
 const LOAD_MORE_BOTTOM_PX = 80;
 
-function RecentChatsHeading() {
+function RecentChatsHeading({
+  onThreadOpen,
+  variant,
+}: {
+  onThreadOpen?: () => void;
+  variant: NonNullable<ThreadListContainerProps['variant']>;
+}) {
   const shell = useOptionalShellMode();
+  const ChatHistorySearchButton = useSlot('ChatHistorySearchButton');
   const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
   const historyFilterIntent = shell?.historyAgentFilter?.intent;
   const showFilter =
@@ -489,6 +496,7 @@ function RecentChatsHeading() {
       <h2 className="aui-chat-history-heading min-w-0 flex-1 truncate px-2.5 text-xs font-medium uppercase tracking-wider">
         {heading}
       </h2>
+      <ChatHistorySearchButton onThreadOpen={onThreadOpen} variant={variant} />
       {showFilter ? <AgentHistoryFilterButton /> : null}
     </div>
   );
@@ -499,18 +507,22 @@ function RecentChatsSection({
   viewportRef,
   hideScrollbar,
   showHeading = true,
+  onThreadOpen,
+  variant,
 }: {
   children: ReactNode;
   viewportRef: Ref<HTMLDivElement>;
   hideScrollbar: boolean;
   /** When false, the title lives in ThreadListShell's header (recent-history desktop column). */
   showHeading?: boolean;
+  onThreadOpen?: () => void;
+  variant: NonNullable<ThreadListContainerProps['variant']>;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {showHeading ? (
         <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-          <RecentChatsHeading />
+          <RecentChatsHeading onThreadOpen={onThreadOpen} variant={variant} />
         </div>
       ) : null}
       <div
@@ -716,7 +728,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
 
   const isRecentHistory = variant === 'recent-history';
   const header = isRecentHistory ? (
-    <RecentChatsHeading />
+    <RecentChatsHeading onThreadOpen={onThreadOpen} variant={variant} />
   ) : (
     <div className="flex w-full flex-col gap-1 py-2">
       {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
@@ -743,7 +755,13 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
       // Rail history: no header rule; heading + row titles share px-2.5 so they align.
       {...(isRecentHistory ? { headerClassName: 'min-h-0 border-b-0 px-0 pb-2', bodyClassName: 'p-0' } : {})}
     >
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isPersistedHistory} showHeading={!isRecentHistory}>
+      <RecentChatsSection
+        viewportRef={viewportRef}
+        hideScrollbar={isPersistedHistory}
+        showHeading={!isRecentHistory}
+        onThreadOpen={onThreadOpen}
+        variant={variant}
+      >
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>
