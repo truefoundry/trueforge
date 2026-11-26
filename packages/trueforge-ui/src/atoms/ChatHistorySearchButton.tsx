@@ -7,6 +7,7 @@ import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useThreadListItemSelect } from '../hooks/useThreadListItemSelect.js';
 import { Icon } from '../icons/Icon.js';
+import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { threadListIndicesByRecency } from './lib/threadListMeta.js';
@@ -65,6 +66,19 @@ function ChatHistorySearchDialog({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [open]);
+
+  // Window capture so Escape closes search before the mobile-nav drawer handler.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onOpenChange(false);
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [open, onOpenChange]);
 
   return (
     <dialog
@@ -135,14 +149,16 @@ function ChatHistorySearchDialog({
 
 function ChatHistorySearchResultRow({
   selectionRef,
+  runtimeKeyRef,
   onThreadOpen,
   onPicked,
 }: {
   selectionRef: RefObject<number>;
+  runtimeKeyRef: RefObject<string | undefined>;
   onThreadOpen?: () => void;
   onPicked: () => void;
 }) {
-  const { displayTitle, select } = useThreadListItemSelect({ selectionRef, onThreadOpen });
+  const { displayTitle, select } = useThreadListItemSelect({ selectionRef, runtimeKeyRef, onThreadOpen });
 
   return (
     <button
@@ -152,8 +168,10 @@ function ChatHistorySearchResultRow({
         'transition-colors hover:bg-ghost-button-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
       )}
       onClick={() => {
-        select();
-        onPicked();
+        // Await select so an in-flight getSession finishes while the row (and parent refs) are live.
+        void select().finally(() => {
+          onPicked();
+        });
       }}
     >
       <Icon name="message-circle" className="size-4 shrink-0 text-text-secondary" />
@@ -171,9 +189,13 @@ export function ChatHistorySearchButton({
   variant = 'recent-history',
 }: ChatHistorySearchButtonProps = {}) {
   const track = useTrackAnalytics();
+  const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const selectionRef = useRef(0);
+  // Lives on the button so remount guards still update after a result row unmounts.
+  const runtimeKeyRef = useRef(shell?.runtimeKey);
+  runtimeKeyRef.current = shell?.runtimeKey;
 
   const threadIds = useAuiState(s => s.threads.threadIds);
   const threadItems = useAuiState(s => s.threads.threadItems);
@@ -201,6 +223,10 @@ export function ChatHistorySearchButton({
   }, [query, threadIds, threadItems, variant]);
 
   const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      // Cancel any getSession still resolving after the popup closes (Escape / X / backdrop).
+      selectionRef.current += 1;
+    }
     setOpen(next);
     if (next) track(AnalyticsEvents.Session.HISTORY_SEARCH_OPENED);
   };
@@ -239,6 +265,7 @@ export function ChatHistorySearchButton({
                   <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
                     <ChatHistorySearchResultRow
                       selectionRef={selectionRef}
+                      runtimeKeyRef={runtimeKeyRef}
                       onThreadOpen={onThreadOpen}
                       onPicked={() => handleOpenChange(false)}
                     />

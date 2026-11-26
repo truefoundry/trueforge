@@ -527,6 +527,8 @@ function SidebarLayoutBody({ className }: { className?: string }) {
     if (!mobileNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Nested top-layer dialogs (e.g. chat history search) own Escape first.
+      if (document.querySelector('dialog[open]') != null) return;
       // Capture + stop so Settings / Agents / Agent Details Escape handlers do not steal this.
       event.stopImmediatePropagation();
       setMobileNavOpen(false);

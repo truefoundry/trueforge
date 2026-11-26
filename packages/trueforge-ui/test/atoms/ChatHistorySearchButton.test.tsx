@@ -98,4 +98,16 @@ describe('ChatHistorySearchButton', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog', { name: 'Search chat history' })).not.toBeInTheDocument();
   });
+
+  it('closes on Escape without leaving the dialog open', () => {
+    renderSearch({
+      threads: [{ status: 'regular', id: 't1', remoteId: 's1', title: 'Hello' }],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search chat history' }));
+    expect(screen.getByRole('dialog', { name: 'Search chat history' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Search chat history' })).not.toBeInTheDocument();
+  });
 });
