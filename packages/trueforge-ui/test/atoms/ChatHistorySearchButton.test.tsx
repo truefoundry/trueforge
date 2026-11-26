@@ -79,7 +79,7 @@ describe('ChatHistorySearchButton', () => {
     });
 
     expect(within(dialog).getByRole('button', { name: 'Clear' })).toBeInTheDocument();
-    expect(within(dialog).getByText('Results')).toBeInTheDocument();
+    expect(within(dialog).getByText('Recent chats')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Custom Stripe Subscriptions Setup' })).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Greeting exchange' })).not.toBeInTheDocument();
 

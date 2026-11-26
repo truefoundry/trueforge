@@ -238,7 +238,7 @@ export function ChatHistorySearchButton({
     setOpen(false);
   };
 
-  const sectionLabel = query.trim().length === 0 ? 'Recent chats' : 'Results';
+  const sectionLabel = 'Recent chats';
 
   return (
     <div className="relative shrink-0">
@@ -267,19 +267,22 @@ export function ChatHistorySearchButton({
           ) : (
             <div className="flex flex-col gap-0.5">
               <p className="pb-1.5 text-xs font-medium text-text-secondary">{sectionLabel}</p>
-              {indices.map(index => {
-                const key = threadIds[index] ?? String(index);
-                return (
-                  <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
-                    <ChatHistorySearchResultRow
-                      selectionRef={selectionRef}
-                      runtimeKeyRef={runtimeKeyRef}
-                      onThreadOpen={onThreadOpen}
-                      onPicked={closeAfterPick}
-                    />
-                  </ThreadListItemByIndexProvider>
-                );
-              })}
+              {/* Inset rows slightly so chat icons sit under the label, not flush with it. */}
+              <div className="flex flex-col gap-0.5 pl-2">
+                {indices.map(index => {
+                  const key = threadIds[index] ?? String(index);
+                  return (
+                    <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
+                      <ChatHistorySearchResultRow
+                        selectionRef={selectionRef}
+                        runtimeKeyRef={runtimeKeyRef}
+                        onThreadOpen={onThreadOpen}
+                        onPicked={closeAfterPick}
+                      />
+                    </ThreadListItemByIndexProvider>
+                  );
+                })}
+              </div>
             </div>
           )
         ) : null}
