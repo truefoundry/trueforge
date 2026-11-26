@@ -103,6 +103,22 @@ import type { SVGProps } from 'react';
 
 import type { IconEntry, IconMap } from '../theme/types.js';
 
+/** Font Awesome–style solid search (Figma: Weight 900 / Style Solid). */
+function SearchSolid({ size = 24, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M11.314 10.314a5.5 5.5 0 1 0-1 1l3.343 3.343a.707.707 0 0 0 1-1l-3.343-3.343ZM6.5 10.5a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" />
+    </svg>
+  );
+}
+
 /** Lucide `broom` (https://lucide.dev/icons/broom) — not in lucide-react 0.x. */
 function Broom({ size = 24, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
   return (
@@ -218,6 +234,7 @@ const defaults: Record<string, IconEntry> = {
   sliders: SlidersHorizontal,
   'log-out': LogOut,
   search: Search,
+  'search-solid': SearchSolid,
   clock: Clock,
   'circle-check': CircleCheck,
   'circle-xmark': CircleX,
