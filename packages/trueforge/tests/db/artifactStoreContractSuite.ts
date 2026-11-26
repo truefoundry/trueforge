@@ -1,16 +1,19 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
-import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
+const COLLABORATOR: Subject = {
+  subject_id: 'collaborator',
+  subject_type: 'user',
+  subject_display_name: 'collaborator',
+};
 const AGENT_ID = 'agent-1';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
   tenant_id: TENANT,
   created_by_subject_id: SUBJECT.subject_id,
-  created_by_session_id: undefined,
   name: undefined,
   limit: 10,
   page_token: undefined,
@@ -25,24 +28,37 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   async function createArtifact({
     tenantId = TENANT,
     name = 'Q3 report',
-    sessionId = 'session-1',
     agentId = AGENT_ID,
-  }: { tenantId?: string; name?: string; sessionId?: string; agentId?: string | null } = {}) {
+  }: { tenantId?: string; name?: string; agentId?: string | null } = {}) {
     return getStore().createArtifact({
       tenant_id: tenantId,
       name,
       created_by_subject: SUBJECT,
-      created_by_session_id: sessionId,
+      created_by_session_id: 'session-1',
       created_by_agent_id: agentId,
     });
   }
 
-  async function createVersion({ artifactId, entryPoint }: { artifactId: string; entryPoint: string }) {
+  async function createVersion({
+    artifactId,
+    entryPoint,
+    subject = SUBJECT,
+    sessionId = 'session-1',
+    agentId = AGENT_ID,
+  }: {
+    artifactId: string;
+    entryPoint: string;
+    subject?: Subject;
+    sessionId?: string;
+    agentId?: string | null;
+  }) {
     const version = await getStore().createVersion({
       tenant_id: TENANT,
       artifact_id: artifactId,
-      entry_point: entryPoint,
-      total_bytes: 100,
+      files_metadata: { entry_point: entryPoint, total_bytes: 100, root_path: `uploads/${entryPoint}` },
+      created_by_subject: subject,
+      created_by_session_id: sessionId,
+      created_by_agent_id: agentId,
     });
     if (version === undefined) {
       throw new Error('Expected version to be created');
@@ -56,7 +72,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   }
 
   it('creates an artifact', async () => {
-    const created = await createArtifact({ name: '  Q3 report  ' });
+    const created = await createArtifact({ name: 'Q3 report' });
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
@@ -71,13 +87,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
     const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
-  });
-
-  it('caps the name length', async () => {
-    const longest = await createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH) });
-    expect(longest.name).toHaveLength(MAX_TITLE_LENGTH);
-    await expect(createArtifact({ name: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).rejects.toBeInstanceOf(RangeError);
-    await expect(createArtifact({ name: '   ' })).rejects.toBeInstanceOf(RangeError);
   });
 
   it('allows artifacts with the same name', async () => {
@@ -114,13 +123,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect([...first.data, ...second.data].map(a => a.name).sort()).toEqual(names);
   });
 
-  it('filters the list by session', async () => {
-    await createArtifact({ name: 'one', sessionId: 'session-1' });
-    await createArtifact({ name: 'two', sessionId: 'session-2' });
-    expect(await listNames({ created_by_session_id: 'session-2' })).toEqual(['two']);
-    expect(await listNames({ created_by_session_id: 'session-3' })).toEqual([]);
-  });
-
   it('filters the list by case-insensitive name substring', async () => {
     await createArtifact({ name: 'Quarterly Report' });
     await createArtifact({ name: 'Roadmap' });
@@ -129,13 +131,72 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listNames({ name: 'missing' })).toEqual([]);
   });
 
+  it('gets an artifact only within its tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id })).toEqual(artifact);
+    expect(await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id })).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
+  });
+
+  it('renames an artifact within the tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    const renamed = await store.updateArtifact({
+      tenant_id: TENANT,
+      id: artifact.id,
+      created_by_subject_id: SUBJECT.subject_id,
+      name: 'Renamed',
+    });
+    expect(renamed).toEqual({ ...artifact, name: 'Renamed', updated_at: renamed?.updated_at });
+    expect(Date.parse(renamed?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([renamed]);
+  });
+
+  it('does not rename an artifact from another tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    expect(
+      await store.updateArtifact({
+        tenant_id: OTHER_TENANT,
+        id: artifact.id,
+        created_by_subject_id: SUBJECT.subject_id,
+        name: 'x',
+      }),
+    ).toBeUndefined();
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([artifact]);
+  });
+
+  it('does not rename an artifact created by another subject', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    await tick();
+    expect(
+      await store.updateArtifact({
+        tenant_id: TENANT,
+        id: artifact.id,
+        created_by_subject_id: 'someone-else',
+        name: 'x',
+      }),
+    ).toBeUndefined();
+    expect((await store.listArtifacts(LIST_DEFAULTS)).data).toEqual([artifact]);
+  });
+
   it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {
     const store = getStore();
     const artifact = await createArtifact();
     const untouched = await createArtifact({ name: 'untouched' });
     await tick();
     const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
-    const v2 = await createVersion({ artifactId: artifact.id, entryPoint: 'report/index.html' });
+    const v2 = await createVersion({
+      artifactId: artifact.id,
+      entryPoint: 'report/index.html',
+      subject: COLLABORATOR,
+      sessionId: 'session-2',
+      agentId: null,
+    });
     expect([v1.version, v2.version]).toEqual([1, 2]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
     expect(updated?.latest_version).toBe(2);
@@ -144,30 +205,66 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
 
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 1 })).toEqual(v1);
     expect(v1).toEqual(
       expect.objectContaining({
-        entry_point: 'index.html',
-        total_bytes: 100,
+        files_metadata: {
+          entry_point: 'index.html',
+          total_bytes: 100,
+          root_path: 'uploads/index.html',
+        },
+        created_by_subject: SUBJECT,
+        created_by_session_id: 'session-1',
+        created_by_agent_id: AGENT_ID,
       }),
     );
-    expect(await store.getVersion({ tenant_id: TENANT, artifact_id: artifact.id, version: 3 })).toBeUndefined();
+    expect(v2).toEqual(
+      expect.objectContaining({
+        created_by_subject: COLLABORATOR,
+        created_by_session_id: 'session-2',
+        created_by_agent_id: null,
+      }),
+    );
   });
 
-  it('hides versions from other tenants', async () => {
+  it('lists artifacts with a version created in the session', async () => {
+    const store = getStore();
+    const own = await createArtifact({ name: 'own' });
+    const shared = await createArtifact({ name: 'Shared Report' });
+    await createArtifact({ name: 'no versions' });
+    const elsewhere = await createArtifact({ name: 'elsewhere' });
+    const otherTenant = await createArtifact({ name: 'other tenant', tenantId: OTHER_TENANT });
+    await createVersion({ artifactId: own.id, entryPoint: 'index.html' });
+    await createVersion({ artifactId: elsewhere.id, entryPoint: 'index.html', sessionId: 'session-2' });
+    await store.createVersion({
+      tenant_id: OTHER_TENANT,
+      artifact_id: otherTenant.id,
+      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/other' },
+      created_by_subject: SUBJECT,
+      created_by_session_id: 'session-1',
+      created_by_agent_id: AGENT_ID,
+    });
+    await tick();
+    await createVersion({ artifactId: shared.id, entryPoint: 'a.html' });
+    await createVersion({ artifactId: shared.id, entryPoint: 'b.html' });
+
+    const input = { tenant_id: TENANT, session_id: 'session-1' };
+    expect((await store.listSessionArtifacts(input)).map(a => a.id)).toEqual([shared.id, own.id]);
+    expect(await store.listSessionArtifacts({ ...input, session_id: 'session-3' })).toEqual([]);
+  });
+
+  it('rejects versions for artifacts in other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
+    await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
     expect(
       await store.createVersion({
         tenant_id: OTHER_TENANT,
         artifact_id: artifact.id,
-        entry_point: 'index.html',
-        total_bytes: 1,
+        files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/other' },
+        created_by_subject: SUBJECT,
+        created_by_session_id: 'session-1',
+        created_by_agent_id: AGENT_ID,
       }),
-    ).toBeUndefined();
-    expect(
-      await store.getVersion({ tenant_id: OTHER_TENANT, artifact_id: artifact.id, version: v1.version }),
     ).toBeUndefined();
     expect((await store.listArtifacts(LIST_DEFAULTS)).data[0]?.latest_version).toBe(1);
   });

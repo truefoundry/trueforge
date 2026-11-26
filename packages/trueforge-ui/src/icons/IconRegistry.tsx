@@ -253,13 +253,13 @@ const defaults: Record<string, IconEntry> = {
   'user-cog': UserCog,
   users: Users,
   lightbulb: Lightbulb,
+  wand: Wand,
   // Skills (settings, composer attach, agent config / overview).
   'scroll-text': ScrollText,
 
   tag: Tag,
   link: Link2,
   wrench: Wrench,
-  wand: Wand,
   cpu: Cpu,
   cube: Box,
   'list-ol': ListOrdered,
