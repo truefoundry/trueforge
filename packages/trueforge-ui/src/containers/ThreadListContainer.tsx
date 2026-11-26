@@ -496,8 +496,10 @@ function RecentChatsHeading({
       <h2 className="aui-chat-history-heading min-w-0 flex-1 truncate px-2.5 text-xs font-medium uppercase tracking-wider">
         {heading}
       </h2>
-      <ChatHistorySearchButton onThreadOpen={onThreadOpen} variant={variant} />
-      {showFilter ? <AgentHistoryFilterButton /> : null}
+      <div className="flex shrink-0 items-center">
+        <ChatHistorySearchButton onThreadOpen={onThreadOpen} variant={variant} />
+        {showFilter ? <AgentHistoryFilterButton /> : null}
+      </div>
     </div>
   );
 }

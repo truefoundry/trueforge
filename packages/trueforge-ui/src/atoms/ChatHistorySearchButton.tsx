@@ -94,7 +94,7 @@ function ChatHistorySearchDialog({
         if (event.target === dialogRef.current) onOpenChange(false);
       }}
       className={cn(
-        'm-auto w-[min(32rem,calc(100%-2rem))] max-h-[min(36rem,80dvh)]',
+        'm-auto h-[min(25rem,80dvh)] w-[min(43.75rem,calc(100%-2rem))]',
         'open:flex open:flex-col overflow-hidden rounded-2xl border border-border bg-card-bg p-0 text-text-primary shadow-xl',
         'backdrop:bg-[var(--overlay)]',
       )}
@@ -102,7 +102,7 @@ function ChatHistorySearchDialog({
       <h2 id={titleId} className="sr-only">
         Search chat history
       </h2>
-      <div className="flex shrink-0 items-center gap-2 px-4 pt-3 pb-1.5">
+      <div className="flex shrink-0 items-center gap-2 px-5 pt-4 pb-2">
         <input
           ref={inputRef}
           type="search"
@@ -142,7 +142,7 @@ function ChatHistorySearchDialog({
           <Icon name="xmark" className="size-4" />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-4">{children}</div>
     </dialog>
   );
 }
@@ -164,7 +164,7 @@ function ChatHistorySearchResultRow({
     <button
       type="button"
       className={cn(
-        'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-text-primary',
+        'flex w-full cursor-pointer items-center gap-3 rounded-md py-2 text-left text-sm text-text-primary',
         'transition-colors hover:bg-ghost-button-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
       )}
       onClick={() => {
@@ -253,12 +253,12 @@ export function ChatHistorySearchButton({
       {open ? (
         <ChatHistorySearchDialog open onOpenChange={handleOpenChange} query={query} onQueryChange={setQuery}>
           {indices.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-text-secondary" role="status">
+            <p className="py-8 text-center text-sm text-text-secondary" role="status">
               {query.trim().length > 0 ? `No chats match “${query.trim()}”.` : 'No recent chats'}
             </p>
           ) : (
             <div className="flex flex-col gap-0.5">
-              <p className="px-3 pb-1.5 text-xs font-medium text-text-secondary">{sectionLabel}</p>
+              <p className="pb-1.5 text-xs font-medium text-text-secondary">{sectionLabel}</p>
               {indices.map(index => {
                 const key = threadIds[index] ?? String(index);
                 return (
