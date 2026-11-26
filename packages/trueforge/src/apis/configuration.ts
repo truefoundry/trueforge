@@ -89,11 +89,8 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
           400,
         );
       }
-      // Categories only exist where model routing is set up for the tenant; an empty list clears the choice.
-      if (
-        candidateModels.length > 0 &&
-        enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id)
-      ) {
+      // Categories only exist where model routing is set up for the tenant.
+      if (enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id)) {
         const chosen = new Set(candidateModels);
         const uncovered = describeUncoveredCandidateCategories(
           accessibleModels.filter(model => chosen.has(model.name)),

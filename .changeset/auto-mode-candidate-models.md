@@ -6,4 +6,4 @@
 '@truefoundry/trueforge-sdk': patch
 ---
 
-Admins can choose which models Auto may route to (`auto_model_routing.candidate_models`: 4 to 10 `account/model` names, or empty, which is the default and leaves Auto unavailable).
+Admins can choose which models Auto may route to (`auto_model_routing.candidate_models`: 4 to 10 `account/model` names; empty until chosen, which leaves Auto unavailable, and can't be cleared once set).

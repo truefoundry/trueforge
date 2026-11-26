@@ -251,10 +251,6 @@ describe('ModelSettings Auto mode switch', () => {
     const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
     await screen.findByRole('combobox', { name: 'Select models' });
     expect(screen.getByText(/Each task is matched to a tier/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Learn more' })).toHaveAttribute(
-      'href',
-      'https://trueforge.dev/auto-model-routing',
-    );
     expect(screen.queryByText(/Intelligently picks a suitable model/)).toBeNull();
     toggle.click();
 
@@ -268,7 +264,6 @@ describe('ModelSettings Auto mode switch', () => {
     finishSave({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } });
     await waitFor(() => expect(screen.getByText(/Intelligently picks a suitable model/)).toBeInTheDocument());
     expect(screen.queryByText(/Each task is matched to a tier/)).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Learn more' })).toBeNull();
   });
 
   it('puts the switch back when the save fails', async () => {
@@ -456,7 +451,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(option('acct/model-10')).toBeEnabled();
     });
 
-    it('saves an empty list to take every model away', async () => {
+    it('does not let the saved list be emptied', async () => {
       const updateConfiguration = vi.fn(async () => autoOn);
       renderAutoSettings({
         auto: { status: 'enabled' },
@@ -465,11 +460,9 @@ describe('ModelSettings Auto mode switch', () => {
       });
 
       fireEvent.click(await screen.findByRole('button', { name: 'Remove acct/haiku' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
-      await waitFor(() =>
-        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: [] } }),
-      );
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Pick at least 4 to update\./)).toBeInTheDocument();
     });
 
     it('flags a saved model the admin cannot see and holds Update until it is removed', async () => {

@@ -166,7 +166,7 @@ describe('settings configuration router', () => {
       return (await store.getConfiguration(tenantId))?.manifest.auto_model_routing.candidate_models ?? [];
     }
 
-    it('saves the list without repeats, reads it back, and clears it when emptied', async () => {
+    it('saves the list without repeats and reads it back', async () => {
       const { router, store } = await createRouter();
 
       const saved = await router.request(
@@ -177,10 +177,7 @@ describe('settings configuration router', () => {
       expect(await (await router.request('/')).json()).toMatchObject({
         data: { manifest: { auto_model_routing: { enabled: true, candidate_models: four } } },
       });
-
-      const cleared = await router.request('/', patchInit({ auto_model_routing: { candidate_models: [] } }));
-      expect(cleared.status).toBe(200);
-      expect(await savedList(store)).toEqual([]);
+      expect(await savedList(store)).toEqual(four);
     });
 
     it('changes the switch and the list independently, and never checks access for the switch', async () => {
@@ -202,12 +199,12 @@ describe('settings configuration router', () => {
       });
     });
 
-    it('accepts 4 to 10 distinct models and rejects anything else, keeping the saved list', async () => {
+    it('accepts 4 to 10 distinct models and rejects anything else, including an empty list, keeping the saved list', async () => {
       const { router, store } = await createRouter();
       await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
       const repeated = Array.from({ length: 4 }, () => 'acct/model-0');
 
-      for (const tooFew of [modelNames(3), repeated, modelNames(11)]) {
+      for (const tooFew of [[], modelNames(3), repeated, modelNames(11)]) {
         const rejected = await router.request('/', patchInit({ auto_model_routing: { candidate_models: tooFew } }));
         expect(rejected.status).toBe(400);
       }
@@ -306,15 +303,12 @@ describe('settings configuration router', () => {
         expect(await savedList(store)).toEqual([]);
       });
 
-      it('accepts a list that covers every category, and still lets an empty list clear it', async () => {
+      it('accepts a list that covers every category', async () => {
         const { router, store } = await createRouter({ accessibleModels, canonicalModels });
         const covering = ['acct/flash', 'acct/argon', 'acct/fable', 'acct/other'];
 
         expect((await patchList(router, covering)).status).toBe(200);
         expect(await savedList(store)).toEqual(covering);
-
-        expect((await patchList(router, [])).status).toBe(200);
-        expect(await savedList(store)).toEqual([]);
       });
     });
   });

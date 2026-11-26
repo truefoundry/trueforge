@@ -6,7 +6,6 @@ import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Skeleton } from '../../atoms/primitives/Skeleton.js';
 import { Switch } from '../../atoms/primitives/Switch.js';
-import { Icon } from '../../icons/Icon.js';
 import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalConfigurationServer, useOptionalRefreshServerCapabilities } from '../../server/ServerContext.js';
@@ -14,9 +13,6 @@ import type { UpdateTenantConfigurationRequest } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AutoModelCandidateList from './AutoModelCandidateList.js';
-
-/** How tiers and model choice work; written for admins picking the models. */
-const AUTO_MODEL_ROUTING_DOCS_URL = 'https://trueforge.dev/auto-model-routing';
 
 type AutoModelRoutingChange = NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>;
 
@@ -94,16 +90,7 @@ const AutoModeSetting = () => {
                 {enabled ? (
                   <>
                     Each task is matched to a tier: routine, tool-driven, adaptive or frontier. Auto picks a suitable
-                    model from the ones you select, so include at least one for every tier.{' '}
-                    <a
-                      href={AUTO_MODEL_ROUTING_DOCS_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-primary-button-bg hover:underline"
-                    >
-                      Learn more
-                      <Icon name="external-link" className="size-3" />
-                    </a>
+                    model from the ones you select, so include at least one for every tier.
                   </>
                 ) : (
                   'Intelligently picks a suitable model for each task.'

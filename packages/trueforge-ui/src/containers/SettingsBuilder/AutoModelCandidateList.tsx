@@ -26,12 +26,12 @@ import { queryKeys } from '../../server/queryKeys.js';
 import { useOptionalServer } from '../../server/ServerContext.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
-/** Mirrors the server's limits on `candidate_models` (an empty list is also allowed). */
+/** Mirrors the server's limits on `candidate_models` (empty until models are chosen). */
 export const MAX_CANDIDATE_MODELS = 10;
 export const MIN_CANDIDATE_MODELS = 4;
 
 type AutoModelCandidateListProps = {
-  /** The saved full model names (account/model); an empty list allows none. */
+  /** The saved full model names (account/model); empty until models are chosen. */
   candidateModels: string[];
   saving: boolean;
   onSave: (candidateModels: string[]) => void;
@@ -62,7 +62,7 @@ function getSelectionHint({
   belowMinimum: boolean;
   atLimit: boolean;
 }): string {
-  if (selectedCount === 0) return ' With none selected, Auto stays unavailable.';
+  if (selectedCount === 0 && !dirty) return ' With none selected, Auto stays unavailable.';
   if (hasUnavailable && dirty) return ' Remove the models marked "Not visible to you" to update.';
   if (belowMinimum && dirty) return ` Pick at least ${String(MIN_CANDIDATE_MODELS)} to update.`;
   if (atLimit) return ' Remove one to add another.';
@@ -145,8 +145,7 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
 
   const dirty = useMemo(() => !sameSelection({ left: selected, right: candidateModels }), [selected, candidateModels]);
   const atLimit = selected.length >= MAX_CANDIDATE_MODELS;
-  // Empty is saveable (it clears the list); 1 to 3 is not.
-  const belowMinimum = selected.length > 0 && selected.length < MIN_CANDIDATE_MODELS;
+  const belowMinimum = selected.length < MIN_CANDIDATE_MODELS;
 
   const hint = getSelectionHint({ selectedCount: selected.length, hasUnavailable, dirty, belowMinimum, atLimit });
 

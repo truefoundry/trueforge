@@ -23,19 +23,26 @@ const AutoModelRoutingEnabledSchema = z
 
 export const MAX_AUTO_CANDIDATE_MODELS = 10;
 
-/** Fewest models once any are chosen; an empty list is the default. */
 export const MIN_AUTO_CANDIDATE_MODELS = 4;
 
-const AutoModelRoutingCandidateModelsSchema = z
+const AutoModelRoutingCandidateModelsBaseSchema = z
   .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
-  .max(MAX_AUTO_CANDIDATE_MODELS)
-  .refine(
-    names => names.length === 0 || new Set(names).size >= MIN_AUTO_CANDIDATE_MODELS,
-    `Choose at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models, or none.`,
-  )
-  .describe(
-    `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models auto routing may pick from. Empty allows none.`,
-  );
+  .max(MAX_AUTO_CANDIDATE_MODELS);
+
+const MIN_CANDIDATE_MODELS_MESSAGE = `Choose at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models.`;
+
+/** Stored value: empty until an admin picks models. */
+const AutoModelRoutingCandidateModelsSchema = AutoModelRoutingCandidateModelsBaseSchema.describe(
+  `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models auto routing may pick from. Empty until models are chosen.`,
+);
+
+/** Updates must choose a valid list; the list cannot be cleared. */
+const AutoModelRoutingCandidateModelsPatchSchema = AutoModelRoutingCandidateModelsBaseSchema.refine(
+  names => new Set(names).size >= MIN_AUTO_CANDIDATE_MODELS,
+  MIN_CANDIDATE_MODELS_MESSAGE,
+).describe(
+  `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models auto routing may pick from.`,
+);
 
 const AutoModelRoutingConfigurationSchema = z
   .object({
@@ -49,7 +56,7 @@ const AutoModelRoutingConfigurationSchema = z
 const AutoModelRoutingConfigurationPatchSchema = z
   .object({
     enabled: AutoModelRoutingEnabledSchema.optional(),
-    candidate_models: AutoModelRoutingCandidateModelsSchema.optional(),
+    candidate_models: AutoModelRoutingCandidateModelsPatchSchema.optional(),
   })
   .strict()
   .openapi('AutoModelRoutingConfigurationPatch');

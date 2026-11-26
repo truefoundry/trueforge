@@ -1096,7 +1096,7 @@ export interface TenantConfigurationSwitch {
 
 /** Auto mode's switch plus the models an admin lets it pick from. */
 export interface TenantAutoModelRouting extends TenantConfigurationSwitch {
-  /** Full model names (account/model) Auto may pick from. Empty allows none. */
+  /** Full model names (account/model) Auto may pick from. Empty until models are chosen. */
   candidateModels: string[];
 }
 
