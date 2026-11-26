@@ -40,8 +40,8 @@ export const sidebarCompactNavButtonClassName = cn(
   shellHoverClassName,
 );
 
-/** Active rail / chat-history selection (solid fill + hairline border). */
-export const shellSelectedClassName = 'aui-shell-selected rounded-[0.5rem]';
+/** Active rail / chat-history selection (solid fill). Keep the control's own radius (same as hover). */
+export const shellSelectedClassName = 'aui-shell-selected';
 
 /** Active icon-rail control: selected chrome + primary text on hover. */
 export const shellRailSelectedClassName = cn(
