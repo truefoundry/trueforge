@@ -1,13 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
+import { Skeleton } from '../../atoms/primitives/Skeleton.js';
 import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
+import { queryKeys } from '../../server/queryKeys.js';
 import {
   useOptionalCatalogServer,
   useOptionalConfigurationServer,
@@ -19,11 +23,15 @@ import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWebSearchForm.js';
 
+const EMPTY_PROVIDERS: WebSearchProviderBase[] = [];
+const EMPTY_CATALOG: WebSearchProviderCatalogEntry[] = [];
+
 const WebSearchSettings = () => {
   const catalogServer = useOptionalCatalogServer();
   const settings = useServerCapabilities()?.settings;
   const capabilitiesSettled = useServerCapabilitiesSettled();
   const configuration = useOptionalConfigurationServer();
+  const queryClient = useServerQueryClient();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
@@ -33,13 +41,42 @@ const WebSearchSettings = () => {
   const canManageProviders = capabilitiesSettled && settings?.webSearch?.manageProviders !== false;
   const webSearchCatalog = canManageProviders ? catalogServer?.webSearchCatalog : undefined;
 
+  const configurationQuery = useQuery(
+    {
+      queryKey: queryKeys.settings.configuration(),
+      queryFn: () =>
+        configuration == null
+          ? Promise.reject(new Error('Configuration server is not configured.'))
+          : configuration.getConfiguration(),
+      enabled: configuration != null,
+    },
+    queryClient,
+  );
+  const providersQuery = useQuery(
+    {
+      queryKey: queryKeys.settings.webSearchProviders(),
+      queryFn: async () => {
+        if (webSearchCatalog == null) throw new Error('Web search catalog is not configured.');
+        // Read together so a failed list never leaves catalog entries offered as unconfigured.
+        const [providers, catalog] = await Promise.all([
+          webSearchCatalog.listWebSearchProviders(),
+          webSearchCatalog.getWebSearchProviderCatalog(),
+        ]);
+        return { providers, catalog };
+      },
+      enabled: webSearchCatalog != null,
+    },
+    queryClient,
+  );
+
   // `null` until the tenant switch loads, so the control is not rendered half-known.
-  const [tenantEnabled, setTenantEnabled] = useState<boolean | null>(null);
+  const tenantEnabled = configurationQuery.data?.webSearch.enabled ?? null;
+  const tenantPending = configuration != null && configurationQuery.isPending;
+  const providers = providersQuery.data?.providers ?? EMPTY_PROVIDERS;
+  const catalog = providersQuery.data?.catalog ?? EMPTY_CATALOG;
+  const loading = providersQuery.isPending;
   const [tenantBusy, setTenantBusy] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
-  const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
-  const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,51 +84,11 @@ const WebSearchSettings = () => {
   const [createEntry, setCreateEntry] = useState<WebSearchProviderCatalogEntry | null>(null);
   const [updateProvider, setUpdateProvider] = useState<WebSearchProviderBase | null>(null);
 
-  const refresh = useCallback(
-    async ({ quiet = false }: { quiet?: boolean } = {}) => {
-      if (!webSearchCatalog) {
-        setProviders([]);
-        setCatalog([]);
-        setLoading(false);
-        return;
-      }
-      if (!quiet) setLoading(true);
-      setError(null);
-      try {
-        const [listed, available] = await Promise.all([
-          webSearchCatalog.listWebSearchProviders(),
-          webSearchCatalog.getWebSearchProviderCatalog(),
-        ]);
-        setProviders(listed);
-        setCatalog(available);
-      } catch (err) {
-        setError(getErrorMessage(err, 'Failed to load web search providers'));
-      } finally {
-        if (!quiet) setLoading(false);
-      }
-    },
-    [webSearchCatalog],
-  );
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!configuration) return;
-    let cancelled = false;
-    void configuration
-      .getConfiguration()
-      .then(loaded => {
-        if (!cancelled) setTenantEnabled(loaded.webSearch.enabled);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(getErrorMessage(err, 'Failed to load the web search setting'));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [configuration]);
+  const loadError = configurationQuery.isError
+    ? getErrorMessage(configurationQuery.error, 'Failed to load the web search setting')
+    : providersQuery.isError
+      ? getErrorMessage(providersQuery.error, 'Failed to load web search providers')
+      : null;
 
   const handleTenantToggle = async (next: boolean) => {
     if (!configuration) return;
@@ -99,7 +96,9 @@ const WebSearchSettings = () => {
     setError(null);
     try {
       const saved = await configuration.updateConfiguration({ webSearch: { enabled: next } });
-      setTenantEnabled(saved.webSearch.enabled);
+      // A read already in flight may carry the pre-save value and must not overwrite it.
+      await queryClient.cancelQueries({ queryKey: queryKeys.settings.configuration() });
+      queryClient.setQueryData(queryKeys.settings.configuration(), saved);
       toaster?.showSuccess({ title: saved.webSearch.enabled ? 'Web search turned on' : 'Web search turned off' });
       track(AnalyticsEvents.Settings.WEB_SEARCH_TENANT_TOGGLED, { enabled: saved.webSearch.enabled });
     } catch (err) {
@@ -130,7 +129,7 @@ const WebSearchSettings = () => {
     setError(null);
     try {
       await fn();
-      await refresh({ quiet: true });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings.webSearchProviders() });
     } catch (err) {
       setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
@@ -173,6 +172,7 @@ const WebSearchSettings = () => {
     }, 0);
   };
 
+  const errorMessage = error ?? loadError;
   const formOpen = createEntry != null || updateProvider != null;
   const isUpdate = updateProvider != null;
   const formTitle = updateProvider
@@ -186,10 +186,18 @@ const WebSearchSettings = () => {
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Web search</h3>
       <p className="mt-1 text-sm text-text-secondary">Let agents search the web and fetch page content.</p>
 
-      {error ? (
+      {errorMessage ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
-          {error}
+          {errorMessage}
         </p>
+      ) : null}
+
+      {tenantPending ? (
+        <Skeleton
+          className="mt-4 h-16 w-full rounded-xl bg-gray-150 dark:bg-secondary-bg"
+          role="status"
+          aria-label="Loading web search"
+        />
       ) : null}
 
       {tenantEnabled !== null ? (
@@ -226,9 +234,13 @@ const WebSearchSettings = () => {
       ) : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">
-        {!showProviders ? null : loading ? (
-          <p className="text-sm text-text-secondary">Loading web search providers…</p>
-        ) : (
+        {webSearchCatalog != null && (tenantPending || (showProviders && loading)) ? (
+          <Skeleton
+            className="h-16 w-full rounded-xl bg-gray-150 dark:bg-secondary-bg"
+            role="status"
+            aria-label="Loading web search providers"
+          />
+        ) : !showProviders ? null : (
           <div className="space-y-6">
             <p className="text-sm text-text-secondary">
               Configure a provider so agents can search the web. Only one can be active at a time.
