@@ -151,7 +151,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'token',
   'auth_data',
   'created_by_subject',
-  'artifact_version_metadata',
+  'files_metadata',
   'granted_by_subject',
   'source',
   // sandbox_environment ↔ version join aliases
