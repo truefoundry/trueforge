@@ -56,6 +56,12 @@ Custom servers remain permissive unless they provide the optional port.
 `useResourcePermissions` reads `USE`, `MANAGE`, and `DELETE` grants, while
 `PermissionGuard` keeps denied actions visible and explained.
 
+### First-run onboarding
+
+`TrueForgeUI` shows a two-step onboarding (connect a model, then optional MCP
+servers) when the server has no model providers and the caller may manage them.
+Pass `onboarding={false}` to opt out, e.g. when the host provisions models itself.
+
 ## Compose
 
 | Export                                                        | Notes                           |

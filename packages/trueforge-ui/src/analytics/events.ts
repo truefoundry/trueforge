@@ -55,6 +55,11 @@ export const AnalyticsEvents = {
     TYPEFACE_CHANGED: 'trueforge.settings.typeface_changed',
     TYPEFACE_RESET: 'trueforge.settings.typeface_reset',
   },
+  Onboarding: {
+    STEP_VIEWED: 'trueforge.onboarding.step_viewed',
+    SKIPPED: 'trueforge.onboarding.skipped',
+    COMPLETED: 'trueforge.onboarding.completed',
+  },
   Library: {
     OPENED: 'trueforge.library.opened',
     CLOSED: 'trueforge.library.closed',

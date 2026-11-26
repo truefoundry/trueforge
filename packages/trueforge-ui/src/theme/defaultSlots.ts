@@ -79,6 +79,11 @@ import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
 import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
+import { OnboardingConnectorRow } from '../atoms/onboarding/OnboardingConnectorRow.js';
+import { OnboardingFrame } from '../atoms/onboarding/OnboardingFrame.js';
+import { OnboardingOptionLabel } from '../atoms/onboarding/OnboardingOptionLabel.js';
+import { OnboardingStepFooter } from '../atoms/onboarding/OnboardingStepFooter.js';
+import { OnboardingStepper } from '../atoms/onboarding/OnboardingStepper.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { PermissionGuard } from '../atoms/PermissionGuard.js';
 import { ResetAgentBuilderButton } from '../atoms/ResetAgentBuilderButton.js';
@@ -118,6 +123,7 @@ import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
 import { WelcomeScreen } from '../atoms/WelcomeScreen.js';
 import { AgentMetricsContainer } from '../containers/AgentMetricsContainer.js';
 import { AgentSessionTimelineContainer } from '../containers/AgentSessionTimelineContainer.js';
+import { OnboardingContainer } from '../containers/Onboarding/OnboardingContainer.js';
 import { BrandLogo } from './brand.js';
 import type { AtomSlots } from './SlotsProvider.js';
 
@@ -215,6 +221,12 @@ export const defaultSlots = {
   MonacoEditorCore,
   CodeEditor,
   WelcomeScreen,
+  Onboarding: OnboardingContainer,
+  OnboardingFrame,
+  OnboardingStepper,
+  OnboardingStepFooter,
+  OnboardingOptionLabel,
+  OnboardingConnectorRow,
   ToolCallCard,
   ToolCallContentBlock,
   ToolApprovalBar,
