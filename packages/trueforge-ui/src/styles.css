@@ -225,17 +225,22 @@
   color: var(--text-primary);
 }
 
-/* Light: selected chrome is indigo-500 — white label + inset highlight. */
-.aui-theme-root:not(.dark) .aui-shell-selected,
-.aui-theme-root:not(.dark) .aui-shell-selected:hover {
-  color: var(--color-white);
-  box-shadow: inset 0 0.25rem 0.375rem 0 rgb(255 255 255 / 0.25);
-}
-
-/* Idle only — selected stays solid indigo; hover must not wash out white labels. */
-.aui-shell-hover:hover:not(.aui-shell-selected) {
+/* Idle hover unchanged — soft indigo-50 fill. */
+.aui-shell-hover:hover {
   background-color: var(--shell-hover-bg);
   color: var(--text-primary);
+}
+
+/*
+ * Light selected must win over `.aui-shell-hover:hover` / ghost hover so active
+ * stays solid indigo (white label) — no washout on hover.
+ */
+.aui-theme-root:not(.dark) .aui-shell-selected,
+.aui-theme-root:not(.dark) .aui-shell-selected:hover {
+  background-color: var(--shell-selected-bg);
+  border-color: var(--shell-selected-border);
+  color: var(--color-white);
+  box-shadow: inset 0 0.25rem 0.375rem 0 rgb(255 255 255 / 0.25);
 }
 
 /* Desktop chat-card gutter: keep in source CSS so rebuild order cannot drop utilities. */
