@@ -831,7 +831,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
             </ul>
           ) : (
             <Table className="bg-card-bg">
-              <TableHeader className="bg-card-bg">
+              <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[11.7rem] min-w-[11.7rem]">Agent</TableHead>
                   <TableHead>Configuration</TableHead>

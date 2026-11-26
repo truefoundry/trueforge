@@ -535,7 +535,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
             />
           ) : (
             <Table className="min-w-240 bg-card-bg">
-              <TableHeader className="bg-card-bg">
+              <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Schedule Name</TableHead>
                   <TableHead>Task</TableHead>

@@ -426,7 +426,7 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
             <div className="min-h-0 flex-1 overflow-auto">
               <Table className="min-w-240 bg-card-bg">
-                <TableHeader className="bg-card-bg">
+                <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-[15.6rem] max-w-[15.6rem]">Name</TableHead>
                     <TableHead>Availability</TableHead>

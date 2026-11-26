@@ -28,7 +28,11 @@ export type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement>;
 export function TableHeader({ className, ...props }: TableHeaderProps) {
   return (
     <thead
-      className={cn('bg-primary-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-inherit', className)}
+      className={cn(
+        // Soft band behind column labels; th inherit so sticky covers scrolling rows.
+        'bg-secondary-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-inherit',
+        className,
+      )}
       {...props}
     />
   );
