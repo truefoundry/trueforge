@@ -949,9 +949,8 @@ export class AgentThread {
         throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
       }
       const lastUsed = this.lastUsedModel;
-      // A saved effort of null has no effort to compare, so it emits.
-      const unchanged = lastUsed !== null && lastUsed.name === model.name && lastUsed.effort === effort;
-      if (!unchanged) {
+      const sameAsLastUsed = lastUsed !== null && lastUsed.name === model.name && lastUsed.effort === effort;
+      if (!sameAsLastUsed) {
         yield {
           type: EventType.THREAD_SWITCH_MODEL,
           id: newEventId(),
