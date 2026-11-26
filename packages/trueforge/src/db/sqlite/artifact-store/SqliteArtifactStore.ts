@@ -12,7 +12,6 @@ import {
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
   type GetArtifactInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
   type UpdateArtifactInput,
@@ -49,19 +48,6 @@ function toArtifactRecord(row: {
   updated_at: string;
 }): ArtifactRecord {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
-}
-
-/** Table-qualified: `getVersion` joins `artifact` (tenant scope), which also has `created_by_*` and `created_at`. */
-function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
-  return [
-    'artifact_version.artifact_id' as const,
-    'artifact_version.version' as const,
-    jsonText<ArtifactVersionMetadata>(eb.ref('artifact_version.files_metadata')).as('files_metadata'),
-    jsonText<Subject>(eb.ref('artifact_version.created_by_subject')).as('created_by_subject'),
-    'artifact_version.created_by_session_id' as const,
-    'artifact_version.created_by_agent_id' as const,
-    'artifact_version.created_at' as const,
-  ];
 }
 
 function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
@@ -166,7 +152,15 @@ export class SqliteArtifactStore implements IArtifactStore {
           created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
         })
-        .returning(versionColumns)
+        .returning(eb => [
+          'artifact_id',
+          'version',
+          jsonText<ArtifactVersionMetadata>(eb.ref('files_metadata')).as('files_metadata'),
+          jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
+          'created_by_session_id',
+          'created_by_agent_id',
+          'created_at',
+        ])
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
@@ -179,17 +173,5 @@ export class SqliteArtifactStore implements IArtifactStore {
         .execute();
       return toVersionRecord(row);
     });
-  }
-
-  async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('artifact_version')
-      .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
-      .select(versionColumns)
-      .where('artifact.tenant_id', '=', input.tenant_id)
-      .where('artifact_version.artifact_id', '=', input.artifact_id)
-      .where('artifact_version.version', '=', input.version)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toVersionRecord(row);
   }
 }

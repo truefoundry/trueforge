@@ -71,12 +71,6 @@ export interface CreateArtifactVersionInput {
   created_by_agent_id: string | null;
 }
 
-export interface GetArtifactVersionInput {
-  tenant_id: string;
-  artifact_id: string;
-  version: number;
-}
-
 export interface IArtifactStore {
   /** Generates the id. */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
@@ -94,5 +88,4 @@ export interface IArtifactStore {
    * advances `latest_version`, `latest_entry_point` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
   createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
-  getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
 }
