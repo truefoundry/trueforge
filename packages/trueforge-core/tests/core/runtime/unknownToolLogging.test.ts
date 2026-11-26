@@ -89,6 +89,7 @@ describe('AgentThread unknown tool logging', () => {
     };
 
     const thread = new AgentThread({
+      lastUsedModel: null,
       threadId: 'main',
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,

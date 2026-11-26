@@ -665,6 +665,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
   beforeEach(() => {
     toolSet = makeApprovalGatedWriteNoteToolSet().toolSet;
     const thread = new AgentThread({
+      lastUsedModel: null,
       definition: {
         instruction: INSTRUCTION,
         messages: undefined,
@@ -830,6 +831,7 @@ function makeApprovalHarness(
 } {
   const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
   const agentThreadInput: AgentThreadConstructorInput = {
+    lastUsedModel: null,
     definition: {
       instruction: INSTRUCTION,
       messages: undefined,
@@ -899,6 +901,7 @@ function makeApprovalHarnessWithUserToolSet(
 } {
   const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
   const agentThreadInput: AgentThreadConstructorInput = {
+    lastUsedModel: null,
     definition: {
       instruction: INSTRUCTION,
       messages: undefined,

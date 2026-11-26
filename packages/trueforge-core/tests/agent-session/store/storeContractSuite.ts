@@ -1719,6 +1719,32 @@ export function runStoreContractSuite<TTransaction>(
       expect(turn2['child']?.model).toEqual({ name: 'acct/model-c', effort: null });
     });
 
+    it('writes the named main-thread model on create and replaces it on the next turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const threadsOf = async (turnId: string) =>
+        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads;
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-1',
+          main_thread_model: { name: 'acct/fixed-a', effort: null },
+        }),
+      );
+      expect((await threadsOf('turn-1'))[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/fixed-a', effort: null });
+      await finishTurn(store, 'turn-1');
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-2',
+          previousTurnId: 'turn-1',
+          firstTurnId: 'turn-1',
+          main_thread_model: { name: 'acct/fixed-b', effort: 'high' },
+        }),
+      );
+      expect((await threadsOf('turn-2'))[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/fixed-b', effort: 'high' });
+    });
+
     it('keeps the model of a thread added mid-turn', async () => {
       const store = createStore();
       await seedSession(store);
