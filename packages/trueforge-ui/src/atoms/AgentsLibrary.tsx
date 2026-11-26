@@ -797,7 +797,11 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       <div className="flex min-h-0 flex-1 flex-col">
         <div className={cn('min-h-0 flex-1 overflow-auto', error ? 'flex flex-col' : undefined)} aria-label="Agents">
           {isInitialLoading ? (
-            <div className="flex flex-col gap-2 py-1" role="status" aria-label="Loading agents">
+            <div
+              className={cn('flex flex-col gap-2 py-1', isMobile && 'px-4')}
+              role="status"
+              aria-label="Loading agents"
+            >
               {Array.from({ length: 6 }, (_, i) => (
                 <Skeleton key={i} className={cn('w-full rounded-md', isMobile ? 'h-32' : 'h-14')} />
               ))}
@@ -822,7 +826,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
               {...(buildNowAction != null ? { action: buildNowAction } : {})}
             />
           ) : isMobile ? (
-            <ul aria-label="Agents" className="flex flex-col gap-3 py-4">
+            <ul aria-label="Agents" className="flex flex-col gap-3 px-4 py-4">
               {agents.map(agent => renderAgent(agent, 'card'))}
             </ul>
           ) : (
