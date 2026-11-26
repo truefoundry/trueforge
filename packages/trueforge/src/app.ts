@@ -570,6 +570,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createConfigurationRouter({
         resolveConfigurationStore: () => deps.configurationStore,
+        resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
         resolveRequestContext,
       }),
       adminAuthMiddleware,

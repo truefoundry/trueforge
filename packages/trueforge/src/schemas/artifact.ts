@@ -70,7 +70,7 @@ export const ArtifactFilesMetadataSchema = z
   .object({
     entry_point: z.string().describe('Default file to render, relative to the version files.'),
     total_bytes: z.number().int().nonnegative(),
-    storage_prefix: z.string().describe('Object-store key prefix holding the version files.'),
+    root_path: z.string().describe('Storage location of the files; key prefix in case of S3.'),
   })
   .strict();
 

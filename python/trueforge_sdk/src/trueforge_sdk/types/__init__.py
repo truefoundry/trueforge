@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
     from .auto_capability import AutoCapability
     from .auto_capability_status import AutoCapabilityStatus
     from .auto_model_routing_configuration import AutoModelRoutingConfiguration
+    from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -332,6 +333,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AutoCapability": ".auto_capability",
     "AutoCapabilityStatus": ".auto_capability_status",
     "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
+    "AutoModelRoutingConfigurationPatch": ".auto_model_routing_configuration_patch",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -664,6 +666,7 @@ __all__ = [
     "AutoCapability",
     "AutoCapabilityStatus",
     "AutoModelRoutingConfiguration",
+    "AutoModelRoutingConfigurationPatch",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",
