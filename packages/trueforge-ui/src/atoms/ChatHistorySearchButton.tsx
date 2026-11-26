@@ -102,7 +102,7 @@ function ChatHistorySearchDialog({
       <h2 id={titleId} className="sr-only">
         Search chat history
       </h2>
-      <div className="flex shrink-0 items-center gap-2 px-5 pt-4 pb-2">
+      <div className="flex shrink-0 items-center gap-2 px-5 pt-4 pb-4">
         <input
           ref={inputRef}
           type="search"
@@ -266,7 +266,7 @@ export function ChatHistorySearchButton({
             </p>
           ) : (
             <div className="flex flex-col gap-0.5">
-              <p className="pb-1.5 text-xs font-medium text-text-secondary">{sectionLabel}</p>
+              <p className="pb-1.5 text-xs font-medium text-text-secondary/70">{sectionLabel}</p>
               {/* Inset rows slightly so chat icons sit under the label, not flush with it. */}
               <div className="flex flex-col gap-0.5 pl-2">
                 {indices.map(index => {
