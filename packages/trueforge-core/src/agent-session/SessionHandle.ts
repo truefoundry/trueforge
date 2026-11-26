@@ -531,7 +531,6 @@ export class SessionHandle<
         previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
     });
 
-    // A null effort means the model runs on its default.
     const mainThreadModel: ModelSnapshot | null =
       spec.model.name === AUTO_MODEL
         ? null
