@@ -4,13 +4,13 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import { ArtifactFilesMetadataSchema, type ArtifactFilesMetadata } from '../../../schemas/artifact';
 import {
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
 } from '../../artifactStore';
@@ -46,6 +46,14 @@ function toArtifactRecord(row: {
   updated_at: string;
 }): ArtifactRecord {
   return { ...row, created_by_subject: SubjectSchema.parse(row.created_by_subject) };
+}
+
+function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
+  return {
+    ...row,
+    files_metadata: ArtifactFilesMetadataSchema.parse(row.files_metadata),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
+  };
 }
 
 export class SqliteArtifactStore implements IArtifactStore {
@@ -116,29 +124,32 @@ export class SqliteArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          entry_point: input.entry_point,
-          total_bytes: input.total_bytes,
+          files_metadata: jsonbBind(input.files_metadata),
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
         })
-        .returningAll()
+        .returning(eb => [
+          'artifact_id',
+          'version',
+          jsonText<ArtifactFilesMetadata>(eb.ref('files_metadata')).as('files_metadata'),
+          jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
+          'created_by_session_id',
+          'created_by_agent_id',
+          'created_at',
+        ])
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: timestamp })
+        .set({
+          latest_version: version,
+          latest_entry_point: input.files_metadata.entry_point,
+          updated_at: timestamp,
+        })
         .where('id', '=', artifact.id)
         .execute();
-      return row;
+      return toVersionRecord(row);
     });
-  }
-
-  async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    return this.#db
-      .selectFrom('artifact_version')
-      .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
-      .selectAll('artifact_version')
-      .where('artifact.tenant_id', '=', input.tenant_id)
-      .where('artifact_version.artifact_id', '=', input.artifact_id)
-      .where('artifact_version.version', '=', input.version)
-      .executeTakeFirst();
   }
 }

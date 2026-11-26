@@ -4,13 +4,13 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import { ArtifactFilesMetadataSchema } from '../../../schemas/artifact';
 import {
   newArtifactIdentity,
   type ArtifactRecord,
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
-  type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
 } from '../../artifactStore';
@@ -36,8 +36,10 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   return {
     artifact_id: row.artifact_id,
     version: row.version,
-    entry_point: row.entry_point,
-    total_bytes: row.total_bytes,
+    files_metadata: ArtifactFilesMetadataSchema.parse(row.files_metadata),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
+    created_by_session_id: row.created_by_session_id,
+    created_by_agent_id: row.created_by_agent_id,
     created_at: row.created_at.toISOString(),
   };
 }
@@ -103,31 +105,25 @@ export class PostgresArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          entry_point: input.entry_point,
-          total_bytes: input.total_bytes,
+          files_metadata: json(input.files_metadata),
+          created_by_subject: json(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
           created_at: now(),
         })
         .returningAll()
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')
-        .set({ latest_version: version, latest_entry_point: input.entry_point, updated_at: now() })
+        .set({
+          latest_version: version,
+          latest_entry_point: input.files_metadata.entry_point,
+          updated_at: now(),
+        })
         .where('id', '=', artifact.id)
         .execute();
       return toVersionRecord(row);
     });
-  }
-
-  async getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('artifact_version')
-      .innerJoin('artifact', 'artifact.id', 'artifact_version.artifact_id')
-      .selectAll('artifact_version')
-      .where('artifact.tenant_id', '=', input.tenant_id)
-      .where('artifact_version.artifact_id', '=', input.artifact_id)
-      .where('artifact_version.version', '=', input.version)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toVersionRecord(row);
   }
 
   /** Row lock so concurrent version writes for one artifact queue instead of racing. */

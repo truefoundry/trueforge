@@ -53,3 +53,14 @@ export const ListArtifactsResponseSchema = z
     pagination: TokenPaginationSchema,
   })
   .openapi('ListArtifactsResponse');
+
+/** `artifact_version.files_metadata` jsonb only — not on wire responses. */
+export const ArtifactFilesMetadataSchema = z
+  .object({
+    entry_point: z.string().describe('Default file to render, relative to the version files.'),
+    total_bytes: z.number().int().nonnegative(),
+    root_path: z.string().describe('Storage location of the files; key prefix in case of S3.'),
+  })
+  .strict();
+
+export type ArtifactFilesMetadata = z.infer<typeof ArtifactFilesMetadataSchema>;

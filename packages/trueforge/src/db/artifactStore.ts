@@ -1,4 +1,5 @@
 import type { Subject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { ArtifactFilesMetadata } from '../schemas/artifact';
 import { MAX_TITLE_LENGTH } from '../schemas/common';
 import { newId } from '../utils/id';
 
@@ -23,9 +24,11 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  /** Path of the default file to render, relative to the version's files. */
-  entry_point: string;
-  total_bytes: number;
+  files_metadata: ArtifactFilesMetadata;
+  created_by_subject: Subject;
+  created_by_session_id: string;
+  /** Creating session's registry agent; null for inline-spec sessions. */
+  created_by_agent_id: string | null;
   /** ISO-8601 UTC instant. */
   created_at: string;
 }
@@ -53,14 +56,11 @@ export interface ListArtifactsInput {
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
-  entry_point: string;
-  total_bytes: number;
-}
-
-export interface GetArtifactVersionInput {
-  tenant_id: string;
-  artifact_id: string;
-  version: number;
+  files_metadata: ArtifactFilesMetadata;
+  created_by_subject: Subject;
+  created_by_session_id: string;
+  /** The session's registry agent; null for inline-spec sessions. */
+  created_by_agent_id: string | null;
 }
 
 /**
@@ -85,5 +85,4 @@ export interface IArtifactStore {
    * advances `latest_version`, `latest_entry_point` and `updated_at`. Undefined when the artifact is not in the tenant.
    */
   createVersion(input: CreateArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
-  getVersion(input: GetArtifactVersionInput): Promise<ArtifactVersionRecord | undefined>;
 }
