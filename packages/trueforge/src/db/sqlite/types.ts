@@ -30,7 +30,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { ArtifactVersionMetadata } from '../../schemas/artifact';
+import type { ArtifactFilesMetadata } from '../../schemas/artifact';
 import type { ConfigurationManifest } from '../../schemas/configuration';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { MemoryProviderManifest } from '../../schemas/memoryProvider';
@@ -491,7 +491,7 @@ export interface ArtifactTable {
 export interface ArtifactVersionTable {
   artifact_id: string;
   version: number;
-  files_metadata: JsonbColumn<ArtifactVersionMetadata>;
+  files_metadata: JsonbColumn<ArtifactFilesMetadata>;
   created_at: string;
   created_by_subject: JsonbColumn<Subject>;
   created_by_session_id: string;
