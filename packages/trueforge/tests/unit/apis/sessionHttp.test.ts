@@ -644,7 +644,7 @@ describe('sessions HTTP agent binding', () => {
     await artifactStore.createVersion({
       tenant_id: 'default',
       artifact_id: artifact.id,
-      files_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/report' },
+      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/report' },
       created_by_subject: artifact.created_by_subject,
       created_by_session_id: session.id,
       created_by_agent_id: null,

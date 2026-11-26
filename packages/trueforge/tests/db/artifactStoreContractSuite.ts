@@ -238,7 +238,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     await store.createVersion({
       tenant_id: OTHER_TENANT,
       artifact_id: otherTenant.id,
-      files_metadata: { entry_point: 'index.html', total_bytes: 1, storage_prefix: 'uploads/other' },
+      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/other' },
       created_by_subject: SUBJECT,
       created_by_session_id: 'session-1',
       created_by_agent_id: AGENT_ID,
