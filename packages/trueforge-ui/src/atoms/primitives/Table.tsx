@@ -122,7 +122,7 @@ export function TablePagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-[0.125rem] py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm',
         className,
       )}
     >
@@ -202,7 +202,7 @@ export function TableTokenPagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-[0.125rem] py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm',
         className,
       )}
     >

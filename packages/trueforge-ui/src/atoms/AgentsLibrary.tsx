@@ -796,7 +796,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div
-          className={cn('min-h-0 flex-1 overflow-auto px-[0.125rem]', error ? 'flex flex-col' : undefined)}
+          className={cn('min-h-0 flex-1 overflow-auto px-4', error ? 'flex flex-col' : undefined)}
           aria-label="Agents"
         >
           {isInitialLoading ? (
