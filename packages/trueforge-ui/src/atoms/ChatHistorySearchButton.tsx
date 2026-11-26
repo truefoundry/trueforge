@@ -257,9 +257,10 @@ export function ChatHistorySearchButton({
       >
         <Icon name="search" className="size-3.5" />
       </button>
-      {open ? (
-        <ChatHistorySearchDialog open onOpenChange={handleOpenChange} query={query} onQueryChange={setQuery}>
-          {indices.length === 0 ? (
+      {/* Stay mounted so dismiss runs dialog.close() (focus restore) instead of ripping out a showModal dialog. */}
+      <ChatHistorySearchDialog open={open} onOpenChange={handleOpenChange} query={query} onQueryChange={setQuery}>
+        {open ? (
+          indices.length === 0 ? (
             <p className="py-8 text-center text-sm text-text-secondary" role="status">
               {query.trim().length > 0 ? `No chats match “${query.trim()}”.` : 'No recent chats'}
             </p>
@@ -280,9 +281,9 @@ export function ChatHistorySearchButton({
                 );
               })}
             </div>
-          )}
-        </ChatHistorySearchDialog>
-      ) : null}
+          )
+        ) : null}
+      </ChatHistorySearchDialog>
     </div>
   );
 }
