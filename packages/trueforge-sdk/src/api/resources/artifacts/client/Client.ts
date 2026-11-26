@@ -138,7 +138,7 @@ export class ArtifactsClient {
     }
 
     /**
-     * Rename an artifact. Only the artifact creator may update it.
+     * Update an artifact.
      *
      * @param {string} artifact_id - Artifact identifier.
      * @param {TrueForge.UpdateArtifactRequest} request

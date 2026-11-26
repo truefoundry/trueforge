@@ -80,7 +80,7 @@ class ArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> UpdateArtifactResponse:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------
@@ -192,7 +192,7 @@ class AsyncArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> UpdateArtifactResponse:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------

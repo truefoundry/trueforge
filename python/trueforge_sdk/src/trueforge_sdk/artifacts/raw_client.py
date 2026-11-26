@@ -126,7 +126,7 @@ class RawArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[UpdateArtifactResponse]:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------
@@ -324,7 +324,7 @@ class AsyncRawArtifactsClient:
         self, *, artifact_id: str, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[UpdateArtifactResponse]:
         """
-        Rename an artifact. Only the artifact creator may update it.
+        Update an artifact.
 
         Parameters
         ----------
