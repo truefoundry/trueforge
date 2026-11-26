@@ -130,7 +130,7 @@ jobs:
 
       - name: Join the tailnet for GitHub egress
         if: steps.version-dirty.outputs.changed == 'true'
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
           audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
@@ -289,7 +289,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Join the tailnet for GitHub egress
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
           audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
@@ -395,7 +395,7 @@ jobs:
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
           audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
@@ -592,7 +592,7 @@ jobs:
       id-token: write
     steps:
       - name: Join the tailnet for GitHub egress
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
           audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
