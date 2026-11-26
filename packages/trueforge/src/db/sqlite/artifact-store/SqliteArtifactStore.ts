@@ -4,7 +4,7 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
-import { ArtifactVersionMetadataSchema, type ArtifactVersionMetadata } from '../../../schemas/artifact';
+import { ArtifactFilesMetadataSchema, type ArtifactFilesMetadata } from '../../../schemas/artifact';
 import {
   newArtifactIdentity,
   type ArtifactRecord,
@@ -51,7 +51,7 @@ function toArtifactRecord(row: {
 function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
   return {
     ...row,
-    files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata),
+    files_metadata: ArtifactFilesMetadataSchema.parse(row.files_metadata),
     created_by_subject: SubjectSchema.parse(row.created_by_subject),
   };
 }
@@ -130,7 +130,7 @@ export class SqliteArtifactStore implements IArtifactStore {
         .returning(eb => [
           'artifact_id',
           'version',
-          jsonText<ArtifactVersionMetadata>(eb.ref('files_metadata')).as('files_metadata'),
+          jsonText<ArtifactFilesMetadata>(eb.ref('files_metadata')).as('files_metadata'),
           jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
           'created_by_session_id',
           'created_by_agent_id',

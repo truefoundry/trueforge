@@ -4,7 +4,7 @@ import {
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
-import { ArtifactVersionMetadataSchema } from '../../../schemas/artifact';
+import { ArtifactFilesMetadataSchema } from '../../../schemas/artifact';
 import {
   newArtifactIdentity,
   type ArtifactRecord,
@@ -36,7 +36,7 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   return {
     artifact_id: row.artifact_id,
     version: row.version,
-    files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata),
+    files_metadata: ArtifactFilesMetadataSchema.parse(row.files_metadata),
     created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_by_session_id: row.created_by_session_id,
     created_by_agent_id: row.created_by_agent_id,
