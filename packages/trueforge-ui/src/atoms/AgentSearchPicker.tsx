@@ -6,13 +6,9 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../icons/Icon.js';
 import { libraryAgentId } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry } from '../server/types.js';
+import { AgentSearchResultsList } from './AgentSearchResultsList.js';
 import { cn } from './lib/cn.js';
-import {
-  auiSelectMenuClass,
-  auiSelectOptionClass,
-  auiSelectPrefixTriggerClass,
-  auiSelectTriggerClass,
-} from './lib/selectClasses.js';
+import { auiSelectMenuClass, auiSelectPrefixTriggerClass, auiSelectTriggerClass } from './lib/selectClasses.js';
 import { themePortalRoot } from './lib/themePortalRoot.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { Button } from './primitives/Button.js';
@@ -127,9 +123,7 @@ export function AgentSearchPicker({
 
   const inputValue = open ? query : selectedLabel;
   const queryTrimmed = query.trim();
-  const showError = !isInitialLoading && error != null;
   const showEmptyCatalog = !isInitialLoading && error == null && agents.length === 0 && queryTrimmed === '';
-  const showNoMatch = !isInitialLoading && error == null && agents.length === 0 && queryTrimmed !== '';
 
   const menu =
     open && pos != null && !disabled
@@ -144,81 +138,33 @@ export function AgentSearchPicker({
             }}
             onMouseDown={event => event.stopPropagation()}
           >
-            <div
-              ref={listRef}
-              id={listboxId}
-              role="listbox"
+            <AgentSearchResultsList
+              list={{
+                agents,
+                isInitialLoading,
+                isSearching,
+                loadingMore,
+                hasMore,
+                error,
+                listRef,
+                sentinelRef,
+              }}
+              query={query}
+              selectedAgentId={value}
+              onPick={pick}
+              listboxId={listboxId}
               aria-label={ariaLabel}
-              className="min-h-0 flex-1 overflow-y-auto p-1"
-            >
-              {allOption != null && queryTrimmed === '' ? (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={value === allOption.value}
-                  className={auiSelectOptionClass()}
-                  onClick={pickAll}
-                >
-                  <span className="min-w-0 flex-1 truncate">{allOption.label}</span>
-                  <Icon
-                    name="check"
-                    className={cn('ml-auto size-4 shrink-0', value === allOption.value ? 'opacity-100' : 'opacity-0')}
-                  />
-                </button>
-              ) : null}
-              {isInitialLoading ? (
-                <p className="text-text-secondary px-3 py-5 text-center text-sm" role="status">
-                  Loading…
-                </p>
-              ) : showError ? (
-                <p className="text-failure-bg px-3 py-5 text-center text-sm" role="alert">
-                  {error}
-                </p>
-              ) : showEmptyCatalog ? (
-                <p className="text-text-secondary px-3 py-5 text-center text-sm">No Agents created yet</p>
-              ) : showNoMatch ? (
-                <p className="text-text-secondary px-3 py-5 text-center text-sm" role="status">
-                  No agents match &quot;{queryTrimmed}&quot;.
-                </p>
-              ) : (
-                <>
-                  {isSearching ? (
-                    <p className="sr-only" role="status">
-                      Searching…
-                    </p>
-                  ) : null}
-                  {agents.map(agent => {
-                    const id = libraryAgentId(agent);
-                    const selected = value === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        className={auiSelectOptionClass()}
-                        onClick={() => pick(agent)}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-                        <Icon
-                          name="check"
-                          className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
-                        />
-                      </button>
-                    );
-                  })}
-                  {hasMore ? (
-                    <div ref={sentinelRef} className="flex h-6 shrink-0 items-center justify-center" aria-hidden>
-                      {loadingMore ? (
-                        <span className="text-text-secondary text-[11px]" role="status">
-                          Loading more…
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
+              allOption={
+                allOption == null
+                  ? undefined
+                  : {
+                      value: allOption.value,
+                      label: allOption.label,
+                      selected: value === allOption.value,
+                      onPick: pickAll,
+                    }
+              }
+            />
             {showEmptyCatalog && onBuildAgent != null ? (
               <div className="flex justify-end border-t border-border px-2 pt-2">
                 <Button.Ghost type="button" onClick={onBuildAgent}>

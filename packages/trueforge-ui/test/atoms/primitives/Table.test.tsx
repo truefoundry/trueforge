@@ -103,23 +103,24 @@ describe('Table', () => {
   });
 
   it('paginates rows and changes page size', () => {
-    const rows = Array.from({ length: 12 }, (_, i) => `row-${String(i + 1)}`);
+    const rows = Array.from({ length: 30 }, (_, i) => `row-${String(i + 1)}`);
     render(<PaginatedDemo rows={rows} />);
 
-    expect(screen.getByText('Showing 1–10 of 12')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1–25 of 30')).toBeInTheDocument();
     expect(screen.getByText('row-1')).toBeInTheDocument();
-    expect(screen.getByText('row-10')).toBeInTheDocument();
-    expect(screen.queryByText('row-11')).not.toBeInTheDocument();
+    expect(screen.getByText('row-25')).toBeInTheDocument();
+    expect(screen.queryByText('row-26')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    expect(screen.getByText('Showing 11–12 of 12')).toBeInTheDocument();
-    expect(screen.getByText('row-11')).toBeInTheDocument();
+    expect(screen.getByText('Showing 26–30 of 30')).toBeInTheDocument();
+    expect(screen.getByText('row-26')).toBeInTheDocument();
     expect(screen.queryByText('row-1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
-    fireEvent.click(screen.getByRole('option', { name: '25' }));
-    expect(screen.getByText('Showing 1–12 of 12')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: '10' }));
+    expect(screen.getByText('Showing 1–10 of 30')).toBeInTheDocument();
     expect(screen.getByText('row-1')).toBeInTheDocument();
-    expect(screen.getByText('row-12')).toBeInTheDocument();
+    expect(screen.getByText('row-10')).toBeInTheDocument();
+    expect(screen.queryByText('row-11')).not.toBeInTheDocument();
   });
 });

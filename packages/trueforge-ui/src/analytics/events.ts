@@ -12,11 +12,17 @@ export const AnalyticsEvents = {
   Attachment: {
     PICKED: 'trueforge.agent.attachment_picked',
   },
+  Composer: {
+    ASSISTANT_SELECTED: 'trueforge.composer.assistant_selected',
+    AGENT_SELECTED: 'trueforge.composer.agent_selected',
+  },
+
   Session: {
     NEW: 'trueforge.agent.session_new',
     SELECTED: 'trueforge.agent.session_selected',
     DELETED: 'trueforge.agent.session_deleted',
     RENAMED: 'trueforge.agent.session_renamed',
+    HISTORY_SEARCH_OPENED: 'trueforge.agent.history_search_opened',
     SHARE_OPENED: 'trueforge.agent.session_share_opened',
     SHARE_LINK_COPIED: 'trueforge.agent.session_share_link_copied',
     SHARE_PERMISSION_CHANGED: 'trueforge.agent.session_share_permission_changed',
