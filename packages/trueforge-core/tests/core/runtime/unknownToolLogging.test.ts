@@ -89,6 +89,7 @@ describe('AgentThread unknown tool logging', () => {
     };
 
     const thread = new AgentThread({
+      lastUsedModel: null,
       threadId: 'main',
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,
@@ -97,10 +98,14 @@ describe('AgentThread unknown tool logging', () => {
         instruction: 'test',
         toolSets: [],
       },
-      model: {
-        client: modelClient,
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: modelClient,
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       context: [{ role: 'user', content: 'hi' }],
     });
 

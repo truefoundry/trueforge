@@ -70,10 +70,13 @@ does not publish.
 4. That dispatch runs `scripts/prepare-release.mjs`, then `pnpm run version`, and
    commits the result **directly** to `release-vX.Y.Z`. Pre mode follows `V`
    (`rc` enters, a stable version exits). Published packages still at `0.0.0`
-   become `X.Y.0` or `X.Y.0-rc.0`. `packages/frontend` stays `0.0.0`. When
-   `@truefoundry/trueforge-sdk` moves, `scripts/version.mjs` mirrors that version
-   into `python/trueforge_sdk` and regenerates both SDKs. There is no Version
-   Packages PR: one dispatch, one run, one conclusion.
+   become `X.Y.0` or `X.Y.0-rc.0`. An RC bootstrap also writes a patch
+   changeset naming every package that moved, so `changeset version` advances
+   them together to `X.Y.0-rc.1` even when a package has no feature changesets.
+   `packages/frontend` stays `0.0.0`. When `@truefoundry/trueforge-sdk` moves,
+   `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
+   regenerates both SDKs. There is no Version Packages PR: one dispatch, one
+   run, one conclusion.
 5. The same run then does everything else, checking out the commit from step 4:
    - **pack** (build/test) and **Windows npx smoke** gate **npm** and **PyPI**.
      They run only when `changesets/action/select-mode` reports `publish`; a line
@@ -163,7 +166,7 @@ parent chart release V
     refs/tags/v<base> for a hotfix; fail only on the FIRST rc if an existing
     minor branch is missing commits from main)
   → workflow_dispatch release.yml --ref release-vX.Y.Z -f tfy_chart_version=V
-       → prepare pre mode + 0.0.0 bootstrap
+       → prepare pre mode + 0.0.0 bootstrap (+ RC all-packages patch changeset)
        → changeset version, commit straight to release-vX.Y.Z
        → select-mode: publish | none
        → (publish) pack + smoke → npm | PyPI

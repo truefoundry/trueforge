@@ -45,6 +45,7 @@ async function runUntilDone({
     createNonStream: jest.fn(),
   };
   const thread = new AgentThread({
+    lastUsedModel: null,
     threadId: 'main',
     title: 'Main',
     tracing: NOOP_AGENT_TRACING,
@@ -53,11 +54,15 @@ async function runUntilDone({
       instruction: 'test',
       toolSets: [],
     },
-    model: {
-      client: modelClient,
-      name: TEST_MODEL_NAME,
-      ...(modelParams !== undefined ? { params: modelParams } : {}),
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: modelClient,
+          name: TEST_MODEL_NAME,
+          ...(modelParams !== undefined ? { params: modelParams } : {}),
+        },
+        routed: false,
+      }),
     context: [{ role: 'user', content: 'hi' }],
   });
   for await (const event of thread.execute({ signal: new AbortController().signal })) {

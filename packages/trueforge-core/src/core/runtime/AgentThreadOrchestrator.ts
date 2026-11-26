@@ -20,7 +20,6 @@ import { getOperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
-import { modelSnapshotFromAgent } from './AgentModel';
 import { AgentThread } from './AgentThread';
 import {
   InternalEventType,
@@ -581,7 +580,6 @@ export class AgentThreadOrchestrator {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
           agent_info: chunk.agent_info,
-          model: modelSnapshotFromAgent(subAgentThread.model),
           created_at: new Date().toISOString(),
           parent,
           title: chunk.agent_info.name,

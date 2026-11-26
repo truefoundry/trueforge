@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  chatAutoModelDefaultPending,
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   freshAgentBuilderSeed,
+  markChatAutoModelDefaulted,
   memoryPreferenceToStore,
   readDraftSpecPreferences,
   recoverMemoryAfterCapabilityAvailable,
@@ -221,6 +223,52 @@ describe('draft preference storage', () => {
       config: { sandbox: { enabled: true } },
     });
     expect(window.localStorage.getItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY)).toBeNull();
+  });
+
+  it('treats empty storage and a legacy chat entry as pending the Auto default', () => {
+    expect(chatAutoModelDefaultPending()).toBe(true);
+
+    window.localStorage.setItem(
+      CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        spec: { model: { name: 'chat/model' } },
+      }),
+    );
+    expect(chatAutoModelDefaultPending()).toBe(true);
+  });
+
+  it('marks the Auto default and stores Auto as the chat model', () => {
+    markChatAutoModelDefaulted({
+      model: { name: 'chat/model' },
+      skills: [{ name: 'Skill' }],
+      config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+    });
+
+    expect(chatAutoModelDefaultPending()).toBe(false);
+    // JSON drops the undefined param keys from AUTO_MODEL_PATCH.
+    expect(readDraftSpecPreferences('chat')).toEqual({
+      model: { name: 'auto', params: {} },
+      skills: [{ name: 'Skill' }],
+      config: { webSearch: { enabled: true } },
+    });
+    expect(JSON.parse(window.localStorage.getItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY) ?? 'null')).toMatchObject({
+      version: 1,
+      autoModelDefaulted: true,
+    });
+  });
+
+  it('keeps the Auto-default marker when a later write stores a different model', () => {
+    markChatAutoModelDefaulted({ model: { name: 'chat/model' } });
+    writeDraftSpecPreferences('chat', { model: { name: 'gpt' } });
+
+    expect(chatAutoModelDefaultPending()).toBe(false);
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'gpt' } });
+    expect(JSON.parse(window.localStorage.getItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY) ?? 'null')).toEqual({
+      version: 1,
+      autoModelDefaulted: true,
+      spec: { model: { name: 'gpt' } },
+    });
   });
 });
 

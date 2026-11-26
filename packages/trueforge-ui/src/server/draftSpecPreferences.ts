@@ -1,4 +1,6 @@
 import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
+
+import { AUTO_MODEL_PATCH } from '../atoms/draft/autoModel.js';
 import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 
 /** @deprecated Migrated into chat/agent keys on first read. */
@@ -11,6 +13,8 @@ export type DraftPreferenceKind = 'chat' | 'agent';
 type StoredDraftSpecPreferences = {
   version: 1;
   spec: AgentSpec;
+  /** Set once New Chat has been switched to Auto when the capability first became enabled. */
+  autoModelDefaulted?: true;
 };
 
 function isObject(value: unknown): value is object {
@@ -379,25 +383,56 @@ export function memoryPreferenceToStore({
   });
 }
 
-function readStoredSpec(key: string): AgentSpec | null {
+function readStoredEntry(key: string): StoredDraftSpecPreferences | null {
   if (typeof window === 'undefined') return null;
   try {
     const stored: unknown = JSON.parse(window.localStorage.getItem(key) ?? 'null');
-    return isStoredDraftSpecPreferences(stored) ? stored.spec : null;
+    return isStoredDraftSpecPreferences(stored) ? stored : null;
   } catch {
     return null;
   }
 }
 
+function readStoredSpec(key: string): AgentSpec | null {
+  return readStoredEntry(key)?.spec ?? null;
+}
+
 function writeStoredSpec(key: string, spec: AgentSpec): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const stored: StoredDraftSpecPreferences = { version: 1, spec };
+    const existing = readStoredEntry(key);
+    const stored: StoredDraftSpecPreferences = {
+      version: 1,
+      spec,
+      ...(existing?.autoModelDefaulted === true ? { autoModelDefaulted: true as const } : {}),
+    };
     window.localStorage.setItem(key, JSON.stringify(stored));
     return true;
   } catch {
     // Storage can be unavailable or full; in-memory carry-over still works.
     return false;
+  }
+}
+
+/** True until New Chat has been switched to Auto the first time the capability is enabled. */
+export function chatAutoModelDefaultPending(): boolean {
+  migrateLegacyDraftPreferences();
+  const entry = readStoredEntry(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+  return entry == null || entry.autoModelDefaulted !== true;
+}
+
+/** Persist Auto as the New Chat model and mark the one-time default as applied. */
+export function markChatAutoModelDefaulted(spec: AgentSpec): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored: StoredDraftSpecPreferences = {
+      version: 1,
+      autoModelDefaulted: true,
+      spec: selectChatDraftSpecPreferences({ ...spec, model: AUTO_MODEL_PATCH }),
+    };
+    window.localStorage.setItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // Storage can be unavailable or full; in-memory carry-over still works.
   }
 }
 

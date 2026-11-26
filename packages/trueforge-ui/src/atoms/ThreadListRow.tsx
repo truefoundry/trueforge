@@ -1,11 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
 import type { TurnStatus } from '../server/types.js';
 import { StatusDot } from './agent-chat/StatusDot.js';
-import { auiButtonClass, shellSelectedClassName } from './lib/buttonClasses.js';
+import { auiButtonClass, shellHoverClassName, shellSelectedClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import {
   formatRelativeShort,
@@ -32,9 +32,14 @@ export type ThreadListRowProps = {
   className?: string;
 };
 
-function ThreadListAgentName({ agentName }: { agentName: string }) {
+function ThreadListAgentName({ agentName, active }: { agentName: string; active: boolean }) {
   return (
-    <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
+    <span
+      className={cn(
+        'mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem]',
+        active ? 'text-inherit' : 'text-text-secondary',
+      )}
+    >
       <Icon name="bot" className="shrink-0" />
       <span className="truncate">{agentName}</span>
     </span>
@@ -74,6 +79,54 @@ function ThreadListRowHoverTip({ title, age }: { title: string; age?: string }) 
   );
 }
 
+/** Ellipsis at rest; on row hover/focus, scrolls left to reveal the full title when clipped. */
+function ThreadListScrollTitle({ title, className }: { title: string; className?: string }) {
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [overflowPx, setOverflowPx] = useState(0);
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (outer == null || inner == null) return;
+
+    const update = () => {
+      // Drop the ellipsis clamp briefly so scrollWidth is the full title width.
+      const previousMaxWidth = inner.style.maxWidth;
+      inner.style.maxWidth = 'none';
+      const fullWidth = inner.scrollWidth;
+      inner.style.maxWidth = previousMaxWidth;
+      setOverflowPx(Math.max(0, fullWidth - outer.clientWidth));
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(outer);
+    return () => observer.disconnect();
+  }, [title]);
+
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    if (inner == null) return;
+    const durationMs = overflowPx <= 0 ? 0 : Math.min(6000, Math.max(500, Math.round(overflowPx * 20)));
+    inner.style.setProperty('--aui-title-overflow', `${overflowPx}px`);
+    inner.style.setProperty('--aui-title-scroll-duration', `${durationMs}ms`);
+  }, [overflowPx]);
+
+  return (
+    <span ref={outerRef} className="min-w-0 flex-1 overflow-hidden">
+      <span
+        ref={innerRef}
+        data-slot="aui_thread-list-item-title"
+        data-overflow={overflowPx > 0 ? 'true' : undefined}
+        className={cn('aui-thread-list-title-scroll', className)}
+      >
+        {title}
+      </span>
+    </span>
+  );
+}
+
 export function ThreadListRow({
   title,
   active,
@@ -104,7 +157,7 @@ export function ThreadListRow({
       data-active={active || undefined}
       className={cn(
         'group flex min-w-0 items-center gap-0.5 rounded-[0.5rem] transition-colors',
-        active ? shellSelectedClassName : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
+        active ? shellSelectedClassName : cn('border border-transparent text-text-secondary', shellHoverClassName),
         className,
       )}
     >
@@ -116,16 +169,20 @@ export function ThreadListRow({
           variant: 'ghost',
           className: cn(
             '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.5rem] px-2.5 py-1.5 text-left font-normal shadow-none',
-            'bg-transparent hover:bg-transparent hover:text-inherit',
-            active ? 'text-text-primary' : 'text-inherit',
+            'bg-transparent text-inherit hover:bg-transparent hover:text-inherit',
           ),
         })}
       >
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className={cn('truncate text-sm font-normal text-text-primary', running && 'aui-text-shimmer')}>
-              {title}
-            </span>
+        <span className="min-w-0 flex-1 overflow-hidden">
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+            <ThreadListScrollTitle
+              title={title}
+              className={cn(
+                'text-sm font-normal',
+                active ? 'text-inherit' : 'text-text-primary',
+                running && 'aui-text-shimmer',
+              )}
+            />
             {/* Mobile: keep the paused dot next to the title when actions own the trailing slot. */}
             {statusDotClass != null && actions != null ? (
               <span data-slot="session-status-dot" className="shrink-0 md:hidden">
@@ -134,11 +191,11 @@ export function ThreadListRow({
             ) : null}
             {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
           </span>
-          {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
+          {agentName != null ? <ThreadListAgentName agentName={agentName} active={active} /> : null}
         </span>
       </button>
       {hasTrailing ? (
-        <div className="relative mr-1 size-7 shrink-0">
+        <div className="relative size-7 shrink-0">
           {statusDotClass != null ? (
             <span
               data-slot="session-status-dot"
@@ -153,7 +210,8 @@ export function ThreadListRow({
           ) : running ? (
             <span
               className={cn(
-                'pointer-events-none absolute inset-0 flex items-center justify-center text-text-primary transition-opacity',
+                'pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity',
+                active ? 'text-inherit' : 'text-text-primary',
                 actions != null &&
                   'opacity-0 md:opacity-100 md:group-hover:opacity-0 md:group-focus-within:opacity-0 md:group-has-[[data-state=open]]:opacity-0',
               )}
@@ -164,7 +222,8 @@ export function ThreadListRow({
             <span
               data-slot="aui_thread-list-item-age"
               className={cn(
-                'pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-text-secondary transition-opacity',
+                'pointer-events-none absolute inset-0 flex items-center justify-center text-xs transition-opacity',
+                active ? 'text-inherit' : 'text-text-secondary',
                 // md: variants survive host Tailwind tree-shaking (same set as AgentsLibrary).
                 // Bare group-hover:opacity-* is dropped from the example CSS bundle.
                 actions != null &&

@@ -50,9 +50,8 @@ describe('FilePreviewPanel', () => {
     expect(onDownload).toHaveBeenCalledOnce();
   });
 
-  it('offers retry when the file failed to load and closes on Escape', () => {
+  it('shows a load error and closes on Escape', () => {
     const onClose = vi.fn();
-    const onRetry = vi.fn();
     render(
       <FilePreviewPanel
         name="report.txt"
@@ -60,15 +59,29 @@ describe('FilePreviewPanel', () => {
         view={{ status: 'error', message: "Couldn't load a preview of this file." }}
         onClose={onClose}
         onDownload={vi.fn()}
-        onRetry={onRetry}
       />,
     );
 
     expect(screen.getByText("Couldn't load a preview of this file.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(onRetry).toHaveBeenCalledOnce();
     fireEvent.keyDown(screen.getByRole('complementary', { name: 'Preview of report.txt' }), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('reloads from the header', () => {
+    const onReload = vi.fn();
+    render(
+      <FilePreviewPanel
+        name="report.txt"
+        placement="side"
+        view={{ status: 'text', text: 'draft' }}
+        onClose={vi.fn()}
+        onDownload={vi.fn()}
+        onReload={onReload}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reload preview' }));
+    expect(onReload).toHaveBeenCalledOnce();
   });
 
   it('widens the side pane from the resize handle', () => {

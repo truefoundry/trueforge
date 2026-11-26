@@ -41,13 +41,12 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const signal = new AbortController().signal;
     const spec = makeAgentSpec();
 
-    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing, model: undefined });
+    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
     const nested = await resolver.resolveAgentDefinition({
       spec,
       signal,
       tracing,
       agent_info: child,
-      model: undefined,
     });
 
     expect(root.extraCapabilities).toEqual([capability]);
@@ -59,7 +58,6 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const resolver = resolverWith({ rootCapabilities: () => [] });
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
-      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -94,13 +92,12 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const signal = new AbortController().signal;
     const spec = makeAgentSpec();
 
-    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing, model: undefined });
+    const root = await resolver.resolveAgentDefinition({ spec, signal, tracing });
     const nested = await resolver.resolveAgentDefinition({
       spec,
       signal,
       tracing,
       agent_info: child,
-      model: undefined,
     });
 
     expect(root.extraCapabilities?.[0]?.systemToolSets?.[0]?.id).toBe(TRUEFORGE_MCP_ID);
@@ -141,7 +138,6 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
-      model: undefined,
       previousTurn,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
@@ -194,7 +190,6 @@ describe('TurnResourceResolver rootCapabilities', () => {
 
     const resolved = await resolver.resolveAgentDefinition({
       spec,
-      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });
@@ -208,7 +203,6 @@ describe('TurnResourceResolver rootCapabilities', () => {
     const resolver = resolverWith();
     const resolved = await resolver.resolveAgentDefinition({
       spec: makeAgentSpec(),
-      model: undefined,
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });

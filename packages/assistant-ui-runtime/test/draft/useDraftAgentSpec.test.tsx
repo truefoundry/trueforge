@@ -244,6 +244,24 @@ describe('useDraftAgentSpec', () => {
     await expect(result.current.takeTurnHeaderTimestamp()).resolves.toBe('2026-06-30T17:00:00.000Z');
   });
 
+  it('composes back-to-back updates made before a re-render', async () => {
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(defaultAgentSpec),
+      syncAgentSpec: vi.fn().mockResolvedValue('2026-06-30T18:00:00.000Z'),
+    };
+    const { result } = renderHook(() =>
+      useDraftAgentSpec({ draftSessionId: undefined, draftBridge, defaultAgentSpec }),
+    );
+    await flushMicrotasks();
+
+    act(() => {
+      result.current.updateAgentSpec({ model: { name: 'auto' } });
+      result.current.updateAgentSpec({ instructions: 'be brief' });
+    });
+
+    expect(result.current.agentSpec).toEqual({ model: { name: 'auto' }, instructions: 'be brief' });
+  });
+
   it('falls back to defaultAgentSpec and does not error when getDraftAgentSpec resolves to null', async () => {
     const onError = vi.fn();
     const draftBridge: DraftSessionBridge = {

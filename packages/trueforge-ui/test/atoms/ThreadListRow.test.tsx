@@ -53,7 +53,7 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const row = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(row?.className).toMatch(/hover:bg-ghost-button-hover/);
+    expect(row?.className).toMatch(/aui-shell-hover/);
     expect(row?.className).not.toMatch(/bg-dropdown-selected-item-bg/);
 
     rerender(
@@ -63,6 +63,38 @@ describe('ThreadListRow', () => {
     );
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
     expect(activeRow?.className).toMatch(/aui-shell-selected/);
+    expect(screen.getByText('Session A').className).toMatch(/text-inherit/);
+  });
+
+  it('marks overflowing titles so hover can scroll the full name', () => {
+    const clientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+    const scrollWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-slot') === 'aui_thread-list-item-title' ? 240 : 80;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-slot') === 'aui_thread-list-item-title' ? 240 : 80;
+      },
+    });
+
+    try {
+      const { container } = render(
+        <SlotsProvider>
+          <ThreadListRow title="Write me a very long message about GDPR" active={false} onSelect={() => {}} />
+        </SlotsProvider>,
+      );
+      const title = container.querySelector('[data-slot="aui_thread-list-item-title"]');
+      expect(title).toHaveClass('aui-thread-list-title-scroll');
+      expect(title).toHaveAttribute('data-overflow', 'true');
+    } finally {
+      if (clientWidth != null) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidth);
+      if (scrollWidth != null) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', scrollWidth);
+    }
   });
 
   it('renders agent name and relative time when provided', () => {

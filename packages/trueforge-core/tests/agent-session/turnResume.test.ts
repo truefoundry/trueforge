@@ -8,9 +8,8 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnOwnershipLostError } from '../../src/agent-session/store/SessionStoreErrors';
-import type { TurnHandle } from '../../src/agent-session/TurnHandle';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
-import { newEventId, type TurnUserEvent } from '../../src/core/events/schema';
+import { newEventId } from '../../src/core/events/schema';
 import type { IToolSet, ListToolsResponse, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
@@ -22,23 +21,7 @@ import {
   WRITE_NOTE_TOOL_NAME,
   writeNoteToolCallStream,
 } from '../orchestration/helpers/helpers';
-import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
-
-/** Drives the same accept → persist → enqueue seam as POST /events. */
-async function sendWithInbox(
-  turn: TurnHandle<undefined>,
-  store: InMemorySessionStore,
-  events: TurnUserEvent[],
-): Promise<void> {
-  for await (const batch of turn.send(events)) {
-    await store.insertTurnInboundEvents({
-      session_id: turn.session_id,
-      turn_id: turn.id,
-      active_executor_id: turn.record.active_executor_id,
-      events: batch,
-    });
-  }
-}
+import { makeAgentSpec, makeTestResolver, mintTestTurnId, sendWithInbox, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 /** notes MCP source exposing an approval-gated write_note tool; `callTool` proves allow runs it. */
 function makeWriteNoteSource(callTool: ToolSource['callTool']): ToolSource {
@@ -87,6 +70,7 @@ function makeApprovalGatedCapability(): { capability: AgentCapability; callTool:
   return { capability: { systemToolSets: [toolSet] }, callTool };
 }
 
+/** A preloaded tool set that needs OAuth until `authorize()` is called. */
 function makeAuthCapability() {
   let authorized = false;
   const listTools = jest.fn((): Promise<ListToolsResponse> => {

@@ -63,6 +63,12 @@ describe('derivePlace', () => {
     });
   });
 
+  it('settings Environments section keeps the /environments place', () => {
+    expect(derivePlace(snap({ settingsOpen: true, settingsSection: 'environments' }))).toEqual({
+      type: 'environments',
+    });
+  });
+
   it('schedules wins over environments when both are open', () => {
     expect(derivePlace(snap({ schedulesOpen: true, environmentsOpen: true }))).toEqual({ type: 'schedules' });
   });

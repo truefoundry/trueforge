@@ -32,6 +32,7 @@ export type { UserMessage } from './runtime/UserInputMessage';
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
 export type {
   AgentContextProcessorOutput,
+  AgentThreadContext,
   AgentThreadExecutionContext,
   PostToolCallAgentContextProcessor,
   PreLLMEphemeralAgentContextProcessor,
@@ -123,13 +124,13 @@ export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 export {
   CONVERSATION_ROUTING_INSTRUCTIONS,
   DEFAULT_ROUTING_QUESTION,
+  ROOT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
   type RoutingCategory,
   type RoutingQuestion,
 } from './modelRouting/question';
 export {
   AUTO_MODEL,
-  canRouteEveryCategory,
   createModelRouter,
   selectModel,
   type ModelRouterDeps,
@@ -153,6 +154,7 @@ export {
   ThreadContextCompactionStartedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  ThreadSwitchModelEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,

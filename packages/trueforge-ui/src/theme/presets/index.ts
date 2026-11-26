@@ -11,14 +11,14 @@ const DEFAULT_FONT_FAMILY = getTypefaceOption(DEFAULT_TYPEFACE_ID).fontFamily;
 
 const trueforge: PresetTokens = {
   light: {
-    sidebarBg: '#FAFCFF',
+    sidebarBg: '#F8FAFC',
     sidebarText: '#3E5680',
     topbarBg: '#FFFFFF',
-    primaryBg: '#FAFCFF',
-    secondaryBg: '#FAFCFF',
+    primaryBg: '#F8FAFC',
+    secondaryBg: '#F8FAFC',
     border: '#E0ECFD',
     fontFamily: DEFAULT_FONT_FAMILY,
-    inputBoxBg: '#FAFCFF',
+    inputBoxBg: '#F8FAFC',
     inputBorder: '#CEE0F8',
     textPrimary: '#162236',
     textSecondary: '#3E5680',
