@@ -352,6 +352,22 @@ describe('DraftModelSelector', () => {
       expect(screen.getByRole('option', { name: /Auto/ })).toBeInTheDocument();
       expect(screen.queryByText('No models')).toBeNull();
     });
+
+    it('shows a hover tooltip for Auto', async () => {
+      renderSelector({}, withAuto);
+
+      const trigger = await screen.findByRole('button', { name: 'Select model' });
+      await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+      fireEvent.click(trigger);
+
+      const auto = await screen.findByRole('option', { name: /Auto/ });
+      fireEvent.mouseEnter(auto);
+
+      const tip = await screen.findByRole('tooltip');
+      expect(tip).toHaveTextContent('Auto');
+      expect(tip).toHaveTextContent('Selects the most capable model for each task.');
+      expect(tip).toHaveTextContent('Auto is an intelligent model router that balances intelligence and cost.');
+    });
   });
 
   it('uses the first catalog model when the runtime has no draft spec', async () => {

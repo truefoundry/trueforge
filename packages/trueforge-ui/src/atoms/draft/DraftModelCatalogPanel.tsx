@@ -7,7 +7,7 @@ import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip, type TooltipSide } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_LABEL } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_LABEL, AUTO_MODEL_TOOLTIP_LINES, AUTO_MODEL_TOOLTIP_TITLE } from './autoModel.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
@@ -201,25 +201,43 @@ export function DraftModelCatalogPanel({
         <div id={listboxId} role="listbox" aria-label="Select model" className="flex flex-col p-1">
           {showAuto ? (
             <>
-              <button
-                type="button"
-                role="option"
-                aria-selected={autoActive}
-                disabled={!autoOption.enabled}
-                className={cn(
-                  'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                  autoActive ? listActiveClass : 'hover:bg-ghost-button-hover',
-                  !autoOption.enabled && 'cursor-default opacity-50 hover:bg-transparent',
-                )}
-                onClick={autoOption.onSelect}
+              <Tooltip
+                side="left"
+                interactive={false}
+                triggerClassName="w-full"
+                className="max-w-xs whitespace-normal border border-border p-3 text-left shadow-lg"
+                content={
+                  <span className="flex flex-col gap-2">
+                    <span className="font-semibold text-text-primary">{AUTO_MODEL_TOOLTIP_TITLE}</span>
+                    {AUTO_MODEL_TOOLTIP_LINES.map(line => (
+                      <span key={line} className="text-text-secondary text-xs leading-snug">
+                        {line}
+                      </span>
+                    ))}
+                  </span>
+                }
               >
-                <span className="min-w-0">
-                  <span className="block truncate font-normal">{AUTO_MODEL_LABEL}</span>
-                  {autoOption.enabled ? null : (
-                    <span className="text-text-secondary mt-0.5 block text-[10px]">{autoOption.unavailableHint}</span>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={autoActive}
+                  disabled={!autoOption.enabled}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm',
+                    autoActive ? listActiveClass : 'hover:bg-ghost-button-hover',
+                    !autoOption.enabled && 'cursor-default opacity-50 hover:bg-transparent',
                   )}
-                </span>
-              </button>
+                  onClick={autoOption.onSelect}
+                >
+                  <Icon name="wand" className="size-3.5 shrink-0" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block truncate font-normal">{AUTO_MODEL_LABEL}</span>
+                    {autoOption.enabled ? null : (
+                      <span className="text-text-secondary mt-0.5 block text-[10px]">{autoOption.unavailableHint}</span>
+                    )}
+                  </span>
+                </button>
+              </Tooltip>
               <div aria-hidden className="mx-2 my-1 border-t border-border" />
             </>
           ) : null}
