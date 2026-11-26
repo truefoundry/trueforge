@@ -194,7 +194,25 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
   }
 }
 
+const ArtifactsS3Schema = z
+  .object({
+    bucket: z.string().min(1),
+    region: z.string().min(1).optional(),
+    /** Prepended to every object key. */
+    prefix: z
+      .string()
+      .default('')
+      .transform(prefix => prefix.replace(/^\/+|\/+$/g, '')),
+    /** S3-compatible endpoint (e.g. MinIO); uses path-style addressing when set. */
+    endpoint: z.url().optional(),
+    presign_ttl_seconds: z.number().int().positive().default(300),
+  })
+  .strict();
+
+export type ArtifactsS3Config = z.infer<typeof ArtifactsS3Schema>;
+
 const ArtifactsFeatureSchema = z.object({
+  s3: ArtifactsS3Schema,
   tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
 });
 
@@ -209,7 +227,7 @@ export function parseArtifactsFeature(raw: string | undefined): ArtifactsFeature
     return ArtifactsFeatureSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      'Environment variable ARTIFACTS must be a JSON object with "s3" (bucket, region, prefix, endpoint, presign_ttl_seconds) and per-tenant "tenants" entries (e.g. {"s3":{"bucket":"<bucket>","region":"us-east-1"},"tenants":{"<tenant_id>":{"enabled":"on"}}})',
       { cause: error },
     );
   }
@@ -837,8 +855,10 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
-   * Per-tenant artifacts feature flag: JSON `{"tenants":{"<tenant_id>":{"enabled":"on"}}}`. A tenant that is on
-   * gets the `push_artifact` tool by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
+   * Artifacts: JSON with the `s3` bucket artifact files are stored in (`bucket`, optional `region`, `prefix`,
+   * `endpoint`, `presign_ttl_seconds` default 300; credentials from the standard AWS chain) and per-tenant
+   * `tenants` entries (`enabled`: `off` | `on`). A tenant that is on gets the `push_artifact` tool by default.
+   * Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
   ARTIFACTS: ArtifactsFeature | undefined;
   /** Max files in one artifact version. Env: `ARTIFACT_MAX_FILES`. Default 25. */

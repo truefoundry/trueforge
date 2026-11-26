@@ -250,7 +250,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
   sandboxProviderStore: ISandboxProviderStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
-  /** Stores for `push_artifact`; undefined when no direct-upload object store is configured. */
+  /** Stores for `push_artifact`; undefined when artifacts are off (`ARTIFACTS` unset). */
   artifacts?: ArtifactPushStores | undefined;
 }
 

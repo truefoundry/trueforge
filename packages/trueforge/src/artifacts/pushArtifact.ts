@@ -39,7 +39,7 @@ type PushArtifactInput = z.infer<typeof pushArtifactInputSchema>;
 const PUSH_ARTIFACT_TOOL_DESCRIPTION =
   'Save a sandbox directory as a new version of an artifact the user can open later. Returns the artifact id, version and URL.';
 
-interface ArtifactObject {
+export interface ArtifactObject {
   key: string;
   size_bytes: number;
   sha256_b64: string;
@@ -197,6 +197,7 @@ class PushArtifactTools extends LocalToolMCP {
         text: JSON.stringify({
           artifact_id: artifactId,
           version: version.version,
+          // TODO: placeholder; no UI or server route serves this path yet.
           url: `/artifacts/${artifactId}/v${String(version.version)}`,
         }),
         overrides: metadata,

@@ -342,7 +342,7 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   artifactStore: IArtifactStore;
-  /** `push_artifact` stores; undefined when no direct-upload object store is configured. */
+  /** `push_artifact` stores; undefined when artifacts are off (`ARTIFACTS` unset). */
   artifacts: ArtifactPushStores | undefined;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;

@@ -97,6 +97,7 @@ import type { Transaction } from 'kysely';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { createS3ArtifactObjectStore } from './artifacts/S3ArtifactObjectStore';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
 import type { RequestContext } from './auth/identity';
@@ -661,8 +662,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     activeTurns,
     agentStore,
     artifactStore,
-    // TODO: pass the S3 object store's presign/verify once it is available.
-    artifacts: undefined,
+    artifacts:
+      configuration.ARTIFACTS === undefined
+        ? undefined
+        : { artifactStore, transfer: createS3ArtifactObjectStore(configuration.ARTIFACTS.s3) },
     authenticator,
     authorizer,
     decisionModel,

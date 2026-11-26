@@ -220,13 +220,23 @@ describe('parseArtifactsFeature', () => {
     expect(parseArtifactsFeature('  ')).toBeUndefined();
   });
 
-  it('reads the per-tenant flag, defaulting a listed tenant to off', () => {
-    const parsed = parseArtifactsFeature(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }));
+  it('reads the S3 settings with defaults and the per-tenant flag', () => {
+    const parsed = parseArtifactsFeature(
+      JSON.stringify({
+        s3: { bucket: 'b', prefix: '/trueforge/' },
+        tenants: { internal: { enabled: 'on' }, other: {} },
+      }),
+    );
+    expect(parsed?.s3).toEqual({ bucket: 'b', prefix: 'trueforge', presign_ttl_seconds: 300 });
     expect(parsed?.tenants).toEqual({ internal: { enabled: 'on' }, other: { enabled: 'off' } });
   });
 
-  it('rejects malformed JSON', () => {
-    expect(() => parseArtifactsFeature('{"tenants": {"a": {"enabled": "yes"}}}')).toThrow('ARTIFACTS');
+  it.each([
+    ['missing s3', { tenants: {} }],
+    ['missing bucket', { s3: {}, tenants: {} }],
+    ['bad flag value', { s3: { bucket: 'b' }, tenants: { a: { enabled: 'yes' } } }],
+  ])('rejects %s', (_name, value) => {
+    expect(() => parseArtifactsFeature(JSON.stringify(value))).toThrow('ARTIFACTS');
   });
 });
 
