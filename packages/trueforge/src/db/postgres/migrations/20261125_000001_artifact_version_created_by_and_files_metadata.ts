@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Record the subject, session and agent that created each artifact version, and fold `entry_point` and
- * `total_bytes` into `files_metadata` jsonb with a `storage_prefix`. The feature is not live, so both
+ * `total_bytes` into `files_metadata` jsonb with a `root_path`. The feature is not live, so both
  * directions drop existing artifacts instead of backfilling.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
