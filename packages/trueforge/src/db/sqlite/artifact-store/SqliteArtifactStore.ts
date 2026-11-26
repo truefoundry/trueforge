@@ -54,9 +54,7 @@ function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
   return [
     'artifact_version.artifact_id' as const,
     'artifact_version.version' as const,
-    jsonText<ArtifactVersionMetadata>(eb.ref('artifact_version.artifact_version_metadata')).as(
-      'artifact_version_metadata',
-    ),
+    jsonText<ArtifactVersionMetadata>(eb.ref('artifact_version.files_metadata')).as('files_metadata'),
     'artifact_version.created_by_session_id' as const,
     'artifact_version.created_by_agent_id' as const,
     'artifact_version.created_at' as const,
@@ -64,7 +62,7 @@ function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
 }
 
 function toVersionRecord(row: ArtifactVersionRecord): ArtifactVersionRecord {
-  return { ...row, artifact_version_metadata: ArtifactVersionMetadataSchema.parse(row.artifact_version_metadata) };
+  return { ...row, files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata) };
 }
 
 export class SqliteArtifactStore implements IArtifactStore {
@@ -135,7 +133,7 @@ export class SqliteArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          artifact_version_metadata: jsonbBind(input.artifact_version_metadata),
+          files_metadata: jsonbBind(input.files_metadata),
           created_by_session_id: input.created_by_session_id,
           created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
@@ -146,7 +144,7 @@ export class SqliteArtifactStore implements IArtifactStore {
         .updateTable('artifact')
         .set({
           latest_version: version,
-          latest_entry_point: input.artifact_version_metadata.entry_point,
+          latest_entry_point: input.files_metadata.entry_point,
           updated_at: timestamp,
         })
         .where('id', '=', artifact.id)

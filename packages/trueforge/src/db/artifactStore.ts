@@ -24,7 +24,7 @@ export interface ArtifactRecord {
 export interface ArtifactVersionRecord {
   artifact_id: string;
   version: number;
-  artifact_version_metadata: ArtifactVersionMetadata;
+  files_metadata: ArtifactVersionMetadata;
   created_by_session_id: string;
   /** Creating session's registry agent; null for inline-spec sessions. */
   created_by_agent_id: string | null;
@@ -55,7 +55,7 @@ export interface ListArtifactsInput {
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
-  artifact_version_metadata: ArtifactVersionMetadata;
+  files_metadata: ArtifactVersionMetadata;
   created_by_session_id: string;
   /** The session's registry agent; null for inline-spec sessions. */
   created_by_agent_id: string | null;
