@@ -46,6 +46,17 @@ The catalog entries under **Settings → Connectors** (Linear, Notion, GitHub, a
   [Quickstart FAQ](/quickstart#faq).
 </Info>
 
+## Per-request headers (`x-tfg-mcp-headers`)
+
+On a turn, `x-tfg-mcp-headers` forwards extra HTTP headers to named MCP servers. The JSON object is keyed by each MCP server's name. One common use is passing the end user's credentials so the server acts as that user.
+
+```http
+x-tfg-mcp-headers: {"orders-api":{"Authorization":"Bearer <user-token>"}}
+```
+
+Here `orders-api` is the MCP server name. The header is not stored. Send it on every request that runs or resumes the turn — create-turn and `POST .../turns/{turn_id}/events` (approvals, answers, MCP auth continue). 
+If you omit it after a pause, later MCP calls run without those overrides. If you include `Authorization` for a server, that token is used instead of the connector's OAuth login.
+
 ## In-chat authentication
 
 If a server uses OAuth and the user has not yet authorized it, the turn pauses and the chat UI shows a **Connect** button. The user completes OAuth in a popup and continues the conversation — the agent does not fail.
