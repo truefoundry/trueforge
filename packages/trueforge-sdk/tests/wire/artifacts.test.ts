@@ -95,4 +95,92 @@ describe("ArtifactsClient", () => {
             return await client.artifacts.list();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
+
+    test("get (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: {
+                created_at: "2024-01-15T09:30:00Z",
+                created_by_agent_id: "created_by_agent_id",
+                created_by_session_id: "created_by_session_id",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
+                entry_point: "entry_point",
+                id: "id",
+                latest_version: 1,
+                name: "name",
+                updated_at: "2024-01-15T09:30:00Z",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/artifacts/artifact_id")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.artifacts.get("artifact_id");
+        expect(response).toEqual({
+            data: {
+                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdByAgentId: "created_by_agent_id",
+                createdBySessionId: "created_by_session_id",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
+                entryPoint: "entry_point",
+                id: "id",
+                latestVersion: 1,
+                name: "name",
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+            },
+        });
+    });
+
+    test("get (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/artifacts/artifact_id")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.get("artifact_id");
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("get (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/artifacts/artifact_id")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.artifacts.get("artifact_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
 });

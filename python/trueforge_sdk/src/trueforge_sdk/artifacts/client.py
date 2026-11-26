@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.artifact import Artifact
+from ..types.get_artifact_response import GetArtifactResponse
 from ..types.list_artifacts_response import ListArtifactsResponse
 from .raw_client import AsyncRawArtifactsClient, RawArtifactsClient
 
@@ -81,6 +82,38 @@ class ArtifactsClient:
             name=name,
             request_options=request_options,
         )
+
+    def get(self, *, artifact_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetArtifactResponse:
+        """
+        Get an artifact by id. Only the artifact creator may read it.
+
+        Parameters
+        ----------
+        artifact_id : str
+            Artifact identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetArtifactResponse
+            The artifact.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.artifacts.get(
+            artifact_id="artifact_id",
+        )
+        """
+        _response = self._raw_client.get(artifact_id=artifact_id, request_options=request_options)
+        return _response.data
 
 
 class AsyncArtifactsClient:
@@ -163,3 +196,45 @@ class AsyncArtifactsClient:
             name=name,
             request_options=request_options,
         )
+
+    async def get(
+        self, *, artifact_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetArtifactResponse:
+        """
+        Get an artifact by id. Only the artifact creator may read it.
+
+        Parameters
+        ----------
+        artifact_id : str
+            Artifact identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetArtifactResponse
+            The artifact.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.artifacts.get(
+                artifact_id="artifact_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get(artifact_id=artifact_id, request_options=request_options)
+        return _response.data

@@ -502,7 +502,7 @@ client.agents.delete(
 </details>
 
 ## Artifacts
-<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L28-L83">list</a>(...) -> ListArtifactsResponse</code></summary>
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L29-L84">list</a>(...) -> ListArtifactsResponse</code></summary>
 <dl>
 <dd>
 
@@ -577,6 +577,78 @@ client.artifacts.list()
 <dd>
 
 **name:** `typing.Optional[str]` — Case-insensitive substring match on artifact name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.artifacts.<a href="src/trueforge_sdk/artifacts/client.py#L86-L116">get</a>(...) -> GetArtifactResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get an artifact by id. Only the artifact creator may read it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.artifacts.get(
+    artifact_id="artifact_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**artifact_id:** `str` — Artifact identifier.
     
 </dd>
 </dl>

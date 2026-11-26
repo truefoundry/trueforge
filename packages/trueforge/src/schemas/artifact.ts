@@ -53,3 +53,5 @@ export const ListArtifactsResponseSchema = z
     pagination: TokenPaginationSchema,
   })
   .openapi('ListArtifactsResponse');
+
+export const GetArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('GetArtifactResponse');

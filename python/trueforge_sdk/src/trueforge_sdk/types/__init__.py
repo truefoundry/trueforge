@@ -85,6 +85,7 @@ if typing.TYPE_CHECKING:
     from .generative_ui_config import GenerativeUiConfig
     from .get_agent_code_snippets_response import GetAgentCodeSnippetsResponse
     from .get_agent_response import GetAgentResponse
+    from .get_artifact_response import GetArtifactResponse
     from .get_available_mcp_server_response import GetAvailableMcpServerResponse
     from .get_capabilities_response import GetCapabilitiesResponse
     from .get_configuration_response import GetConfigurationResponse
@@ -392,6 +393,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GenerativeUiConfig": ".generative_ui_config",
     "GetAgentCodeSnippetsResponse": ".get_agent_code_snippets_response",
     "GetAgentResponse": ".get_agent_response",
+    "GetArtifactResponse": ".get_artifact_response",
     "GetAvailableMcpServerResponse": ".get_available_mcp_server_response",
     "GetCapabilitiesResponse": ".get_capabilities_response",
     "GetConfigurationResponse": ".get_configuration_response",
@@ -723,6 +725,7 @@ __all__ = [
     "GenerativeUiConfig",
     "GetAgentCodeSnippetsResponse",
     "GetAgentResponse",
+    "GetArtifactResponse",
     "GetAvailableMcpServerResponse",
     "GetCapabilitiesResponse",
     "GetConfigurationResponse",

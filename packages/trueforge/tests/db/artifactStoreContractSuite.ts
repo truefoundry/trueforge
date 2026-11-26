@@ -5,6 +5,7 @@ import { MAX_TITLE_LENGTH } from '../../src/schemas/common';
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
 const SUBJECT: Subject = { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' };
+const OWNER = SUBJECT.subject_id;
 const AGENT_ID = 'agent-1';
 
 const LIST_DEFAULTS: ListArtifactsInput = {
@@ -127,6 +128,25 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     expect(await listNames({ name: 'rep' })).toEqual(['Quarterly Report']);
     expect(await listNames({ name: 'MAP' })).toEqual(['Roadmap']);
     expect(await listNames({ name: 'missing' })).toEqual([]);
+  });
+
+  it('gets an artifact only within its tenant', async () => {
+    const store = getStore();
+    const artifact = await createArtifact();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: OWNER })).toEqual(
+      artifact,
+    );
+    expect(
+      await store.getArtifact({ tenant_id: OTHER_TENANT, id: artifact.id, created_by_subject_id: OWNER }),
+    ).toBeUndefined();
+    expect(await store.getArtifact({ tenant_id: TENANT, id: 'missing', created_by_subject_id: OWNER })).toBeUndefined();
+  });
+
+  it('gets an artifact only for its creator', async () => {
+    const artifact = await createArtifact();
+    expect(
+      await getStore().getArtifact({ tenant_id: TENANT, id: artifact.id, created_by_subject_id: 'someone-else' }),
+    ).toBeUndefined();
   });
 
   it('creates monotonic versions and advances latest_version, latest_entry_point and updated_at', async () => {

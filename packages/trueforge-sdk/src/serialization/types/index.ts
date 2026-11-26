@@ -77,6 +77,7 @@ export * from "./FireworksModelProvider.js";
 export * from "./GenerativeUiConfig.js";
 export * from "./GetAgentCodeSnippetsResponse.js";
 export * from "./GetAgentResponse.js";
+export * from "./GetArtifactResponse.js";
 export * from "./GetAvailableMcpServerResponse.js";
 export * from "./GetCapabilitiesResponse.js";
 export * from "./GetConfigurationResponse.js";

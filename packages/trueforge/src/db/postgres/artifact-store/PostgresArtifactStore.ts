@@ -10,6 +10,7 @@ import {
   type ArtifactVersionRecord,
   type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type GetArtifactInput,
   type GetArtifactVersionInput,
   type IArtifactStore,
   type ListArtifactsInput,
@@ -65,6 +66,17 @@ export class PostgresArtifactStore implements IArtifactStore {
       .returningAll()
       .executeTakeFirstOrThrow();
     return toArtifactRecord(row);
+  }
+
+  async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('artifact')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toArtifactRecord(row);
   }
 
   async listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }> {

@@ -3,7 +3,7 @@ import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { ArtifactRecord, IArtifactStore } from '../db/artifactStore';
-import { listArtifactsRoute } from '../routes/artifactRoutes';
+import { getArtifactRoute, listArtifactsRoute } from '../routes/artifactRoutes';
 import type { Artifact } from '../schemas/artifact';
 
 export interface ArtifactsRouterDeps {
@@ -47,7 +47,22 @@ export function createArtifactsRouter(deps: ArtifactsRouterDeps) {
     }
   };
 
+  const getHandler: RouteHandler<typeof getArtifactRoute> = async c => {
+    const { artifact_id } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const artifact = await deps.artifactStore.getArtifact({
+      tenant_id: requestContext.tenant_id,
+      id: artifact_id,
+      created_by_subject_id: requestContext.subject.id,
+    });
+    if (artifact === undefined) {
+      throw new HTTPException(404, { message: `Artifact not found: ${artifact_id}` });
+    }
+    return c.json({ data: toWireArtifact(artifact) }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listArtifactsRoute, listHandler);
+  router.openapi(getArtifactRoute, getHandler);
   return router;
 }

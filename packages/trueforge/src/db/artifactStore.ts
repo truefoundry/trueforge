@@ -50,6 +50,12 @@ export interface ListArtifactsInput {
   page_token: string | undefined;
 }
 
+export interface GetArtifactInput {
+  tenant_id: string;
+  id: string;
+  created_by_subject_id: string;
+}
+
 export interface CreateArtifactVersionInput {
   tenant_id: string;
   artifact_id: string;
@@ -78,6 +84,8 @@ export function newArtifactIdentity(rawName: string): { id: string; name: string
 export interface IArtifactStore {
   /** Generates the id and validates the name (see `newArtifactIdentity`). */
   createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
+  /** Undefined when the artifact is missing, in another tenant, or not created by `created_by_subject_id`. */
+  getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /** Most recently updated first. */
   listArtifacts(input: ListArtifactsInput): Promise<{ data: ArtifactRecord[]; pagination: TokenPagination }>;
   /**
