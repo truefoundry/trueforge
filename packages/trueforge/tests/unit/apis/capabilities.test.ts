@@ -9,9 +9,11 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import configuration, { type OIDCConfig } from '../../../src/config';
+import configuration, { parseTrueFoundryModelRouting, type OIDCConfig } from '../../../src/config';
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -44,6 +46,7 @@ const ALL_SETTINGS_OFF = {
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
+const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -104,15 +107,19 @@ describe('capabilities routers', () => {
     webSearchStore,
     tenantWebSearchEnabled = true,
     tenantMemoryEnabled = true,
+    tenantAutoEnabled = true,
     hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
+    modelProviderStore,
   }: {
     authenticator?: Authenticator;
     webSearchStore?: IWebSearchProviderStore;
     tenantWebSearchEnabled?: boolean;
     tenantMemoryEnabled?: boolean;
+    tenantAutoEnabled?: boolean;
     hasMemoryProvider?: boolean;
     userStore?: IUserStore;
+    modelProviderStore?: IModelProviderStore;
   } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
     const emptyWebSearchStore: IWebSearchProviderStore = {
@@ -135,7 +142,11 @@ describe('capabilities routers', () => {
     };
     const storedConfiguration = {
       tenant_id: 'default',
-      manifest: { web_search: { enabled: tenantWebSearchEnabled }, memory: { enabled: tenantMemoryEnabled } },
+      manifest: {
+        web_search: { enabled: tenantWebSearchEnabled },
+        memory: { enabled: tenantMemoryEnabled },
+        auto_model_routing: { enabled: tenantAutoEnabled },
+      },
       updated_at: '2026-01-01T00:00:00.000Z',
     };
     const configurationStore: IConfigurationStore = {
@@ -150,7 +161,7 @@ describe('capabilities routers', () => {
         webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
         configurationStore,
         memoryProviderStore: memoryStore,
-        resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+        resolveModelProviderStore: () => modelProviderStore ?? new SqliteModelProviderStore(db),
         userStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
@@ -184,7 +195,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -263,6 +274,74 @@ describe('capabilities routers', () => {
     expect(body).not.toHaveProperty('data.memory');
   });
 
+  describe('auto', () => {
+    const routingForDefaultTenant = parseTrueFoundryModelRouting(
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
+    );
+
+    const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
+    let previousRouting: Map<(typeof routingKeys)[number], unknown> | undefined;
+
+    function enableModelRouting() {
+      previousRouting = new Map(routingKeys.map(key => [key, Reflect.get(configuration, key)]));
+      Reflect.set(configuration, 'STANDALONE', false);
+      Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+      Reflect.set(configuration, 'TRUEFOUNDRY_MODEL_ROUTING', routingForDefaultTenant);
+    }
+
+    afterEach(() => {
+      for (const [key, value] of previousRouting ?? []) {
+        Reflect.set(configuration, key, value);
+      }
+      previousRouting = undefined;
+    });
+
+    it('reports auto not configured, without a reason, when model routing is not set up for the tenant', async () => {
+      disableOidcAuth();
+      const response = await makeRouter().request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toHaveProperty('data.auto', { status: 'not_configured' });
+    });
+
+    it('reports auto disabled with a reason when the tenant turned it off', async () => {
+      disableOidcAuth();
+      enableModelRouting();
+      const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: { auto: { status: 'disabled', reason: AUTO_TENANT_OFF_REASON } },
+      });
+    });
+
+    it('reports auto disabled when the tenant allows it but has no models to route to', async () => {
+      disableOidcAuth();
+      enableModelRouting();
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const response = await makeRouter({ modelProviderStore: new SqliteModelProviderStore(db) }).request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: { auto: { status: 'disabled', reason: 'Auto mode is not available for now' } },
+      });
+    });
+
+    it('keeps the model providers section closed while the platform owns the catalog, even with auto set up', async () => {
+      disableOidcAuth();
+      enableModelRouting();
+      const response = await makeRouter({ tenantAutoEnabled: false }).request('/');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: {
+          auto: { status: 'disabled' },
+          settings: { model_providers: { enabled: false, manage_providers: false } },
+        },
+      });
+    });
+  });
+
   it.each([
     { granularity: 'tenant', userStore: new EmptyUserStore() },
     {
@@ -299,7 +378,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -319,7 +398,7 @@ describe('capabilities routers', () => {
         settings: ALL_SETTINGS_ON,
         web_search: { enabled: false, reason: NO_PROVIDER_REASON },
         memory: { enabled: true },
-        auto: { enabled: false },
+        auto: { status: 'not_configured' },
         session_sharing: { granularity: 'tenant' },
       },
     });
@@ -563,7 +642,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_ON,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           session_sharing: { granularity: 'tenant' },
         },
       });
@@ -585,7 +664,7 @@ describe('capabilities routers', () => {
           settings: ALL_SETTINGS_OFF,
           web_search: { enabled: false, reason: NO_PROVIDER_REASON },
           memory: { enabled: true },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           session_sharing: { granularity: 'tenant' },
         },
       });

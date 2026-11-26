@@ -1,5 +1,7 @@
 /** Session metadata key for New Chat vs New Agent builder intent (wire/jsonb snake_case). */
 export const IS_CREATE_AGENT_METADATA_KEY = 'tfg.is_create_agent';
+/** Pre-rename stamp; still accepted on read so older rows reopen as builder. */
+const LEGACY_IS_CREATE_AGENT_METADATA_KEY = 'is_create_agent';
 
 /** Wire metadata values are strings (`SessionMetadataSchema`). */
 export function isCreateAgentMetadataValue(isCreateAgent: boolean): 'true' | 'false' {
@@ -12,7 +14,10 @@ export function isCreateAgentMetadataValue(isCreateAgent: boolean): 'true' | 'fa
  */
 export function readSessionIsCreateAgent(metadata: Record<string, string> | null | undefined): boolean {
   if (metadata == null) return false;
-  return Reflect.get(metadata, IS_CREATE_AGENT_METADATA_KEY) === 'true';
+  return (
+    Reflect.get(metadata, IS_CREATE_AGENT_METADATA_KEY) === 'true' ||
+    Reflect.get(metadata, LEGACY_IS_CREATE_AGENT_METADATA_KEY) === 'true'
+  );
 }
 
 /** True when a UI session was stamped as agent-builder (own prop or metadata). */

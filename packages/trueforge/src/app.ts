@@ -2,7 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, type DecisionModel } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -24,15 +24,10 @@ import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBu
 import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
-import { createSessionsRouter, registerInternalSessionsRoutes } from './apis/sessions';
+import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import {
-  createTurnsRouter,
-  registerInternalSessionTurnRoutes,
-  type ResolveTurnExecutionStoresInput,
-  type TurnExecutionStores,
-} from './apis/turns';
+import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
 import { createUsersRouter } from './apis/users';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
@@ -67,6 +62,7 @@ import type { WithTransaction } from './db/transaction';
 import type { IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { HttpMetrics } from './http/prometheus';
+import { createServerTimingMiddleware } from './http/serverTiming';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -303,6 +299,7 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  decisionModel: DecisionModel | undefined;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -380,6 +377,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
   const resolveHttpAgentStore = (c: Context) => deps.resolveAgentStore(resolveRequestContext(c));
   const httpMetrics = deps.httpMetrics;
+  app.use('*', createServerTimingMiddleware());
   app.use('*', createRequestLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/*', createSessionPathLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/turns/:turn_id/*', createSessionPathLogContextMiddleware());
@@ -519,6 +517,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const scheduleTurnExecutionRouterDeps = {
     activeTurns: deps.activeTurns,
     agentStore: deps.agentStore,
+    decisionModel: deps.decisionModel,
     eventSubscriptions: deps.eventSubscriptions,
     logger: deps.logger,
     resolveMcpServerStore: deps.resolveMcpServerStore,
@@ -530,6 +529,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sessions: deps.sessions,
     sessionStore: deps.sessionStore,
     webSearchProviderStore: deps.webSearchProviderStore,
+    configurationStore: deps.configurationStore,
   };
   app.route(
     '/api/internal/schedules',
@@ -595,40 +595,27 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       catalogAdminAuthMiddleware,
     ),
   );
-  // Same prefix as public sessions; path-scoped auth (JWT vs service key) — do not wrap with withAuth('*').
-  const internalSessionsRouter = new OpenAPIHono();
-  internalSessionsRouter.use('/get-or-create-by-external-id', authMiddleware);
-  internalSessionsRouter.use('/:session_id/turns', scheduleExecutionAuthMiddleware);
-  registerInternalSessionsRoutes(internalSessionsRouter, {
-    accessControlStore: deps.accessControlStore,
-    authorizer: deps.authorizer,
-    resolveAgentStore: resolveHttpAgentStore,
-    resolveMcpServerStore: deps.resolveMcpServerStore,
-    resolveModelProviderStore: deps.resolveModelProviderStore,
-    resolveRequestContext,
-    resolveSkillStore: deps.resolveSkillStore,
-    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-    sandboxProviderStore: deps.sandboxProviderStore,
-    sessions: deps.sessions,
-    webSearchProviderStore: deps.webSearchProviderStore,
-    memoryProviderStore: deps.memoryProviderStore,
-    configurationStore: deps.configurationStore,
-  });
-  registerInternalSessionTurnRoutes(internalSessionsRouter, {
-    activeTurns: deps.activeTurns,
-    agentStore: deps.agentStore,
-    eventSubscriptions: deps.eventSubscriptions,
-    logger: deps.logger,
-    resolveMcpServerStore: deps.resolveMcpServerStore,
-    resolveModelProviderStore: deps.resolveModelProviderStore,
-    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
-    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-    sandboxProviderStore: deps.sandboxProviderStore,
-    sessions: deps.sessions,
-    sessionStore: deps.sessionStore,
-    webSearchProviderStore: deps.webSearchProviderStore,
-  });
-  app.route('/api/internal/sessions', internalSessionsRouter);
+  app.route(
+    '/api/internal/sessions',
+    withAuth(
+      createInternalSessionsRouter({
+        accessControlStore: deps.accessControlStore,
+        authorizer: deps.authorizer,
+        resolveAgentStore: resolveHttpAgentStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveRequestContext,
+        resolveSkillStore: deps.resolveSkillStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        sessions: deps.sessions,
+        webSearchProviderStore: deps.webSearchProviderStore,
+        memoryProviderStore: deps.memoryProviderStore,
+        configurationStore: deps.configurationStore,
+      }),
+      authMiddleware,
+    ),
+  );
   app.route(
     '/api/internal/metrics',
     withAuth(
@@ -672,6 +659,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       accessControlStore: deps.accessControlStore,
       activeTurns: deps.activeTurns,
       authorizer: deps.authorizer,
+      decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,
       logger: deps.logger,
       redis: deps.redis,

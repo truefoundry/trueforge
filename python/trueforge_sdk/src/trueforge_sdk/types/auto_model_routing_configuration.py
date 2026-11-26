@@ -7,10 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class SessionSourceService(UncheckedBaseModel):
-    type: typing.Literal["service"] = pydantic.Field(default="service")
+class AutoModelRoutingConfiguration(UncheckedBaseModel):
+    enabled: bool = pydantic.Field()
     """
-    Session was created by a service caller (service API key create-turn).
+    Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.
     """
 
     if IS_PYDANTIC_V2:

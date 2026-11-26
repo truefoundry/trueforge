@@ -573,6 +573,34 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'No Agents Found' })).toBeInTheDocument();
       expect(screen.getByText('Build one in a chat, then save it as an agent.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Build Now' })).toBeInTheDocument();
+    });
+  });
+
+  it('opens New Agent from Build Now on the empty registry', async () => {
+    const server = mockServer([]);
+
+    function Probe() {
+      const shell = useShellMode();
+      return (
+        <>
+          <LibraryHarness />
+          <span data-testid="create-agent">
+            {shell.mode.status === 'active' && shell.mode.isCreateAgent ? 'yes' : 'no'}
+          </span>
+          <span data-testid="library-open">{shell.libraryOpen ? 'open' : 'closed'}</span>
+        </>
+      );
+    }
+
+    renderLibrary(<Probe />, { server });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Build Now' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('create-agent')).toHaveTextContent('yes');
+      expect(screen.getByTestId('library-open')).toHaveTextContent('closed');
     });
   });
 
@@ -591,6 +619,7 @@ describe('AgentsLibrary', () => {
       expect(screen.getByText(/No search results found for/)).toBeInTheDocument();
     });
     expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Build Now' })).not.toBeInTheDocument();
   });
 
   it('seeds search from agent_name on first paint and keeps the URL in sync', async () => {

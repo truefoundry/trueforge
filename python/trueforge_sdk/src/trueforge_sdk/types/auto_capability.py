@@ -5,12 +5,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .auto_capability_status import AutoCapabilityStatus
 
 
 class AutoCapability(UncheckedBaseModel):
-    enabled: bool = pydantic.Field()
+    reason: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Whether Auto mode can be selected: the user has at least one model in every routing cluster.
+    Present when status is disabled. Explains why.
+    """
+
+    status: AutoCapabilityStatus = pydantic.Field()
+    """
+    Whether Auto can be selected. `enabled`: it can be used. `disabled`: it is turned off, see `reason`. `not_configured`: it is not available here.
     """
 
     if IS_PYDANTIC_V2:

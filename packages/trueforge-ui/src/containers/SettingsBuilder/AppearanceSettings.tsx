@@ -21,7 +21,7 @@ import {
 export default function AppearanceSettings() {
   const { typefaceId, setTypeface, resetTypeface } = useTheme();
   const track = useTrackAnalytics();
-  // Unset preference keeps Geist (brand default) on every preset.
+  // Unset preference keeps IBM Plex Sans (brand default) on every preset.
   const selectedId = typefaceId ?? DEFAULT_TYPEFACE_ID;
   const selectedOption = getTypefaceOption(selectedId);
   const isCustomized = selectedId !== DEFAULT_TYPEFACE_ID;

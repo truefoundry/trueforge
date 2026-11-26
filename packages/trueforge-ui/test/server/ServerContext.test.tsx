@@ -125,7 +125,7 @@ describe('ServerProvider', () => {
     const initialCapabilities = {
       sandbox: { enabled: true, environments: { enabled: true } },
       skill: { enabled: true },
-      auto: { enabled: false },
+      auto: { status: 'not_configured' },
       sessionSharing: tenantSessionSharing,
     };
     const getCapabilities = vi

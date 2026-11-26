@@ -1,6 +1,5 @@
 /**
- * DB-backed turns API (mounted at /api/v1/sessions) and internal create-turn
- * (mounted at /api/internal/sessions/{session_id}/turns).
+ * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type {
@@ -47,7 +46,6 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
-  OpenAIDecisionModel,
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
@@ -72,12 +70,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
-import {
-  requestContextFromCreatedBySubject,
-  requestContextFromWire,
-  type RequestContext,
-  type ResolveRequestContext,
-} from '../auth/identity';
+import { requestContextFromWire, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration, {
   enabledTenantModelRouting,
   trueFoundryModelRouting,
@@ -85,7 +78,8 @@ import configuration, {
 } from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import { EmptyCapabilitiesStore, type ICapabilitiesStore } from '../db/capabilitiesStore';
+import type { ICapabilitiesStore } from '../db/capabilitiesStore';
+import { isAutoEnabledForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -100,7 +94,6 @@ import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
 import {
   createAndExecuteTurnRoute,
-  createInternalSessionTurnRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -202,6 +195,7 @@ export interface TurnExecutionStores<TTransaction = never> {
   skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
 }
@@ -210,6 +204,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
   accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
   authorizer: Authorizer;
+  decisionModel: DecisionModel | undefined;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -252,7 +247,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
  */
 export type BeginTurnExecutionDeps<TTransaction> = Pick<
   TurnsRouterDeps<TTransaction>,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'decisionModel' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
   capabilitiesStore: ICapabilitiesStore;
@@ -262,6 +257,7 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  configurationStore: IConfigurationStore;
   /** Undefined for sessions that never use memory (scheduled runs). */
   memory: TenantMemoryDeps | undefined;
   /** Previous-turn cancel, and rebuilding a missing event stream. */
@@ -349,6 +345,7 @@ async function executionDepsForCaller<TTransaction>(input: {
   const stores = await input.deps.resolveTurnExecutionStores(input);
   return {
     activeTurns: input.deps.activeTurns,
+    decisionModel: input.deps.decisionModel,
     eventSubscriptions: input.deps.eventSubscriptions,
     logger: input.deps.logger,
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
@@ -370,40 +367,23 @@ interface BeginTurnExecutionParams<TTransaction> {
   deps: BeginTurnExecutionDeps<TTransaction>;
 }
 
-/** This turn's model routing inputs, or undefined when routing is off for the tenant. */
+/** This turn's model routing inputs, or undefined when routing is off for the tenant or its Auto mode switch is off. */
 function turnModelRouting(input: {
   routing: TrueFoundryModelRouting | undefined;
+  isAutoAllowed: boolean;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
-  turnMetadata: TurnMetadata;
+  decisionModel: DecisionModel | undefined;
 }): ModelRouterDeps | undefined {
-  const { routing, tenant_id, modelProviderStore, turnMetadata } = input;
-  if (routing === undefined) {
+  const { routing, tenant_id, modelProviderStore, decisionModel } = input;
+  if (routing === undefined || decisionModel === undefined || !input.isAutoAllowed) {
     return undefined;
   }
-  const tenantRouting = enabledTenantModelRouting(routing, tenant_id);
-  if (tenantRouting === undefined) {
+  if (enabledTenantModelRouting(routing, tenant_id) === undefined) {
     return undefined;
   }
-  // Resolved on first use, so turns that route no thread skip the lookup.
-  let decisionModel: Promise<DecisionModel> | undefined;
-  const resolveDecisionModel = () => {
-    decisionModel ??= getModelDetails({
-      tenant_id,
-      name: tenantRouting.decision_model,
-      store: modelProviderStore,
-      turnMetadata,
-    }).then(resolved => ({
-      client: new OpenAIDecisionModel(resolved.providerConfig),
-      properties: { contextLength: resolved.modelProperties?.contextLength },
-    }));
-    decisionModel.catch(() => {
-      decisionModel = undefined;
-    });
-    return decisionModel;
-  };
   return {
-    classifier: resolveDecisionModel,
+    classifier: () => Promise.resolve(decisionModel),
     question: {
       categories: routing.categories,
     },
@@ -786,7 +766,7 @@ async function prepareTurnExecution<TTransaction>(input: {
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
-  const [webSearchProvider, memoryCapability] = await Promise.all([
+  const [webSearchProvider, memoryCapability, isAutoAllowed] = await Promise.all([
     resolveWebSearchProvider({
       tenant_id: input.session.tenant_id,
       store: input.deps.webSearchProviderStore,
@@ -800,6 +780,7 @@ async function prepareTurnExecution<TTransaction>(input: {
       agentStore: input.deps.agentStore,
       logger: input.deps.logger,
     }),
+    isAutoEnabledForTenant({ tenant_id: input.session.tenant_id, store: input.deps.configurationStore }),
   ]);
   const sessionAgent = input.session.record.agent;
 
@@ -824,9 +805,10 @@ async function prepareTurnExecution<TTransaction>(input: {
     modelProviderStore: input.deps.modelProviderStore,
     modelRouting: turnModelRouting({
       routing: trueFoundryModelRouting(),
+      isAutoAllowed,
       tenant_id: input.session.tenant_id,
       modelProviderStore: input.deps.modelProviderStore,
-      turnMetadata,
+      decisionModel: input.deps.decisionModel,
     }),
     webSearchProvider,
     memoryCapability,
@@ -2444,113 +2426,4 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   deps.requestReplyRouter.registerRoute(TURNS_SEND_EVENTS_PATH, handlePeerTurnEvents(deps));
   return router;
-}
-
-/** Runtime + Context store resolvers for service-key create-turn (same shape as schedules). */
-export interface InternalSessionTurnsDeps<TTransaction = never> {
-  activeTurns: ActiveTurnRegistry<TTransaction>;
-  agentStore: IAgentStore<TTransaction>;
-  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  logger: Logger;
-  resolveMcpServerStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IMcpServerWithAuthStore<TTransaction>;
-  resolveModelProviderStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IModelProviderStore<TTransaction>;
-  resolveTurnSkillsStore: (input: {
-    c?: Context;
-    allowInlineResources?: boolean;
-  }) => Pick<ISkillStore, 'resolveTurnSkills'>;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  sessions: Sessions<TTransaction>;
-  sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
-  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
-}
-
-/** Register internal create-turn on a shared `/api/internal/sessions` router. */
-export function registerInternalSessionTurnRoutes<TTransaction>(
-  router: OpenAPIHono,
-  deps: InternalSessionTurnsDeps<TTransaction>,
-): void {
-  const handler: RouteHandler<typeof createInternalSessionTurnRoute> = async c => {
-    const { session_id: sessionId } = c.req.valid('param');
-    const body = c.req.valid('json');
-
-    // Same as schedule getRunById: session_id is the only trusted input.
-    const session = await deps.sessions.getById({ session_id: sessionId });
-    if (session === undefined) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-
-    // external_id + non-null source: service sessions already excluded from memory ingest.
-    if (session.record.external_id === null || session.record.source === null) {
-      return c.json({ error: { message: `Session is not eligible for internal turn create: ${sessionId}` } }, 403);
-    }
-
-    const tenantId = session.record.tenant_id;
-
-    // Saved-agent token exchange needs a named agent; inline sessions have no agent id to vend.
-    if (session.record.agent.type !== 'reference') {
-      return c.json(
-        {
-          error: {
-            message: 'Internal create-turn requires a session bound to a named agent (not an inline agent spec)',
-          },
-        },
-        422,
-      );
-    }
-
-    const agent = await deps.agentStore.getAgent({
-      tenant_id: tenantId,
-      id: session.record.agent.id,
-    });
-    if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${session.record.agent.id}` } }, 422);
-    }
-
-    c.set(
-      'request_context',
-      requestContextFromCreatedBySubject({
-        tenant_id: tenantId,
-        created_by_subject: session.record.created_by_subject,
-        user_credential: null,
-      }),
-    );
-    updateLogContext({ tenant_id: tenantId, session_id: sessionId });
-
-    try {
-      const turn = await startTurnInProcess({
-        session,
-        input: body.input,
-        previous_turn_id: body.previous_turn_id,
-        userRef: session.record.created_by_subject.subject_id,
-        deps: {
-          activeTurns: deps.activeTurns,
-          eventSubscriptions: deps.eventSubscriptions,
-          agentStore: deps.agentStore,
-          modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: agent }),
-          mcpServerStore: deps.resolveMcpServerStore({ c, runAsAgent: agent }),
-          sandboxProviderStore: deps.sandboxProviderStore,
-          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-          webSearchProviderStore: deps.webSearchProviderStore,
-          // Registry resolve uses the service API key (same as schedules); omit `c`.
-          skillStore: deps.resolveTurnSkillsStore({}),
-          // Internal create-turn has no caller `x-tfg-tools`.
-          capabilitiesStore: new EmptyCapabilitiesStore(),
-          // Internal service turns never read or write memory (same as schedules).
-          memory: undefined,
-          logger: deps.logger,
-          sessionStore: deps.sessionStore,
-        },
-      });
-      return c.json({ data: toWireTurn(turn.record) }, 200);
-    } catch (error) {
-      const mapped = getTurnExecutionError(error);
-      if (mapped !== undefined) {
-        return c.json({ error: { message: mapped.message } }, mapped.status);
-      }
-      throw error;
-    }
-  };
-
-  router.openapi(createInternalSessionTurnRoute, handler);
 }

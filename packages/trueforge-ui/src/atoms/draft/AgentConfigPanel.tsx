@@ -529,7 +529,7 @@ export function AgentConfigPanel({
 
         <Section
           title="Skills"
-          icon="lightbulb"
+          icon="scroll-text"
           actionIcon="plus"
           actionLabel="Add skill"
           onEdit={disabled ? undefined : () => onOpenEditor('skills')}

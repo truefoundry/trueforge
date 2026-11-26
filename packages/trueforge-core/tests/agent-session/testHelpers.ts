@@ -23,7 +23,6 @@ import type {
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import type { ModelParams } from '../../src/core/llm/model';
 import type { ModelRouterDeps } from '../../src/core/modelRouting/router';
-import type { ModelSnapshot } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
@@ -153,7 +152,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
-    routeModel: base.routeModel,
+    autoModelRouterAvailable: base.autoModelRouterAvailable,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {
@@ -168,6 +167,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
         extraCapabilities: [...(resolved.extraCapabilities ?? []), ...(options.extraCapabilities ?? [])],
       };
     },
+    resolveModel: input => base.resolveModel(input),
     close: async () => {
       if (options.close) {
         await options.close();
@@ -203,7 +203,6 @@ export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEven
 }
 
 const defaultRootThread: NewThreadInit = {
-  model: null,
   thread_id: MAIN_THREAD_ID,
   parent: null,
   agent_info: null,
@@ -221,7 +220,6 @@ export function makeCreateTurnInput(input: {
     completion?: TurnContextAppend['completion'];
   })[];
   capability_states?: CreateTurnInput['capability_states'];
-  main_thread_model?: ModelSnapshot;
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
@@ -242,7 +240,6 @@ export function makeCreateTurnInput(input: {
       completion: append.completion ?? null,
     })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
-    main_thread_model: input.main_thread_model ?? null,
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
   };
 }

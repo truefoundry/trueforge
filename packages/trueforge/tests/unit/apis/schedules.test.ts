@@ -63,6 +63,7 @@ function stubTurnExecutionDeps(
   return {
     activeTurns: new ActiveTurnRegistry({ logger: winston.createLogger({ silent: true }) }),
     agentStore,
+    decisionModel: undefined,
     eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
     logger: winston.createLogger({ silent: true }),
     resolveMcpServerStore: () => ({}) as never,
@@ -74,6 +75,7 @@ function stubTurnExecutionDeps(
     sessions: new Sessions({ sessionStore }),
     sessionStore,
     webSearchProviderStore: {} as never,
+    configurationStore: {} as never,
   };
 }
 

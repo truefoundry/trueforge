@@ -1670,19 +1670,35 @@ export function runStoreContractSuite<TTransaction>(
       expect(mustGet(afterSecond).metrics.total_turns).toBe(2);
     });
 
-    it("records the main thread's model for each turn, without carrying the previous one", async () => {
+    it("starts a new thread with no model and carries each thread's saved model into the next turn", async () => {
       const store = createStore();
       await seedSession(store);
-      const modelOf = async (turnId: string) =>
-        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads[MAIN_THREAD_ID]
-          ?.model;
-      await store.createTurn(
-        makeCreateTurnInput({
-          sessionId,
-          turnId: 'turn-1',
-          main_thread_model: { name: 'acct/model-a', effort: null },
-        }),
-      );
+      const threadsOf = async (turnId: string) =>
+        mustGet(await store.getTurn({ session_id: sessionId, turn_id: turnId })).snapshot.threads;
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      expect((await threadsOf('turn-1'))[MAIN_THREAD_ID]?.model).toBeNull();
+      const keys = { session_id: sessionId, turn_id: 'turn-1', active_executor_id: TEST_ACTIVE_EXECUTOR_ID };
+      await store.patchThreadModel({
+        ...keys,
+        thread_id: MAIN_THREAD_ID,
+        model: { name: 'acct/model-a', effort: null },
+      });
+      await store.addThreads({
+        ...keys,
+        threads: [
+          {
+            thread_id: 'child',
+            context: [],
+            current_context_usage: getEmptyCurrentContextUsage(),
+            parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+            agent_info: { type: 'dynamic', name: 'child', input: 'task', model: 'acct/model-c' },
+            model: { name: 'acct/model-c', effort: null },
+            completion: null,
+            pending_mcp_auth: false,
+            capability_state: null,
+          },
+        ],
+      });
       await finishTurn(store, 'turn-1');
       await store.createTurn(
         makeCreateTurnInput({
@@ -1690,11 +1706,17 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 'turn-2',
           previousTurnId: 'turn-1',
           firstTurnId: 'turn-1',
-          main_thread_model: { name: 'acct/model-b', effort: 'high' },
+          capability_states: [
+            { thread_id: MAIN_THREAD_ID, capability_state: null },
+            { thread_id: 'child', capability_state: null },
+          ],
         }),
       );
-      expect(await modelOf('turn-1')).toEqual({ name: 'acct/model-a', effort: null });
-      expect(await modelOf('turn-2')).toEqual({ name: 'acct/model-b', effort: 'high' });
+
+      expect((await threadsOf('turn-1'))[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/model-a', effort: null });
+      const turn2 = await threadsOf('turn-2');
+      expect(turn2[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/model-a', effort: null });
+      expect(turn2['child']?.model).toEqual({ name: 'acct/model-c', effort: null });
     });
 
     it('keeps the model of a thread added mid-turn', async () => {
@@ -1957,7 +1979,6 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
-              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
@@ -2015,9 +2036,8 @@ export function runStoreContractSuite<TTransaction>(
           sessionId,
           turnId: 't1',
           new_threads: [
-            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null, model: null },
+            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null },
             {
-              model: null,
               thread_id: 'child',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-child' },
               agent_info: { type: 'dynamic', name: 'worker', input: 'task' },
@@ -2198,19 +2218,16 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
-              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,
             },
             {
-              model: null,
               thread_id: 'child-a',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-a' },
               agent_info: { type: 'dynamic', name: 'child-a', input: 'task-a' },
             },
             {
-              model: null,
               thread_id: 'child-b',
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-b' },
               agent_info: { type: 'dynamic', name: 'child-b', input: 'task-b' },
@@ -3291,6 +3308,68 @@ export function runStoreContractSuite<TTransaction>(
       expect(events.data.map(event => event.id)).toEqual([required.id, continued.id]);
     });
 
+    it("records a thread's selected model on a running or paused turn", async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const keys = { session_id: sessionId, turn_id: 'turn-1', active_executor_id: TEST_ACTIVE_EXECUTOR_ID };
+
+      await store.patchThreadModel({
+        ...keys,
+        thread_id: MAIN_THREAD_ID,
+        model: { name: 'acct/picked', effort: 'low' },
+      });
+      let turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/picked', effort: 'low' });
+
+      const paused = makePausedTurnState();
+      await store.updateTurnNonTerminalState({
+        ...keys,
+        state: paused,
+        turn_update_event: makeTurnUpdateEvent(paused),
+        turn_metrics: turnMetricsFor(paused),
+      });
+      await store.patchThreadModel({ ...keys, thread_id: MAIN_THREAD_ID, model: { name: 'acct/other', effort: null } });
+      turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: 'acct/other', effort: null });
+    });
+
+    it('rejects a model record for a missing thread', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      await expect(
+        store.patchThreadModel({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          thread_id: 'missing-thread',
+          model: { name: 'acct/picked', effort: 'low' },
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+    });
+
+    it('rejects a model record on a finished turn or from another executor', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const patch = {
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        thread_id: MAIN_THREAD_ID,
+        model: { name: 'acct/picked', effort: 'low' },
+      };
+
+      await expect(store.patchThreadModel({ ...patch, active_executor_id: 'other-executor' })).rejects.toBeInstanceOf(
+        TurnOwnershipLostError,
+      );
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.patchThreadModel({ ...patch, active_executor_id: TEST_ACTIVE_EXECUTOR_ID }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
     it('rejects an MCP auth patch when the target thread does not exist', async () => {
       const store = createStore();
       await seedSession(store);
@@ -3821,7 +3900,6 @@ export function runStoreContractSuite<TTransaction>(
           turnId: 't1',
           new_threads: [
             {
-              model: null,
               thread_id: MAIN_THREAD_ID,
               parent: null,
               agent_info: null,

@@ -8,6 +8,7 @@ import {
   type Sessions,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { DecisionModel } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -30,6 +31,7 @@ import {
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import { EmptyCapabilitiesStore } from '../db/capabilitiesStore';
+import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -75,6 +77,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   activeTurns: ActiveTurnRegistry<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
+  decisionModel: DecisionModel | undefined;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
   /** Needed to resolve MCP servers from the agent spec. */
@@ -90,6 +93,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   /** Previous-turn cancel, and rebuilding a missing event stream. */
   sessionStore: Pick<ISessionStore<TTransaction>, 'getTurn' | 'listTurnEvents'>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+  configurationStore: IConfigurationStore;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -125,6 +129,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     userRef: prepared.userRef,
     deps: {
       activeTurns: deps.activeTurns,
+      decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,
       agentStore: deps.agentStore,
       modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: prepared.agent }),
@@ -132,6 +137,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.webSearchProviderStore,
+      configurationStore: deps.configurationStore,
       skillStore: deps.resolveTurnSkillsStore({}),
       // Schedules have no caller `x-tfg-tools`.
       capabilitiesStore: new EmptyCapabilitiesStore(),

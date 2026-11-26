@@ -102,6 +102,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
   app.route(
     '/',
     createTurnsRouter({
+      decisionModel: undefined,
       accessControlStore,
       activeTurns: new ActiveTurnRegistry({ logger }),
       authorizer: new TrueForgeAuthorizer(),
@@ -123,6 +124,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
           skillStore: new SqliteSkillStore(db),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+          configurationStore: new SqliteConfigurationStore(db),
           memory: undefined,
         }),
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),

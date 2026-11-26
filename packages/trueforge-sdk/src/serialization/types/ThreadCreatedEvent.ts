@@ -5,7 +5,6 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AgentInfo } from "./AgentInfo.js";
 import { AgentParent } from "./AgentParent.js";
-import { ModelSnapshot } from "./ModelSnapshot.js";
 
 export const ThreadCreatedEvent: core.serialization.ObjectSchema<
     serializers.ThreadCreatedEvent.Raw,
@@ -14,7 +13,6 @@ export const ThreadCreatedEvent: core.serialization.ObjectSchema<
     agentInfo: core.serialization.property("agent_info", AgentInfo),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
-    model: ModelSnapshot.optional(),
     parent: AgentParent,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     title: core.serialization.string(),
@@ -26,7 +24,6 @@ export declare namespace ThreadCreatedEvent {
         agent_info: AgentInfo.Raw;
         created_at: string;
         id: string;
-        model?: ModelSnapshot.Raw | null;
         parent: AgentParent.Raw;
         thread_id: string;
         title: string;

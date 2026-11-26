@@ -14,11 +14,12 @@ import { useIsMobile } from '@/atoms/lib/useIsMobile.js';
 import { PageHeader } from '@/atoms/PageHeader.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
-import { isSettingsSectionEnabled } from '@/server/serverChrome.js';
+import { isEnvironmentsChromeEnabled, isSettingsSectionEnabled } from '@/server/serverChrome.js';
 import {
   useOptionalCatalogServer,
   useOptionalConfigurationServer,
   useOptionalRefreshServerCapabilities,
+  useOptionalSandboxEnvironmentServer,
   useServerCapabilities,
 } from '@/server/ServerContext.js';
 import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js';
@@ -32,13 +33,16 @@ const SkillSettings = lazy(() => import('./SkillSettings.js'));
 const SandboxSettings = lazy(() => import('./SandboxSettings.js'));
 const WebSearchSettings = lazy(() => import('./WebSearchSettings.js'));
 const MemorySettings = lazy(() => import('./MemorySettings.js'));
+const EnvironmentsPage = lazy(() =>
+  import('../../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
+);
 
 type SettingsSectionItem = {
   id: SettingsSection;
   label: string;
-  icon: 'type' | 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'search' | 'brain';
-  /** Client-only sections omit a capability and always stay visible. */
-  capability?: keyof SettingsCapability;
+  icon: 'type' | 'cpu' | 'plug' | 'lightbulb' | 'cube' | 'monitor' | 'search' | 'brain';
+  /** Client-only / non-settings-capability sections omit a capability and stay visible when mounted. */
+  capability?: keyof SettingsCapability | undefined;
 };
 
 function SettingsSectionFallback() {
@@ -54,7 +58,11 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
   const configuration = useOptionalConfigurationServer();
-  const settings = useServerCapabilities()?.settings;
+  const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
+  const capabilities = useServerCapabilities();
+  const settings = capabilities?.settings;
+  // The Models tab also hosts the tenant Auto switch, which the catalog capability does not gate.
+  const hasAutoModelRouting = capabilities != null && capabilities.auto.status !== 'not_configured';
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const track = useTrackAnalytics();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
@@ -65,6 +73,10 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
   const compact = compactLayout || isMobile;
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
+  const hasEnvironments = isEnvironmentsChromeEnabled({
+    sandboxEnvironments: sandboxEnvironmentServer,
+    capabilities,
+  });
   // The tab also hosts the tenant switch, so a catalog with no web-search provider
   // list still shows it whenever the host wires the configuration port.
   const hasWebSearch = catalog?.webSearchCatalog != null || configuration != null;
@@ -100,7 +112,12 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
 
   const sections = useMemo<SettingsSectionItem[]>(() => {
     const mounted: SettingsSectionItem[] = [
-      { id: 'models', label: 'Models', icon: 'cpu', capability: 'modelProviders' },
+      {
+        id: 'models',
+        label: 'Models',
+        icon: 'cpu',
+        capability: hasAutoModelRouting ? undefined : 'modelProviders',
+      },
       { id: 'connectors', label: 'Connectors', icon: 'plug', capability: 'mcpServers' },
     ];
     if (hasSkills) {
@@ -108,6 +125,9 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     }
     if (hasSandbox) {
       mounted.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube', capability: 'sandboxProviders' });
+    }
+    if (hasEnvironments) {
+      mounted.push({ id: 'environments', label: 'Environments', icon: 'monitor' });
     }
     if (hasWebSearch) {
       mounted.push({ id: 'web-search', label: 'Web search', icon: 'search', capability: 'webSearch' });
@@ -120,7 +140,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     return mounted.filter(
       item => item.capability == null || isSettingsSectionEnabled({ settings, section: item.capability }),
     );
-  }, [hasSkills, hasSandbox, hasWebSearch, hasMemory, settings]);
+  }, [hasAutoModelRouting, hasSkills, hasSandbox, hasEnvironments, hasWebSearch, hasMemory, settings]);
 
   // A section the caller may not open (or the host never mounted) hands over to the first it may.
   const activeSection = sections.find(item => item.id === section);
@@ -155,7 +175,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
         <nav
           aria-label="Settings sections"
           className={cn(
-            'flex w-full min-w-0 gap-1 border-b border-border bg-secondary-bg/40 p-2',
+            'flex w-full min-w-0 gap-1 border-b border-border bg-card-bg p-2',
             compact
               ? 'overflow-x-auto'
               : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
@@ -168,7 +188,7 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
               aria-current={section === item.id ? 'page' : undefined}
               {...(compact ? { title: item.label } : {})}
               className={cn(
-                'flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
@@ -188,13 +208,24 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
           ))}
         </nav>
 
-        <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden px-4 py-4 sm:px-6">
-          <div className="mx-auto flex h-full min-h-0 w-full min-w-0 max-w-210 flex-col">
+        <section
+          className={cn(
+            'flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden bg-card-bg',
+            activeSection?.id === 'environments' ? 'p-0' : 'px-4 py-4 sm:px-6',
+          )}
+        >
+          <div
+            className={cn(
+              'mx-auto flex h-full min-h-0 w-full min-w-0 flex-col',
+              activeSection?.id === 'environments' ? 'max-w-none' : 'max-w-210',
+            )}
+          >
             <Suspense fallback={<SettingsSectionFallback />}>
               {activeSection?.id === 'models' ? <ModelSettings /> : null}
               {activeSection?.id === 'connectors' ? <ConnectorSettings /> : null}
               {activeSection?.id === 'skills' ? <SkillSettings /> : null}
               {activeSection?.id === 'sandbox' ? <SandboxSettings /> : null}
+              {activeSection?.id === 'environments' ? <EnvironmentsPage embedded /> : null}
               {activeSection?.id === 'web-search' ? <WebSearchSettings /> : null}
               {activeSection?.id === 'memory' ? <MemorySettings /> : null}
               {activeSection?.id === 'appearance' ? <AppearanceSettings /> : null}

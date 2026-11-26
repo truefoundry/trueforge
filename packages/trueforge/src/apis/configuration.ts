@@ -31,6 +31,7 @@ function applyPatch({
   return {
     web_search: patch.web_search ?? current.web_search,
     memory: patch.memory ?? current.memory,
+    auto_model_routing: patch.auto_model_routing ?? current.auto_model_routing,
   };
 }
 

@@ -332,7 +332,7 @@ export function AgentSessionTimelineContainer({
       className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       data-slot="agent-session-scroll"
     >
-      <div className="sticky top-0 z-20 bg-primary-bg" data-slot="agent-session-metrics-sticky">
+      <div className="sticky top-0 z-20 bg-card-bg" data-slot="agent-session-metrics-sticky">
         <AgentSessionMetricsStrip metrics={sessionMetrics} />
       </div>
       <div className="border-b border-border">

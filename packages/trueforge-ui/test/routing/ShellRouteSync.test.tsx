@@ -87,7 +87,7 @@ function SettingsCatalogProvider({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
           skill: { enabled: true },
-          auto: { enabled: false },
+          auto: { status: 'not_configured' },
           sessionSharing: tenantSessionSharing,
           settings: allSettingsSections(settingsEnabled),
         },
@@ -757,6 +757,25 @@ describe('ShellRouteSync', () => {
       expect(shell.environmentsOpen).toBe(true);
     });
     expect(pathname).toBe('/environments');
+  });
+
+  it('restoring /settings leaves the Environments tab so history does not bounce back', async () => {
+    renderSync({
+      initialEntries: ['/'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+    });
+    await waitFor(() => {
+      act(() => shell.setEnvironmentsOpen(true));
+      expect(pathname).toBe('/environments');
+    });
+    act(() => navigateApp('/settings'));
+    await waitFor(() => {
+      expect(pathname).toBe('/settings');
+      expect(shell.settingsOpen).toBe(true);
+      expect(shell.settingsSection).toBe('appearance');
+      expect(shell.environmentsOpen).toBe(false);
+    });
   });
 
   it('returns to the chat place when a /library deep link is closed', () => {

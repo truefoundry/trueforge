@@ -1,13 +1,64 @@
+import type { AgentThreadExecutionContext } from '../../../../src/core/capabilities/AgentContextProcessor';
 import {
+  contextCompaction,
   DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS,
   resolveCompactionThresholdTokens,
 } from '../../../../src/core/capabilities/builtins/ContextCompaction';
+import { EventType } from '../../../../src/core/events/schema';
+import { getEmptyUsage } from '../../../../src/core/llm/LLMTypes';
+import type { AgentModel } from '../../../../src/core/runtime/AgentModel';
+import { makeMockILLM, TEST_MODEL_NAME } from '../../harnessMocks';
+
+function modelWithContextLength(contextLength: number): AgentModel {
+  const client = makeMockILLM({
+    createNonStream: jest.fn().mockResolvedValue({
+      output: { role: 'assistant', content: 'summary' },
+      usage: getEmptyUsage(),
+    }),
+  });
+  return { client, name: TEST_MODEL_NAME, properties: { contextLength } };
+}
+
+async function compactionEventTypes(model: AgentModel, contextTokens: number): Promise<string[]> {
+  const processor = contextCompaction({}).preLLMProcessors?.[0];
+  if (processor === undefined) {
+    throw new Error('expected a compaction processor');
+  }
+  const execution: AgentThreadExecutionContext = {
+    threadId: 'main',
+    currentContextUsage: { prompt_tokens: contextTokens, completion_tokens: 0 },
+    context: [{ role: 'user', content: 'hello' }],
+    model,
+  };
+  const types: string[] = [];
+  for await (const output of processor.processPreLLM(execution)) {
+    types.push(output.type);
+  }
+  return types;
+}
+
+describe('contextCompaction', () => {
+  it('compacts against the context length of the model the thread runs on now', async () => {
+    const small = modelWithContextLength(10_000);
+    const large = modelWithContextLength(1_000_000);
+
+    expect(await compactionEventTypes(large, 50_000)).toEqual([]);
+    expect(large.client.createNonStream).not.toHaveBeenCalled();
+
+    expect(await compactionEventTypes(small, 50_000)).toEqual([
+      EventType.THREAD_CONTEXT_COMPACTION_STARTED,
+      EventType.THREAD_CONTEXT_COMPACTION_FINISHED,
+      EventType.AGENT_CONTEXT_OVERWRITE,
+    ]);
+    expect(small.client.createNonStream).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('resolveCompactionThresholdTokens', () => {
   it('prefers an explicit input-token trigger', () => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: 80_000,
+        compactionThresholdTokens: 80_000,
         modelContextLength: 200_000,
         modelParams: { max_tokens: 150_000 },
       }),
@@ -17,7 +68,7 @@ describe('resolveCompactionThresholdTokens', () => {
   it('defaults to 80% of the model context length', () => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: 128_001,
         modelParams: undefined,
       }),
@@ -30,7 +81,7 @@ describe('resolveCompactionThresholdTokens', () => {
   ])('reserves the configured $name output budget', ({ modelParams }) => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: 128_000,
         modelParams,
       }),
@@ -40,7 +91,7 @@ describe('resolveCompactionThresholdTokens', () => {
   it('prefers max_completion_tokens over max_tokens', () => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: 128_000,
         modelParams: { max_completion_tokens: 32_768, max_tokens: 64_000 },
       }),
@@ -50,7 +101,7 @@ describe('resolveCompactionThresholdTokens', () => {
   it('keeps the 80% threshold when it already leaves enough output budget', () => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: 128_000,
         modelParams: { max_tokens: 16_000 },
       }),
@@ -64,7 +115,7 @@ describe('resolveCompactionThresholdTokens', () => {
   ])('falls back to the 80% threshold when $name leaves no input budget', ({ modelParams }) => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: 128_000,
         modelParams,
       }),
@@ -74,7 +125,7 @@ describe('resolveCompactionThresholdTokens', () => {
   it('falls back to 50K when the model context length is unknown', () => {
     expect(
       resolveCompactionThresholdTokens({
-        configuredThresholdTokens: undefined,
+        compactionThresholdTokens: undefined,
         modelContextLength: undefined,
         modelParams: { max_tokens: 32_768 },
       }),

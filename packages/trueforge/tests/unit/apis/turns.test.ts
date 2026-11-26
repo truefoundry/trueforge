@@ -35,6 +35,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -65,6 +66,7 @@ function turnExecutionStores(db: Kysely<Database>, tokenStore: SqliteOAuthTokenS
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     webSearchProviderStore: new SqliteWebSearchProviderStore(db),
+    configurationStore: new SqliteConfigurationStore(db),
     memory: undefined,
   };
 }
@@ -180,6 +182,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -275,6 +278,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           accessControlStore: new SqliteAccessControlStore(db),
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: {
@@ -374,6 +378,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -444,6 +449,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -551,6 +557,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions,
@@ -681,6 +688,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
@@ -799,6 +807,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -900,6 +909,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -1017,6 +1027,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          decisionModel: undefined,
           activeTurns,
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions,

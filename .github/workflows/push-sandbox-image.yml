@@ -35,6 +35,7 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
+      enable_sign: true
 
   print-uri:
     name: Print pushed image URI
@@ -52,19 +53,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: [build]
     runs-on: ubuntu-latest
+    environment: trueforge-internal
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      id-token: write
     steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
-
       - uses: actions/checkout@v7
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - id: image
         env:
@@ -89,19 +85,76 @@ jobs:
       - if: steps.pin-uri.outputs.changed == 'true'
         run: bash scripts/changeset-sandbox-image.sh
 
-      - uses: peter-evans/create-pull-request@v8
+      - name: Join the tailnet for GitHub egress
+        if: steps.pin-uri.outputs.changed == 'true'
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
-          # GitHub will not start new workflow runs from GITHUB_TOKEN (anti-recursion).
-          # ci.yml would never run (or sit approval-required); required checks stay
-          # pending and this pin PR cannot merge. An App token is treated as a user.
-          token: ${{ steps.app-token.outputs.token }}
-          branch: release-sandbox-image
-          base: main
-          commit-message: 'chore: update sandbox image ${{ github.sha }}'
-          title: 'chore: update sandbox image ${{ github.sha }}'
-          body: |
-            Pushed `${{ steps.image.outputs.uri }}`. Merge so `release.yml` can publish the pin.
-            Existing tenants stay on `build_metadata`.
-          add-paths: |
-            packages/trueforge-core/src/core/sandbox/sandboxImage.json
-            .changeset
+          oauth-client-id: ${{ secrets.TS_CI_PUSH_SANDBOX_IMAGE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_PUSH_SANDBOX_IMAGE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-sandbox-${{ github.run_id }}
+
+      - id: app-token
+        if: steps.pin-uri.outputs.changed == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open and merge the pin PR
+        if: steps.pin-uri.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+          SHA: ${{ github.sha }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git add packages/trueforge-core/src/core/sandbox/sandboxImage.json .changeset
+          if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "::error::sandbox pin left files outside sandboxImage.json and .changeset"
+            git status --porcelain
+            exit 1
+          fi
+          git commit -m "chore: update sandbox image ${SHA}"
+          git push --force origin "HEAD:refs/heads/release-sandbox-image"
+
+          find_pr() {
+            gh pr list --repo "$GITHUB_REPOSITORY" --head release-sandbox-image \
+              --base main --state open --json number --jq '.[0].number // empty'
+          }
+          PR="$(find_pr)"
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head release-sandbox-image \
+              --title "chore: update sandbox image ${SHA}" \
+              --body "$(printf 'Pushed `%s`. Merge so `release.yml` can publish the pin.\nExisting tenants stay on `build_metadata`.\n' "$IMAGE_URI")"
+            PR="$(find_pr)"
+          fi
+          if [ -z "$PR" ]; then
+            echo "::error::could not open or find the sandbox pin PR"
+            exit 1
+          fi
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --auto
+          # Ready PRs enter the merge queue directly; autoMergeRequest stays null.
+          # Pending-check PRs get autoMergeRequest. Detect both via GraphQL.
+          OWNER="${GITHUB_REPOSITORY%/*}"
+          NAME="${GITHUB_REPOSITORY#*/}"
+          read -r STATE IN_QUEUE AUTO < <(gh api graphql \
+            -f query='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){state isInMergeQueue autoMergeRequest{enabledAt}}}}' \
+            -F o="$OWNER" -F n="$NAME" -F p="$PR" \
+            --jq '[.data.repository.pullRequest.state, (.data.repository.pullRequest.isInMergeQueue | tostring), (.data.repository.pullRequest.autoMergeRequest != null | tostring)] | @tsv')
+          if [ "$STATE" = "MERGED" ] || [ "$IN_QUEUE" = "true" ] || [ "$AUTO" = "true" ]; then
+            echo "Sandbox pin PR #${PR} state=${STATE} queue=${IN_QUEUE} auto=${AUTO}"
+          else
+            echo "::error::sandbox pin PR #${PR} did not merge or queue (state=${STATE})"
+            exit 1
+          fi
