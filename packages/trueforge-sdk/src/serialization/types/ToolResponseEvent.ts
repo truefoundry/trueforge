@@ -11,6 +11,7 @@ export const ToolResponseEvent: core.serialization.ObjectSchema<
     content: core.serialization.string(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
+    isError: core.serialization.property("is_error", core.serialization.boolean().optional()),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
     type: core.serialization.stringLiteral("tool.response"),
@@ -21,6 +22,7 @@ export declare namespace ToolResponseEvent {
         content: string;
         created_at: string;
         id: string;
+        is_error?: boolean | null;
         thread_id: string;
         tool_call_id: string;
         type: "tool.response";

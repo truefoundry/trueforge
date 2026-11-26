@@ -635,6 +635,10 @@ export class LocalSandboxProvider implements SandboxProvider {
         return { success: false, error: session.protocolError };
       }
       const result = session.stdoutText + (session.stderrText ? session.stderrText : '');
+      if (session.timedOut) {
+        const message = `Sandbox exec timed out after ${String(timeoutSeconds)}s`;
+        return { success: false, error: result ? `${message}. Partial output:\n${result}` : message };
+      }
       return {
         success: true,
         response: { exitCode: session.exitCode, result },

@@ -29,6 +29,7 @@ export interface ToolCallResult {
   // short-circuited on the success path.
   info?: MappedMCPTool | undefined;
   failure: boolean;
+  isError: boolean;
   isStructuredContent: boolean;
   completedAt: string;
 }
@@ -139,6 +140,7 @@ export async function executeToolCalls({
         toolInfo,
         response: toolResultResponse({ text: `Tool ${toolCall.function.name} not found in tool mapping` }),
         failure: true,
+        isError: true,
         completedAt: new Date().toISOString(),
       };
     }
@@ -158,6 +160,7 @@ export async function executeToolCalls({
           isError: true,
         }),
         failure: true,
+        isError: true,
         completedAt: new Date().toISOString(),
       };
     }
@@ -171,7 +174,14 @@ export async function executeToolCalls({
         approvalDecisions.get(toolCall.id),
       );
       record(toolCallOutcome(response), serverClass);
-      return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
+      return {
+        toolCall,
+        toolInfo,
+        response,
+        failure: false,
+        isError: isCallToolResponseResult(response) && response.result.isError === true,
+        completedAt: new Date().toISOString(),
+      };
     } catch (error) {
       record('thrown', serverClass);
       return {
@@ -182,13 +192,14 @@ export async function executeToolCalls({
           isError: true,
         }),
         failure: true,
+        isError: true,
         completedAt: new Date().toISOString(),
       };
     }
   });
 
   const results = await Promise.all(toolCallPromises);
-  for (const { toolCall, toolInfo, response, failure, completedAt } of results) {
+  for (const { toolCall, toolInfo, response, failure, isError, completedAt } of results) {
     if (isCallToolResponseCreateSubAgent(response)) {
       createThreadEvents.push({
         type: InternalEventType.AGENT_CREATE_SUBAGENT,
@@ -211,6 +222,8 @@ export async function executeToolCalls({
         },
         failure: true,
         info: toolInfo,
+        // A wait for sign-in, not a tool error.
+        isError: false,
         isStructuredContent: false,
         completedAt,
       });
@@ -250,6 +263,7 @@ export async function executeToolCalls({
       message: { role: 'tool' as const, tool_call_id: toolCall.id, content },
       failure,
       info: toolInfo,
+      isError,
       isStructuredContent,
       completedAt,
     });

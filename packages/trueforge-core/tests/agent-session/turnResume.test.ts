@@ -87,6 +87,22 @@ function makeApprovalGatedCapability(): { capability: AgentCapability; callTool:
   return { capability: { systemToolSets: [toolSet] }, callTool };
 }
 
+function makeToolErrorCapability(): { capability: AgentCapability; callTool: jest.Mock } {
+  const callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: 'tool failed', isError: true })));
+  const toolSet = new ToolSet({
+    source: makeWriteNoteSource(callTool),
+    selectors: {
+      enableTools: ['@all'],
+      disableTools: [],
+      preloadTools: [],
+      requireApprovalForTools: [],
+    },
+    preload: true,
+    approvalPolicies: undefined,
+  });
+  return { capability: { systemToolSets: [toolSet] }, callTool };
+}
+
 function makeAuthCapability() {
   let authorized = false;
   const listTools = jest.fn((): Promise<ListToolsResponse> => {
@@ -262,6 +278,40 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
     expect(turn.state.status).toBe('done');
     const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(stored?.state.status).toBe('done');
+  });
+
+  it('persists tool errors as response metadata without failing the turn', async () => {
+    const { session } = await createSession();
+    const { capability, callTool } = makeToolErrorCapability();
+    const llmCreate = jest
+      .fn()
+      .mockImplementationOnce(() => writeNoteToolCallStream())
+      .mockImplementation(() => textReplyStream('I handled the tool error.'));
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      abortController: new AbortController(),
+      resolver: makeTestResolver({ extraCapabilities: [capability], llmCreate }),
+    });
+
+    const events: { type: string; [key: string]: unknown }[] = [];
+    for await (const event of turn.stream()) {
+      events.push(event);
+    }
+
+    expect(callTool).toHaveBeenCalledTimes(1);
+    expect(events.find(event => event.type === EventType.TOOL_RESPONSE)).toMatchObject({
+      type: EventType.TOOL_RESPONSE,
+      tool_call_id: WRITE_NOTE_CALL_ID,
+      content: expect.stringContaining('tool failed'),
+      is_error: true,
+    });
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.TURN_DONE,
+      state: { status: 'done' },
+    });
   });
 
   it('keeps the stream parked after ownership is lost until abort', async () => {

@@ -116,6 +116,24 @@ describe('ToolCallContainer', () => {
     expect(blocks[1]).toHaveTextContent('boom');
   });
 
+  it('marks an errored tool call with error status', () => {
+    const ToolCallCard = createToolCallCardProbe();
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: '1',
+          toolName: 'flaky_tool',
+          args: {},
+          result: 'boom',
+          isError: true,
+        },
+      ],
+      { ToolCallCard },
+    );
+    expect(ToolCallCard.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ status: 'error' }));
+  });
+
   it('routes sandbox calls with parsed command and result details', () => {
     const SandboxToolCallCard = createSandboxToolCallCardProbe();
     const args = {
@@ -155,6 +173,40 @@ describe('ToolCallContainer', () => {
         resultJson: JSON.stringify(result, null, 2),
       }),
     );
+  });
+
+  it('marks sandbox tool errors as failed but not plain nonzero exits', () => {
+    const sandboxErrorCard = createSandboxToolCallCardProbe();
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'sandbox-error',
+          toolName: 'sandbox_exec',
+          args: {},
+          result: '{"error":"Sandbox initialization failed: Invalid credentials"}',
+          isError: true,
+        },
+      ],
+      { SandboxToolCallCard: sandboxErrorCard },
+    );
+    expect(sandboxErrorCard.mock.calls[0]?.[0]?.status).toBe('error');
+
+    const nonzeroExitCard = createSandboxToolCallCardProbe();
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'sandbox-exit-nonzero',
+          toolName: 'sandbox_exec',
+          args: {},
+          result: { success: true, response: { exitCode: 1, result: '' } },
+        },
+      ],
+      { SandboxToolCallCard: nonzeroExitCard },
+    );
+    expect(nonzeroExitCard.mock.calls[0]?.[0]?.exitCode).toBe(1);
+    expect(nonzeroExitCard.mock.calls[0]?.[0]?.status).not.toBe('error');
   });
 
   it('replays a completed ask-user call with a custom answer', () => {

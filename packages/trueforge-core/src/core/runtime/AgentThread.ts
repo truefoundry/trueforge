@@ -1525,6 +1525,7 @@ export class AgentThread {
         id: newEventId(),
         created_at: t.completedAt,
         thread_id: this.threadId,
+        ...(t.isError ? { is_error: true } : {}),
       };
     });
     for (const msg of agentToolMessages) {

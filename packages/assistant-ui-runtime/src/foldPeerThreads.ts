@@ -73,6 +73,7 @@ export interface ThreadBucket {
   events: Map<string, TurnEvent>;
   modelMessageIds: string[];
   toolResults: Map<string, string>;
+  toolResultErrors: Map<string, boolean>;
   pendingApprovals: Map<string, { id: string }>;
   approvalDecisions: Map<string, ApprovalDecisionRef>;
   pendingResponses: Map<string, PendingResponseRef>;
@@ -140,6 +141,7 @@ export class PeerThreadFoldState {
         events: new Map(),
         modelMessageIds: [],
         toolResults: new Map(),
+        toolResultErrors: new Map(),
         pendingApprovals: new Map(),
         approvalDecisions: new Map(),
         pendingResponses: new Map(),
@@ -217,6 +219,7 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
 
   if (message.type === EVENT_TYPE.TOOL_RESPONSE) {
     bucket.toolResults.set(message.toolCallId, message.content);
+    bucket.toolResultErrors.set(message.toolCallId, message.isError === true);
     bucket.pendingResponses.delete(message.toolCallId);
     return;
   }
@@ -235,6 +238,7 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
 
   if (message.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
     bucket.toolResults.set(message.toolCallId, message.content);
+    bucket.toolResultErrors.set(message.toolCallId, false);
     bucket.pendingResponses.delete(message.toolCallId);
     return;
   }
@@ -961,6 +965,7 @@ function buildThreadAssistantFold(
 
     for (const part of buildAssistantContent(event, {
       toolResults: bucket.toolResults,
+      toolResultErrors: bucket.toolResultErrors,
       pendingApprovals: bucket.pendingApprovals,
       approvalDecisions: bucket.approvalDecisions,
       pendingResponses: bucket.pendingResponses,
@@ -1112,6 +1117,7 @@ export function recordToolResponseInFold(
       continue;
     }
     bucket.toolResults.set(response.toolCallId, response.content);
+    bucket.toolResultErrors.set(response.toolCallId, false);
     bucket.pendingResponses.delete(response.toolCallId);
     applied = true;
   }
@@ -1120,5 +1126,6 @@ export function recordToolResponseInFold(
   }
   const rootBucket = fold.getOrCreateBucket(ROOT_THREAD_ID);
   rootBucket.toolResults.set(response.toolCallId, response.content);
+  rootBucket.toolResultErrors.set(response.toolCallId, false);
   rootBucket.pendingResponses.delete(response.toolCallId);
 }
