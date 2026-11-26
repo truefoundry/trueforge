@@ -1,5 +1,4 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { canRouteEveryCategory } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { areCatalogSettingsAvailable, hasAdminRole, type ResolveRequestContext } from '../auth/identity';
@@ -18,7 +17,7 @@ import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { hasConfiguredMemoryProvider } from '../memory/providers';
 import { getCapabilitiesRoute, type AutoCapability, type SessionSharingCapability } from '../routes/capabilityRoutes';
-import { listAutoCandidateModels } from '../runtime/autoModelRouting';
+import { canRouteEveryCategory, listAutoCandidateModels } from '../runtime/autoModelRouting';
 import { sandboxEnvironmentsEnabled } from '../sandbox/environment/support';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
@@ -68,10 +67,10 @@ function settingsCapability({
   };
 }
 
-const AUTO_TURNED_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
+const AUTO_TURNED_OFF_REASON = 'Auto mode is turned off for this tenant - it can be turned back on in settings.';
 const AUTO_UNAVAILABLE_REASON = 'Auto mode is not available for now';
 const AUTO_MODELS_RESTRICTED_REASON =
-  'Auto mode has no usable models selected - an admin can choose models for it in settings.';
+  'Auto mode has no usable models - models need to be added to the global list of candidate models in settings.';
 
 /**
  * Enabled when routing is set up, the tenant switch is on, and the user's candidate models cover every routing

@@ -9,13 +9,7 @@ import {
   SUBAGENT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
 } from '../../../src/core/modelRouting/question';
-import {
-  canRouteEveryCategory,
-  createModelRouter,
-  selectModel,
-  uncoveredRoutingCategories,
-  type RoutableModel,
-} from '../../../src/core/modelRouting/router';
+import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { internalSystemMessage } from '../../../src/core/runtime/contextUtils';
 import { buildUploadedFilesAnnouncement } from '../../../src/core/runtime/UserInputMessage';
@@ -107,31 +101,6 @@ describe('selectModel', () => {
 
   it('returns nothing for frontier when the user has no frontier model', () => {
     expect(selectModel({ category: 'frontier', models: haikuOnly })).toBeUndefined();
-  });
-});
-
-describe('canRouteEveryCategory', () => {
-  const flash: RoutableModel = { name: 'a/gemini-3-8-flash', canonicalModel: 'google/gemini-3-8-flash', cost: 1 };
-  const argon: RoutableModel = { name: 'a/gemini-4-argon', canonicalModel: 'google/gemini-4-argon', cost: 2 };
-  const fable: RoutableModel = { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 8 };
-
-  it('needs a model in every cluster, frontier included', () => {
-    // Covers direct, fixed_steps and adaptive, but nothing in frontier.
-    expect(canRouteEveryCategory([flash, argon])).toBe(false);
-    expect(canRouteEveryCategory([flash, argon, fable])).toBe(true);
-  });
-
-  it('is met by a model that sits in both adaptive and frontier clusters at different efforts', () => {
-    const sol: RoutableModel = { name: 'a/gpt-6-1-sol', canonicalModel: 'openai/gpt-6-1-sol', cost: 5 };
-    const luna: RoutableModel = { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: 1 };
-    expect(canRouteEveryCategory([luna, sol])).toBe(true);
-  });
-
-  it('names the categories no model can serve', () => {
-    expect(uncoveredRoutingCategories([flash, argon])).toEqual(['frontier']);
-    expect(uncoveredRoutingCategories([fable])).toEqual(['direct', 'fixed_steps', 'adaptive']);
-    expect(uncoveredRoutingCategories([flash, argon, fable])).toEqual([]);
-    expect(uncoveredRoutingCategories([])).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
   });
 });
 

@@ -124,16 +124,15 @@ export { OpenAIDecisionModel } from './decision/OpenAIDecisionModel';
 export {
   CONVERSATION_ROUTING_INSTRUCTIONS,
   DEFAULT_ROUTING_QUESTION,
+  ROOT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
   type RoutingCategory,
   type RoutingQuestion,
 } from './modelRouting/question';
 export {
   AUTO_MODEL,
-  canRouteEveryCategory,
   createModelRouter,
   selectModel,
-  uncoveredRoutingCategories,
   type ModelRouterDeps,
   type RoutableModel,
   type RouteInput,

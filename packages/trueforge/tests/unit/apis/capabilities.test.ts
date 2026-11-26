@@ -48,9 +48,9 @@ const ALL_SETTINGS_OFF = {
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
-const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
+const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - it can be turned back on in settings.';
 const AUTO_MODELS_RESTRICTED_REASON =
-  'Auto mode has no usable models selected - an admin can choose models for it in settings.';
+  'Auto mode has no usable models - models need to be added to the global list of candidate models in settings.';
 
 function routableModel({ name, canonicalModel }: { name: string; canonicalModel: string | undefined }): ModelInfo {
   return { name, model_id: name, provider: { name: 'acct' }, properties: {}, canonicalModel, cost: 1 };

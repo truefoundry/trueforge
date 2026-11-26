@@ -83,14 +83,9 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
         .resolveModelProviderStore(c)
         .listModels({ tenant_id: requestContext.tenant_id });
       const accessible = new Set(accessibleModels.map(model => model.name));
-      const inaccessible = [...new Set(candidateModels)].filter(name => !accessible.has(name));
-      if (inaccessible.length > 0) {
+      if (candidateModels.some(name => !accessible.has(name))) {
         return c.json(
-          {
-            error: {
-              message: `Auto can only use models you have access to. Remove ${inaccessible.join(', ')} from the list and save again.`,
-            },
-          },
+          { error: { message: 'You do not have access to all candidate models in the provided list.' } },
           400,
         );
       }

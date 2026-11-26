@@ -235,8 +235,7 @@ describe('settings configuration router', () => {
       expect(patched.status).toBe(400);
       expect(await patched.json()).toEqual({
         error: {
-          message:
-            'Auto can only use models you have access to. Remove acct/secret-a, acct/secret-b from the list and save again.',
+          message: 'You do not have access to all candidate models in the provided list.',
         },
       });
       expect(await savedList(store)).toEqual([]);

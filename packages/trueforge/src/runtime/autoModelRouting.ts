@@ -1,8 +1,13 @@
-import { uncoveredRoutingCategories, type RoutingCategory } from '@truefoundry/trueforge-core/core';
+import {
+  ROOT_ROUTING_CATEGORIES,
+  selectModel,
+  type RoutableModel,
+  type RoutingCategory,
+} from '@truefoundry/trueforge-core/core';
 import type { IModelProviderStore, ModelInfo } from '../db/modelProviderStore';
 import type { AutoModelRoutingConfiguration } from '../schemas/configuration';
 
-/** The models Auto may route to: those the caller can access, narrowed to the admin's candidate list. */
+/** The models Auto may route to: those the caller can access, narrowed to the candidate list. */
 export async function listAutoCandidateModels({
   tenant_id,
   modelProviderStore,
@@ -17,7 +22,17 @@ export async function listAutoCandidateModels({
   return accessibleModels.filter(model => candidates.has(model.name));
 }
 
-/** Each routing category in admin-facing words, as defined in `DEFAULT_ROUTING_QUESTION`. */
+/** The routing categories none of these models can serve; empty when every category has a model. */
+export function uncoveredRoutingCategories(models: readonly RoutableModel[]): RoutingCategory[] {
+  return ROOT_ROUTING_CATEGORIES.filter(category => selectModel({ category, models }) === undefined);
+}
+
+/** True when every routing category has a model the user can be routed to. */
+export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean {
+  return uncoveredRoutingCategories(models).length === 0;
+}
+
+/** Each routing category in user-facing words, as defined in `DEFAULT_ROUTING_QUESTION`. */
 const ROUTING_CATEGORY_LABELS: Record<RoutingCategory, string> = {
   direct: 'routine',
   fixed_steps: 'tool-driven',
