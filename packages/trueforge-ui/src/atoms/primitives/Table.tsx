@@ -7,17 +7,17 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { PopoverSelect } from './PopoverSelect.js';
 
-export const DEFAULT_TABLE_PAGE_SIZE = 10;
+export const DEFAULT_TABLE_PAGE_SIZE = 25;
 export const TABLE_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 export type TableProps = React.HTMLAttributes<HTMLTableElement> & {
-  /** Extra classes on the horizontal scroll wrapper. */
+  /** Extra classes on the table wrapper (avoid overflow-x here — it breaks sticky headers). */
   containerClassName?: string;
 };
 
 export function Table({ className, containerClassName, ...props }: TableProps) {
   return (
-    <div className={cn('w-full overflow-x-auto', containerClassName)}>
+    <div className={cn('w-full min-w-0', containerClassName)}>
       <table className={cn('w-full min-w-full border-collapse bg-primary-bg text-sm', className)} {...props} />
     </div>
   );
@@ -26,7 +26,16 @@ export function Table({ className, containerClassName, ...props }: TableProps) {
 export type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 export function TableHeader({ className, ...props }: TableHeaderProps) {
-  return <thead className={cn('bg-primary-bg', className)} {...props} />;
+  return (
+    <thead
+      className={cn(
+        // Opaque white sticky head; shadow on scroll via `.aui-table-sticky-header` in styles.css.
+        'aui-table-sticky-header bg-card-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card-bg',
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export type TableBodyProps = React.HTMLAttributes<HTMLTableSectionElement>;
@@ -57,7 +66,11 @@ export type TableHeadProps = React.ThHTMLAttributes<HTMLTableCellElement>;
 export function TableHead({ className, ...props }: TableHeadProps) {
   return (
     <th
-      className={cn('text-text-secondary p-3 text-left text-xs font-normal tracking-wide uppercase', className)}
+      className={cn(
+        // first/last match PageHeader px-4 so column text lines up with the page title.
+        'text-text-secondary h-10 px-3 py-0 text-left text-xs font-normal tracking-wide uppercase first:pl-4 last:pr-4',
+        className,
+      )}
       {...props}
     />
   );
@@ -69,10 +82,10 @@ export function TableCell({ className, ...props }: TableCellProps) {
   return (
     <td
       className={cn(
-        'text-text-secondary relative px-3 py-3',
+        'text-text-secondary relative h-[3.625rem] px-3 py-0 align-middle first:pl-4 last:pr-4',
         // Inset row divider (aligns with cell padding); shown for non-last body rows via TableBody.
         'after:bg-border after:pointer-events-none after:absolute after:right-0 after:bottom-0 after:left-0 after:hidden after:h-px',
-        'first:after:left-3 last:after:right-3',
+        'first:after:left-4 last:after:right-4',
         className,
       )}
       {...props}
@@ -114,7 +127,7 @@ export function TablePagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm',
         className,
       )}
     >
@@ -194,7 +207,7 @@ export function TableTokenPagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm',
         className,
       )}
     >

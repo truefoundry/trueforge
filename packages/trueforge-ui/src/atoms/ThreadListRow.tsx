@@ -21,30 +21,16 @@ export type ThreadListRowProps = {
   title: string;
   active: boolean;
   onSelect: () => void;
-  /** Named-agent label under the title (from session.agentName). */
-  agentName?: string;
+  /** Try-agent rows: agent icon at rest, kebab on hover. */
+  showTryAgentIcon?: boolean;
   /** Last-turn status for trailing status dot / running title shimmer. */
   lastTurnStatus?: TurnStatus;
-  /** Shown as compact relative time on the right. */
+  /** Hover-tip age only (not shown in the row). */
   lastMessageAt?: Date;
   /** Overflow actions (e.g. rename / delete menu) — rendered as a sibling of the title button. */
   actions?: ReactNode;
   className?: string;
 };
-
-function ThreadListAgentName({ agentName, active }: { agentName: string; active: boolean }) {
-  return (
-    <span
-      className={cn(
-        'mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem]',
-        active ? 'text-inherit' : 'text-text-secondary',
-      )}
-    >
-      <Icon name="bot" className="shrink-0" />
-      <span className="truncate">{agentName}</span>
-    </span>
-  );
-}
 
 function ThreadListRunningDots() {
   // Same geometry as Lucide `ellipsis` (r=1, centers at 5/12/19 in a 24 viewBox).
@@ -131,7 +117,7 @@ export function ThreadListRow({
   title,
   active,
   onSelect,
-  agentName,
+  showTryAgentIcon = false,
   lastTurnStatus,
   lastMessageAt,
   actions,
@@ -147,9 +133,8 @@ export function ThreadListRow({
   // Chat history keeps paused chrome; failed runs are session-list only.
   const statusLabel = running || statusDotClass != null ? lastTurnStatusLabel(lastTurnStatus) : undefined;
   const age = lastMessageAt != null ? formatRelativeShort(lastMessageAt) : undefined;
-  // Paused → status dot; running → jumping dots; otherwise relative age.
-  const relative = !running && statusDotClass == null ? age : undefined;
-  const hasTrailing = running || relative != null || statusDotClass != null || actions != null;
+  const showAgentIcon = showTryAgentIcon && !running && statusDotClass == null;
+  const hasTrailing = running || statusDotClass != null || showAgentIcon || actions != null;
 
   const row = (
     <div
@@ -191,7 +176,6 @@ export function ThreadListRow({
             ) : null}
             {statusLabel != null ? <span className="sr-only">{statusLabel}</span> : null}
           </span>
-          {agentName != null ? <ThreadListAgentName agentName={agentName} active={active} /> : null}
         </span>
       </button>
       {hasTrailing ? (
@@ -218,19 +202,17 @@ export function ThreadListRow({
             >
               <ThreadListRunningDots />
             </span>
-          ) : relative != null ? (
+          ) : showAgentIcon ? (
             <span
-              data-slot="aui_thread-list-item-age"
+              data-slot="aui_thread-list-item-agent-icon"
               className={cn(
-                'pointer-events-none absolute inset-0 flex items-center justify-center text-xs transition-opacity',
+                'pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity',
                 active ? 'text-inherit' : 'text-text-secondary',
-                // md: variants survive host Tailwind tree-shaking (same set as AgentsLibrary).
-                // Bare group-hover:opacity-* is dropped from the example CSS bundle.
                 actions != null &&
                   'opacity-0 md:opacity-100 md:group-hover:opacity-0 md:group-focus-within:opacity-0 md:group-has-[[data-state=open]]:opacity-0',
               )}
             >
-              {relative}
+              <Icon name="agent-2" className="size-3.5" />
             </span>
           ) : null}
           {actions != null ? (
@@ -238,8 +220,7 @@ export function ThreadListRow({
               data-slot="aui_thread-list-item-actions"
               className={cn(
                 'absolute inset-0 flex items-center justify-center transition-opacity',
-                (running || relative != null || statusDotClass != null) &&
-                  'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-[[data-state=open]]:opacity-100',
+                'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-[[data-state=open]]:opacity-100',
               )}
             >
               {actions}
@@ -250,7 +231,6 @@ export function ThreadListRow({
     </div>
   );
 
-  // Desktop-only hover tip: full title + age (age still shows when the trailing slot is a status dot).
   return (
     <Tooltip
       side="right"

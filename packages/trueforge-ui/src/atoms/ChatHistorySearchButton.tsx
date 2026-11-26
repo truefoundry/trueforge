@@ -164,7 +164,8 @@ function ChatHistorySearchResultRow({
     <button
       type="button"
       className={cn(
-        'flex w-full cursor-pointer items-center gap-3 rounded-md py-2 text-left text-sm text-text-primary',
+        // Full-width hover; horizontal padding only insets icon + title inside the row.
+        'flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left text-sm text-text-primary',
         'transition-colors hover:bg-ghost-button-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
       )}
       onClick={() => {
@@ -267,8 +268,7 @@ export function ChatHistorySearchButton({
           ) : (
             <div className="flex flex-col gap-0.5">
               <p className="pb-1.5 text-xs font-medium text-text-secondary/70">{sectionLabel}</p>
-              {/* Inset rows slightly so chat icons sit under the label, not flush with it. */}
-              <div className="flex flex-col gap-0.5 pl-2">
+              <div className="flex flex-col gap-0.5">
                 {indices.map(index => {
                   const key = threadIds[index] ?? String(index);
                   return (

@@ -386,9 +386,10 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
 
       <div
         className={cn(
-          'min-h-0 flex-1 overflow-auto px-4 py-4',
+          'flex min-h-0 flex-1 flex-col px-4 py-4',
           embedded && 'sm:px-6',
-          error != null ? 'flex flex-col' : undefined,
+          // Empty / error states scroll on this pane; the table card owns its own overflow.
+          (error != null || showSkeleton || environments.length === 0 || filtered.length === 0) && 'overflow-auto',
         )}
       >
         {error != null ? (
@@ -422,154 +423,160 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
             className="min-h-full"
           />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border">
-            <Table className="min-w-240 bg-card-bg">
-              <TableHeader className="bg-card-bg">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[15.6rem] max-w-[15.6rem]">Name</TableHead>
-                  <TableHead>Availability</TableHead>
-                  <TableHead>Build Status</TableHead>
-                  <TableHead>Resources</TableHead>
-                  <TableHead>Networking</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="w-16" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(env => {
-                  const actions = environmentRowActionReasons({
-                    environment: env,
-                    canManage: allows(env.id, 'MANAGE'),
-                    canDelete: allows(env.id, 'DELETE'),
-                    canSetDefault: canCreateSandboxEnvironment,
-                  });
-                  return (
-                    <TableRow
-                      key={env.id}
-                      className="cursor-pointer"
-                      onClick={() => setDrawer({ kind: 'edit', environment: env })}
-                    >
-                      <TableCell className="w-[15.6rem] max-w-[15.6rem]">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate font-medium text-text-primary">{env.name}</span>
-                            {env.isDefault ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
+            <div className="min-h-0 flex-1 overflow-auto">
+              <Table className="min-w-240 bg-card-bg">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[15.6rem] max-w-[15.6rem]">Name</TableHead>
+                    <TableHead>Availability</TableHead>
+                    <TableHead>Build Status</TableHead>
+                    <TableHead>Resources</TableHead>
+                    <TableHead>Networking</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="w-16" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(env => {
+                    const actions = environmentRowActionReasons({
+                      environment: env,
+                      canManage: allows(env.id, 'MANAGE'),
+                      canDelete: allows(env.id, 'DELETE'),
+                      canSetDefault: canCreateSandboxEnvironment,
+                    });
+                    return (
+                      <TableRow
+                        key={env.id}
+                        className="cursor-pointer"
+                        onClick={() => setDrawer({ kind: 'edit', environment: env })}
+                      >
+                        <TableCell className="w-[15.6rem] max-w-[15.6rem]">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate font-medium text-text-primary">{env.name}</span>
+                              {env.isDefault ? (
+                                <Tooltip
+                                  content="Agents that do not pick an environment run in this one."
+                                  className="max-w-xs whitespace-normal text-left"
+                                  triggerClassName="shrink-0"
+                                >
+                                  <Badge variant="info" shape="pill">
+                                    Default
+                                  </Badge>
+                                </Tooltip>
+                              ) : null}
+                            </span>
+                            {env.description.length > 0 ? (
                               <Tooltip
-                                content="Agents that do not pick an environment run in this one."
-                                className="max-w-xs whitespace-normal text-left"
-                                triggerClassName="shrink-0"
+                                content={env.description}
+                                className="max-w-sm whitespace-normal text-left"
+                                triggerClassName="block min-w-0 w-full max-w-full"
                               >
-                                <Badge variant="info" shape="pill">
-                                  Default
-                                </Badge>
+                                <span className="block truncate text-xs text-text-secondary">{env.description}</span>
                               </Tooltip>
                             ) : null}
-                          </span>
-                          {env.description.length > 0 ? (
-                            <Tooltip
-                              content={env.description}
-                              className="max-w-sm whitespace-normal text-left"
-                              triggerClassName="block min-w-0 w-full max-w-full"
-                            >
-                              <span className="block truncate text-xs text-text-secondary">{env.description}</span>
-                            </Tooltip>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={env.enabled ? 'success' : 'outline'} shape="pill" dot>
-                          {env.enabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </TableCell>
-                      {/* Status tooltip can include a copy control; don't open edit on that click. */}
-                      <TableCell onClick={event => event.stopPropagation()}>
-                        <EnvironmentStatusBadge status={env.status} statusReason={env.statusReason} />
-                      </TableCell>
-                      <TableCell className="text-sm text-text-secondary">
-                        {formatResourcesSummary(env.manifest.resources)}
-                      </TableCell>
-                      <TableCell className="text-sm text-text-secondary">
-                        {formatNetworkingSummary(env.manifest.networking)}
-                      </TableCell>
-                      <TableCell className="text-sm text-text-secondary">{formatRelativeTime(env.updatedAt)}</TableCell>
-                      {/* Swallow here, not on the trigger: the trigger's own click must reach
-                          the menu wrapper, and portal menu items still bubble through React. */}
-                      <TableCell onClick={event => event.stopPropagation()}>
-                        <DropdownMenu
-                          align="end"
-                          className="min-w-48"
-                          trigger={
-                            <button
-                              type="button"
-                              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                              aria-label={`Actions for ${env.name}`}
-                            >
-                              <Icon name="ellipsis-vertical" className="size-3.5" />
-                            </button>
-                          }
-                        >
-                          <EnvironmentActionItem
-                            label="Edit"
-                            icon="pencil"
-                            reason={actions.edit}
-                            onClick={() => setDrawer({ kind: 'edit', environment: env })}
-                          />
-                          <EnvironmentActionItem
-                            label="Set as default"
-                            icon="check"
-                            reason={actions.setDefault}
-                            onClick={() =>
-                              void applyFlagChange({
-                                change: () => environmentServer.setDefaultEnvironment({ name: env.name }),
-                                title: `“${env.name}” is now the default`,
-                              })
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={env.enabled ? 'success' : 'outline'} shape="pill" dot>
+                            {env.enabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                        </TableCell>
+                        {/* Status tooltip can include a copy control; don't open edit on that click. */}
+                        <TableCell onClick={event => event.stopPropagation()}>
+                          <EnvironmentStatusBadge status={env.status} statusReason={env.statusReason} />
+                        </TableCell>
+                        <TableCell className="text-sm text-text-secondary">
+                          {formatResourcesSummary(env.manifest.resources)}
+                        </TableCell>
+                        <TableCell className="text-sm text-text-secondary">
+                          {formatNetworkingSummary(env.manifest.networking)}
+                        </TableCell>
+                        <TableCell className="text-sm text-text-secondary">
+                          {formatRelativeTime(env.updatedAt)}
+                        </TableCell>
+                        {/* Swallow here, not on the trigger: the trigger's own click must reach
+                            the menu wrapper, and portal menu items still bubble through React. */}
+                        <TableCell onClick={event => event.stopPropagation()}>
+                          <DropdownMenu
+                            align="end"
+                            className="min-w-48"
+                            trigger={
+                              <button
+                                type="button"
+                                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                                aria-label={`Actions for ${env.name}`}
+                              >
+                                <Icon name="ellipsis-vertical" className="size-3.5" />
+                              </button>
                             }
-                          />
-                          <EnvironmentActionItem
-                            label={env.enabled ? 'Disable' : 'Enable'}
-                            icon={env.enabled ? 'circle-xmark' : 'circle-check'}
-                            reason={actions.toggleEnabled}
-                            onClick={() =>
-                              void applyFlagChange({
-                                change: () =>
-                                  environmentServer.setEnvironmentEnabled({
-                                    name: env.name,
-                                    enabled: !env.enabled,
-                                  }),
-                                title: env.enabled ? 'Environment disabled' : 'Environment enabled',
-                              })
-                            }
-                          />
-                          <EnvironmentActionItem
-                            label="Delete"
-                            icon="trash"
-                            className="text-failure-bg focus-visible:text-failure-bg"
-                            reason={actions.delete}
-                            onClick={() => setPendingDelete(env)}
-                          />
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          >
+                            <EnvironmentActionItem
+                              label="Edit"
+                              icon="pencil"
+                              reason={actions.edit}
+                              onClick={() => setDrawer({ kind: 'edit', environment: env })}
+                            />
+                            <EnvironmentActionItem
+                              label="Set as default"
+                              icon="check"
+                              reason={actions.setDefault}
+                              onClick={() =>
+                                void applyFlagChange({
+                                  change: () => environmentServer.setDefaultEnvironment({ name: env.name }),
+                                  title: `“${env.name}” is now the default`,
+                                })
+                              }
+                            />
+                            <EnvironmentActionItem
+                              label={env.enabled ? 'Disable' : 'Enable'}
+                              icon={env.enabled ? 'circle-xmark' : 'circle-check'}
+                              reason={actions.toggleEnabled}
+                              onClick={() =>
+                                void applyFlagChange({
+                                  change: () =>
+                                    environmentServer.setEnvironmentEnabled({
+                                      name: env.name,
+                                      enabled: !env.enabled,
+                                    }),
+                                  title: env.enabled ? 'Environment disabled' : 'Environment enabled',
+                                })
+                              }
+                            />
+                            <EnvironmentActionItem
+                              label="Delete"
+                              icon="trash"
+                              className="text-failure-bg focus-visible:text-failure-bg"
+                              reason={actions.delete}
+                              onClick={() => setPendingDelete(env)}
+                            />
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
             {hasPageNav ? (
-              <TableTokenPagination
-                pageSize={pageSize}
-                rowCount={filtered.length}
-                canPrev={previousPageToken != null}
-                canNext={nextPageToken != null}
-                onPrev={() => setPageCursor({ scope: pageScope, token: previousPageToken })}
-                onNext={() => {
-                  if (nextPageToken == null) return;
-                  setPageCursor({ scope: pageScope, token: nextPageToken });
-                }}
-                pageSizeOptions={ENVIRONMENTS_PAGE_SIZE_OPTIONS}
-                onPageSizeChange={size => {
-                  setPageSize(clampPageSize(size));
-                }}
-              />
+              <div className="shrink-0 border-t border-border">
+                <TableTokenPagination
+                  pageSize={pageSize}
+                  rowCount={filtered.length}
+                  canPrev={previousPageToken != null}
+                  canNext={nextPageToken != null}
+                  onPrev={() => setPageCursor({ scope: pageScope, token: previousPageToken })}
+                  onNext={() => {
+                    if (nextPageToken == null) return;
+                    setPageCursor({ scope: pageScope, token: nextPageToken });
+                  }}
+                  pageSizeOptions={ENVIRONMENTS_PAGE_SIZE_OPTIONS}
+                  onPageSizeChange={size => {
+                    setPageSize(clampPageSize(size));
+                  }}
+                />
+              </div>
             ) : null}
           </div>
         )}
