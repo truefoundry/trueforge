@@ -39,7 +39,8 @@ function toVersionRecord(row: Selectable<ArtifactVersionTable>): ArtifactVersion
   return {
     artifact_id: row.artifact_id,
     version: row.version,
-    artifact_version_metadata: ArtifactVersionMetadataSchema.parse(row.artifact_version_metadata),
+    files_metadata: ArtifactVersionMetadataSchema.parse(row.files_metadata),
+    created_by_subject: SubjectSchema.parse(row.created_by_subject),
     created_by_session_id: row.created_by_session_id,
     created_by_agent_id: row.created_by_agent_id,
     created_at: row.created_at.toISOString(),
@@ -127,7 +128,8 @@ export class PostgresArtifactStore implements IArtifactStore {
         .values({
           artifact_id: artifact.id,
           version,
-          artifact_version_metadata: json(input.artifact_version_metadata),
+          files_metadata: json(input.files_metadata),
+          created_by_subject: json(input.created_by_subject),
           created_by_session_id: input.created_by_session_id,
           created_by_agent_id: input.created_by_agent_id,
           created_at: now(),
@@ -138,7 +140,7 @@ export class PostgresArtifactStore implements IArtifactStore {
         .updateTable('artifact')
         .set({
           latest_version: version,
-          latest_entry_point: input.artifact_version_metadata.entry_point,
+          latest_entry_point: input.files_metadata.entry_point,
           updated_at: now(),
         })
         .where('id', '=', artifact.id)

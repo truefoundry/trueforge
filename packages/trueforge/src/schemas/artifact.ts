@@ -59,7 +59,7 @@ export const UpdateArtifactRequestSchema = z
 
 export const UpdateArtifactResponseSchema = z.object({ data: ArtifactSchema }).openapi('UpdateArtifactResponse');
 
-/** `artifact_version.artifact_version_metadata` jsonb only — not on wire responses. */
+/** `artifact_version.files_metadata` jsonb only — not on wire responses. */
 export const ArtifactVersionMetadataSchema = z
   .object({
     entry_point: z.string().describe('Default file to render, relative to the version files.'),

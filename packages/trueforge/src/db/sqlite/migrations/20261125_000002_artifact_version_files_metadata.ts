@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 /**
- * SQLite mirror of postgres/migrations/20261125_000002_artifact_version_metadata.ts.
+ * SQLite mirror of postgres/migrations/20261125_000002_artifact_version_files_metadata.ts.
  * Rebuild: ADD COLUMN cannot add a NOT NULL column without a default.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
@@ -10,8 +10,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       CREATE TABLE artifact_version_new (
         artifact_id TEXT NOT NULL,
         version INTEGER NOT NULL,
-        artifact_version_metadata BLOB NOT NULL,
+        files_metadata BLOB NOT NULL,
         created_at TEXT NOT NULL,
+        created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_by_agent_id TEXT,
         PRIMARY KEY (artifact_id, version),
@@ -23,8 +24,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       INSERT INTO artifact_version_new (
         artifact_id,
         version,
-        artifact_version_metadata,
+        files_metadata,
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       )
@@ -37,6 +39,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           'storage_prefix', 'artifacts/' || a.tenant_id || '/' || v.artifact_id || '/' || v.version
         )),
         v.created_at,
+        v.created_by_subject,
         v.created_by_session_id,
         v.created_by_agent_id
       FROM artifact_version v
@@ -58,6 +61,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         entry_point TEXT NOT NULL,
         total_bytes INTEGER NOT NULL,
         created_at TEXT NOT NULL,
+        created_by_subject BLOB NOT NULL,
         created_by_session_id TEXT NOT NULL,
         created_by_agent_id TEXT,
         PRIMARY KEY (artifact_id, version),
@@ -72,15 +76,17 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         entry_point,
         total_bytes,
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       )
       SELECT
         artifact_id,
         version,
-        json_extract(artifact_version_metadata, '$.entry_point'),
-        json_extract(artifact_version_metadata, '$.total_bytes'),
+        json_extract(files_metadata, '$.entry_point'),
+        json_extract(files_metadata, '$.total_bytes'),
         created_at,
+        created_by_subject,
         created_by_session_id,
         created_by_agent_id
       FROM artifact_version
