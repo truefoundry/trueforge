@@ -245,7 +245,7 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
       aria-current={newChatSelected ? 'page' : undefined}
       className={auiButtonClass({
         variant: 'ghost',
-        className: cn(navButtonClass, 'aui-shell-new-chat', newChatSelected && selectedClass),
+        className: cn(navButtonClass, newChatSelected && selectedClass),
       })}
       onClick={handleNewChat}
     >
