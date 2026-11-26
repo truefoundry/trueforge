@@ -37,6 +37,7 @@ describe('artifacts router', () => {
       tenant_id: report.tenant_id,
       artifact_id: report.id,
       files_metadata: { entry_point: 'report/index.html', total_bytes: 1, storage_prefix: 'uploads/report' },
+      created_by_subject: report.created_by_subject,
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
     });

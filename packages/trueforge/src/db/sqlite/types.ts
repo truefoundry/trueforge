@@ -493,6 +493,7 @@ export interface ArtifactVersionTable {
   version: number;
   files_metadata: JsonbColumn<ArtifactVersionMetadata>;
   created_at: string;
+  created_by_subject: JsonbColumn<Subject>;
   created_by_session_id: string;
   created_by_agent_id: string | null;
 }
