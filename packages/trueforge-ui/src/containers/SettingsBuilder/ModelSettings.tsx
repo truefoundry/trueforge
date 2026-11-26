@@ -336,11 +336,9 @@ const ModelSettings = () => {
   return (
     <>
       <h3 className="text-xl font-semibold tracking-tight text-text-primary">Models</h3>
-      <p className="mt-1 text-sm text-text-secondary">
-        {canManageProviders
-          ? 'Connect providers and choose which models are available.'
-          : 'Choose how models are picked for your chats.'}
-      </p>
+      {canManageProviders ? (
+        <p className="mt-1 text-sm text-text-secondary">Connect providers and choose which models are available.</p>
+      ) : null}
 
       {error ? (
         <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
@@ -348,7 +346,12 @@ const ModelSettings = () => {
         </p>
       ) : null}
 
-      {showAutoMode ? <AutoModeSetting /> : null}
+      {/* The pane doesn't scroll, so a tall Auto card scrolls on its own. */}
+      {showAutoMode ? (
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <AutoModeSetting />
+        </div>
+      ) : null}
 
       {canManageProviders ? (
         <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-hidden">

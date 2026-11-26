@@ -12,6 +12,7 @@ import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlStore } from '../../../src/db/sqlite/access-control-store/SqliteAccessControlStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
+import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -56,6 +57,7 @@ describe('public CRUD after session deletion', () => {
       createSessionsRouter({
         accessControlStore: new SqliteAccessControlStore(db),
         activeTurns,
+        artifactStore: new SqliteArtifactStore(db),
         authorizer: new TrueForgeAuthorizer(),
         logger: createLogger({ silent: true }),
         redis: createClient(),

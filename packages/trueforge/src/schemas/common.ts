@@ -26,6 +26,18 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
+/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return undefined;
+  }
+  if (name.includes('/', slash + 1)) {
+    return undefined;
+  }
+  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
+}
+
 /** Session titles and artifact names; matches auto-derived titles from the first user message on turn 1. */
 export const MAX_TITLE_LENGTH = 50;
 
