@@ -230,8 +230,7 @@
   color: var(--text-primary);
 }
 
-.aui-theme-root:not(.dark) .aui-shell-new-chat,
-.aui-theme-root:not(.dark) .aui-shell-new-chat:hover,
+/* Light only: New Chat uses indigo when selected — idle/hover stay normal shell chrome. */
 .aui-theme-root:not(.dark) .aui-shell-new-chat.aui-shell-selected,
 .aui-theme-root:not(.dark) .aui-shell-new-chat.aui-shell-selected:hover {
   background-color: var(--color-indigo-500);
