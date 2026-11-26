@@ -29,8 +29,8 @@ export function TableHeader({ className, ...props }: TableHeaderProps) {
   return (
     <thead
       className={cn(
-        // Soft band behind column labels; th inherit so sticky covers scrolling rows.
-        'bg-secondary-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-inherit',
+        // Opaque card surface on sticky th so scrolling rows do not show through.
+        'bg-card-bg [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card-bg',
         className,
       )}
       {...props}
