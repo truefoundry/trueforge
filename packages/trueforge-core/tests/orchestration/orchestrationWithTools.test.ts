@@ -118,6 +118,7 @@ const EXPECTED_ROOT_LLM_INPUT = [
 describe('orchestration: dynamic sub-agent', () => {
   it('delegates via create_sub_agent, routes child result to parent, then finishes', async () => {
     let agentThreadInput: AgentThreadConstructorInput = {
+      lastUsedModel: null,
       // AgentDefinition
       definition: {
         instruction: INSTRUCTION,
@@ -181,6 +182,7 @@ describe('orchestration: dynamic sub-agent', () => {
         toolSets: undefined,
       };
       return new AgentThread({
+        lastUsedModel: null,
         definition: agentDefinition,
         resolveModel: () =>
           Promise.resolve({

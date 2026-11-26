@@ -214,7 +214,7 @@ export class SessionHandle<
     // and rethrow — same pattern as the gateway's sessionTurnHandler, which
     // wraps getAgent/handler.init and calls gatewayStore.dispose() on failure.
     try {
-      const { orchestrator, agentThreads } = await this.assembleTurn({
+      const { orchestrator, agentThreads, mainThreadModel } = await this.assembleTurn({
         previous,
         resuming: false,
         userMessage: input.input,
@@ -275,6 +275,7 @@ export class SessionHandle<
           capability_state: thread.toSnapshot().capability_state,
         })),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
+        main_thread_model: mainThreadModel,
       });
 
       const refreshed = await this.store.getSession({
@@ -455,7 +456,11 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
     pendingTurnEvents: TurnUserEvent[];
-  }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
+  }): Promise<{
+    orchestrator: AgentThreadOrchestrator;
+    agentThreads: Map<string, AgentThread>;
+    mainThreadModel: ModelSnapshot | null;
+  }> {
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
     const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
@@ -526,7 +531,11 @@ export class SessionHandle<
         previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
     });
 
-    return { orchestrator, agentThreads };
+    const mainThreadModel: ModelSnapshot | null =
+      spec.model.name === AUTO_MODEL
+        ? null
+        : { name: spec.model.name, effort: spec.model.params?.reasoning_effort ?? null };
+    return { orchestrator, agentThreads, mainThreadModel };
   }
 
   private async resolveAgentDefinitions(input: {
@@ -640,6 +649,7 @@ export class SessionHandle<
       pendingMCPAuth: input.previousThreadSnapshot?.pending_mcp_auth,
       capabilities,
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
+      lastUsedModel: input.previousThreadSnapshot?.model ?? null,
       tracing: input.tracing,
       logger: input.resolver.logger,
     });
@@ -704,6 +714,7 @@ export class SessionHandle<
         parent: params.parent,
         agentInfo: params.request,
         capabilities,
+        lastUsedModel: null,
         tracing: input.tracing,
         logger: input.resolver.logger,
       });

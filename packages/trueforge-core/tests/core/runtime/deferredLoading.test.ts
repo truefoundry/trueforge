@@ -113,6 +113,7 @@ async function toolNamesSentToModel(input: {
 }): Promise<string[]> {
   const create = jest.fn().mockImplementation(() => textReplyStream('ok'));
   const thread = new AgentThread({
+    lastUsedModel: null,
     threadId: 'main',
     title: 'Main',
     tracing: NOOP_AGENT_TRACING,

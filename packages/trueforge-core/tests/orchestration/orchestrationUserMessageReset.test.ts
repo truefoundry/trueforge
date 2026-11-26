@@ -85,6 +85,7 @@ function baseThreadInput(
     sandbox: undefined,
     capabilities: undefined,
     capabilityState: undefined,
+    lastUsedModel: null,
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
     ...overrides,

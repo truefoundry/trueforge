@@ -146,6 +146,8 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
   capability_states: ThreadCapabilityStateInit[];
   /** Set only if session.title is NULL (first write wins). */
   update_session_title_if_not_exist: string | null;
+  /** Model of a fixed model spec, written onto the main thread in this insert. Null when the spec is Auto. */
+  main_thread_model: ModelSnapshot | null;
 }
 
 export interface ClaimTurnExecutorInput {
@@ -373,8 +375,8 @@ export interface ISessionStore<
    * overwritten (first write wins). The caller derives the value; the store
    * only conditionally sets it.
    *
-   * New threads start with no model, and carried threads keep the one saved with them;
-   * {@link patchThreadModel} records a routed model.
+   * A non-null `main_thread_model` is written onto the main thread in this insert; `patchThreadModel` records a
+   * routed model.
    */
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 

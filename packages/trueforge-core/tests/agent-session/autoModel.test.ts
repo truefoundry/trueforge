@@ -2,13 +2,18 @@ import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnOffloadReason } from '../../src/agent-session/TurnHandle';
+import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import type { DecisionModelCreateParams } from '../../src/core/decision/IDecisionModel';
 import { AgentHarnessError } from '../../src/core/errors';
+import { newEventId } from '../../src/core/events/schema';
 import type { LLMCreateParamsStreaming } from '../../src/core/llm/ILLM';
+import type { IToolSet, ListToolsResponse } from '../../src/core/mcp/IMCPServer';
 import { DEFAULT_ROUTING_QUESTION } from '../../src/core/modelRouting/question';
 import type { ModelRouterDeps, RoutableModel } from '../../src/core/modelRouting/router';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
+import { withTimeout } from '../../src/core/util/promiseUtils';
 import { createSubAgentStream, textReplyStream } from '../orchestration/helpers/helpers';
 import {
   makeAgentSpec,
@@ -16,6 +21,7 @@ import {
   makeTestResolver,
   makeTurnUpdateEvent,
   mintTestTurnId,
+  sendWithInbox,
   TEST_ACTIVE_EXECUTOR_ID,
 } from './testHelpers';
 
@@ -82,7 +88,10 @@ function routing(category?: (input: DecisionModelCreateParams['input']) => strin
   return { deps, calls };
 }
 
-async function createSession(model: { name: string; params?: { temperature?: number } }, subAgents = false) {
+async function createSession(
+  model: { name: string; params?: { temperature?: number; reasoning_effort?: string } },
+  subAgents = false,
+) {
   const store = new InMemorySessionStore();
   const sessions = new Sessions({ sessionStore: store });
   const session = await sessions.create({
@@ -150,6 +159,42 @@ function subAgentReplies(bodies: LLMCreateParamsStreaming[]) {
     return textReplyStream('done');
   });
   return create;
+}
+
+/** A preloaded tool set that needs OAuth until `authorize()` is called. */
+function makeAuthCapability() {
+  let authorized = false;
+  const listTools = jest.fn((): Promise<ListToolsResponse> => {
+    if (!authorized) {
+      return Promise.resolve({
+        authRequired: {
+          servers: [{ id: 'oauth-server', name: 'oauth-server', auth_url: 'https://auth.example' }],
+        },
+      });
+    }
+    return Promise.resolve({ result: { tools: [] }, wasInitialized: undefined });
+  });
+  const toolSet: IToolSet = {
+    id: 'oauth-server',
+    name: 'oauth-server',
+    serverClass: 'local',
+    preload: true,
+    hasPreloadedTools: true,
+    listTools,
+    callTool: jest.fn(),
+    toolCallInfo: jest.fn(),
+    setApprovalPolicy: jest.fn(),
+    getApprovalPolicies: jest.fn(() => ({})),
+    supportsApprovals: false,
+    hasApplicableApprovalPolicy: jest.fn(() => false),
+  };
+  return {
+    capability: { systemToolSets: [toolSet] } satisfies AgentCapability,
+    authorize: () => {
+      authorized = true;
+    },
+    listTools,
+  };
 }
 
 function turnInput(turnId: string, content: string) {
@@ -271,6 +316,57 @@ describe('auto model selection', () => {
     expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
   });
 
+  it('skips thread.switch_model on a later turn when routing picks the same model again', async () => {
+    const { store, session } = await createSession(autoSpec);
+    const resolver = () => makeTestResolver({ modelRouting: routing().deps, llmCreate: () => textReplyStream('ok') });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: resolver(),
+    });
+    for await (const event of first.stream()) void event;
+
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: resolver(),
+    });
+    const events = [];
+    for await (const event of next.stream()) events.push(event);
+
+    expect(events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL)).toHaveLength(0);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
+  });
+
+  it('emits thread.switch_model on a later turn when routing picks a different model', async () => {
+    const { store, session } = await createSession(autoSpec);
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ modelRouting: routing().deps, llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'migrate the production database'),
+      previous_turn_id: 'auto',
+      resolver: makeTestResolver({
+        modelRouting: routing(() => 'frontier').deps,
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    const events = [];
+    for await (const event of next.stream()) events.push(event);
+
+    expect(events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL)).toEqual([
+      expect.objectContaining({
+        thread_id: MAIN_THREAD_ID,
+        model: { name: FRONTIER, params: { reasoning_effort: 'medium' } },
+      }),
+    ]);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: FRONTIER, effort: 'medium' });
+  });
+
   it('runs a named model without routing, recording or saving it', async () => {
     const { store, session } = await createSession({ name: SPEC_MODEL });
     const route = routing();
@@ -284,7 +380,135 @@ describe('auto model selection', () => {
     expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
     expect(route.calls).toHaveLength(0);
     const finished = await store.getTurn({ session_id: 's1', turn_id: turn.id });
-    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toBeNull();
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: SPEC_MODEL, effort: null });
+  });
+
+  it('replaces the saved model when the named spec changes, without an event', async () => {
+    const { store, session } = await createSession({ name: SPEC_MODEL, params: { reasoning_effort: 'low' } });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const agent = session.agent;
+    if (agent.type !== 'inline') {
+      throw new Error('expected an inline agent');
+    }
+    agent.spec = makeAgentSpec({ model: { name: 'other/model', params: { reasoning_effort: 'high' } } });
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    const types: string[] = [];
+    for await (const event of next.stream()) types.push(event.type);
+
+    expect(types).not.toContain(EventType.THREAD_SWITCH_MODEL);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: 'other/model', effort: 'high' });
+  });
+
+  it('emits thread.switch_model when auto routes the named model that was saved without an effort', async () => {
+    const { store, session } = await createSession({ name: HAIKU });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const agent = session.agent;
+    if (agent.type !== 'inline') {
+      throw new Error('expected an inline agent');
+    }
+    agent.spec = makeAgentSpec({ model: autoSpec });
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: makeTestResolver({
+        modelRouting: routing().deps,
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    const events = [];
+    for await (const event of next.stream()) events.push(event);
+
+    expect(events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL)).toEqual([
+      expect.objectContaining({
+        thread_id: MAIN_THREAD_ID,
+        model: { name: HAIKU, params: { reasoning_effort: 'low' } },
+      }),
+    ]);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
+  });
+
+  it('emits thread.switch_model when auto routes away from the named model', async () => {
+    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const agent = session.agent;
+    if (agent.type !== 'inline') {
+      throw new Error('expected an inline agent');
+    }
+    agent.spec = makeAgentSpec({ model: autoSpec });
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: makeTestResolver({
+        modelRouting: routing().deps,
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    const events = [];
+    for await (const event of next.stream()) events.push(event);
+
+    expect(events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL)).toEqual([
+      expect.objectContaining({
+        thread_id: MAIN_THREAD_ID,
+        model: { name: HAIKU, params: { reasoning_effort: 'low' } },
+      }),
+    ]);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
+  });
+
+  it('emits thread.switch_model when auto routes the named model at a different effort', async () => {
+    const { store, session } = await createSession({ name: HAIKU, params: { reasoning_effort: 'high' } });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const agent = session.agent;
+    if (agent.type !== 'inline') {
+      throw new Error('expected an inline agent');
+    }
+    agent.spec = makeAgentSpec({ model: autoSpec });
+    const next = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      resolver: makeTestResolver({
+        modelRouting: routing().deps,
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    const events = [];
+    for await (const event of next.stream()) events.push(event);
+
+    expect(events.filter(event => event.type === EventType.THREAD_SWITCH_MODEL)).toEqual([
+      expect.objectContaining({
+        thread_id: MAIN_THREAD_ID,
+        model: { name: HAIKU, params: { reasoning_effort: 'low' } },
+      }),
+    ]);
+    const finished = await store.getTurn({ session_id: 's1', turn_id: next.id });
+    expect(finished?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
   });
 
   it('rejects a new auto turn when routing is off', async () => {
@@ -342,6 +566,85 @@ describe('auto model selection', () => {
     expect(names).toEqual([HAIKU]);
     expect(bodies[0]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[0]).not.toHaveProperty('temperature');
+  });
+
+  it('routes before tool init, so a turn paused on MCP sign-in resumes on the routed model', async () => {
+    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const first = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
+    });
+    for await (const event of first.stream()) void event;
+
+    const agent = session.agent;
+    if (agent.type !== 'inline') {
+      throw new Error('expected an inline agent');
+    }
+    // Also stored: the rebuild reads the spec from the store, not from this handle.
+    agent.spec = makeAgentSpec({ model: autoSpec });
+    await store.updateSession({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      agent,
+      title: undefined,
+      metadata: undefined,
+    });
+    const { capability, authorize } = makeAuthCapability();
+    const route = routing();
+    const names: string[] = [];
+    const resolverFor = () =>
+      makeTestResolver({
+        modelRouting: route.deps,
+        extraCapabilities: [capability],
+        onModel: name => names.push(name),
+        llmCreate: () => textReplyStream('ok'),
+      });
+    const original = new AbortController();
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'again'),
+      previous_turn_id: 'auto',
+      abortController: original,
+      resolver: resolverFor(),
+    });
+
+    const originalIterator = turn.stream();
+    const types: string[] = [];
+    let step = await withTimeout(originalIterator.next(), 1_000, 'initial auth event');
+    while (!step.done && !(step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused')) {
+      types.push(step.value.type);
+      step = await withTimeout(originalIterator.next(), 1_000, 'auth pause');
+    }
+    expect(step.done).toBe(false);
+    expect(types.indexOf(EventType.THREAD_SWITCH_MODEL)).toBeLessThan(types.indexOf(EventType.MCP_AUTH_REQUIRED));
+    const paused = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(paused?.snapshot.threads[MAIN_THREAD_ID]?.model).toEqual({ name: HAIKU, effort: 'low' });
+
+    const parkedOriginal = originalIterator.next();
+    parkedOriginal.catch(() => undefined);
+    original.abort(TurnOffloadReason);
+    const rebuilt = await session.rebuildTurn({
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      resolver: resolverFor(),
+      abortController: new AbortController(),
+    });
+    const iterator = rebuilt.stream();
+    const firstEvent = iterator.next();
+    authorize();
+    await sendWithInbox(rebuilt, store, [
+      { type: EventType.USER_MCP_AUTH_CONTINUE, id: newEventId(), created_at: new Date().toISOString() },
+    ]);
+    const resumedTypes: string[] = [];
+    let next = await withTimeout(firstEvent, 1_000, 'rebuilt stream start');
+    while (!next.done) {
+      resumedTypes.push(next.value.type);
+      next = await withTimeout(iterator.next(), 1_000, 'rebuilt stream');
+    }
+
+    expect(rebuilt.state.status).toBe('done');
+    expect(resumedTypes).not.toContain(EventType.THREAD_SWITCH_MODEL);
+    expect(route.calls).toHaveLength(1);
+    expect(names).toEqual([HAIKU, HAIKU]);
   });
 
   it('runs a routed subagent on its own model and effort, dropping the spec params', async () => {

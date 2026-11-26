@@ -285,6 +285,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       ],
     };
     const thread = new AgentThread({
+      lastUsedModel: null,
       definition: {},
       resolveModel: () =>
         Promise.resolve({

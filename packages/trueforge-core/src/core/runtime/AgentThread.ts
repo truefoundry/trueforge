@@ -25,6 +25,7 @@ import {
   type ModelMessageDeltaEvent,
   type ModelMessageEvent,
   type ModelMessageUsage,
+  type ModelSnapshot,
   type SandboxCreatedEvent,
   type ThreadContextCompactionFinishedEvent,
   type ThreadContextCompactionStartedEvent,
@@ -477,6 +478,8 @@ export class AgentThread {
   /** Undefined until the thread first runs and resolves it. */
   private currentModel: AgentModel | undefined = undefined;
   private readonly modelResolver: AgentThreadConstructorInput['resolveModel'];
+  /** Model this thread last ran on. Null when it has not run before. */
+  private readonly lastUsedModel: ModelSnapshot | null;
   readonly agentInfo?: AgentInfo | undefined;
   private readonly title: string;
 
@@ -517,6 +520,7 @@ export class AgentThread {
     this.threadId = input.threadId;
     this.definition = input.definition;
     this.modelResolver = input.resolveModel;
+    this.lastUsedModel = input.lastUsedModel;
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
@@ -936,7 +940,7 @@ export class AgentThread {
     return this.currentModel;
   }
 
-  /** Resolves the thread's model, recording it only when model routing chose it. */
+  /** Resolves the thread's model, recording a routed choice only when it differs from the last one this thread ran. */
   private async *resolveModel(): AsyncGenerator<ThreadSwitchModelEvent, AgentModel, unknown> {
     const { model, routed } = await this.modelResolver();
     if (routed) {
@@ -944,13 +948,17 @@ export class AgentThread {
       if (effort === undefined) {
         throw new Error(`Unreachable: routed model ${model.name} has no reasoning effort`);
       }
-      yield {
-        type: EventType.THREAD_SWITCH_MODEL,
-        id: newEventId(),
-        created_at: new Date().toISOString(),
-        thread_id: this.threadId,
-        model: { name: model.name, params: { reasoning_effort: effort } },
-      };
+      const lastUsed = this.lastUsedModel;
+      const sameAsLastUsed = lastUsed !== null && lastUsed.name === model.name && lastUsed.effort === effort;
+      if (!sameAsLastUsed) {
+        yield {
+          type: EventType.THREAD_SWITCH_MODEL,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
+          thread_id: this.threadId,
+          model: { name: model.name, params: { reasoning_effort: effort } },
+        };
+      }
     }
     return model;
   }
@@ -1626,6 +1634,10 @@ export class AgentThread {
         return;
       }
 
+      // A rebuild does not route again, so this turn's model has to be on the checkpoint
+      // before tool init, where an MCP sign-in can pause the turn.
+      this.currentModel ??= yield* this.resolveModel();
+
       if (!this.convertedTools) {
         const { initializationInfo, authRequirementInfo, convertedTools, tfyManagedServerNames } =
           await this.tracing.withInitSpan(() => this.initTools());
@@ -1654,8 +1666,6 @@ export class AgentThread {
       // A resumed turn that is still awaiting user input never reaches this loop — orchestrator
       // send() / validateSendInput rejects empty or incomplete batches before execute runs.
       let currentModelMessageEventId = '';
-
-      this.currentModel ??= yield* this.resolveModel();
 
       for (;;) {
         for (;;) {
