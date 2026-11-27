@@ -108,7 +108,7 @@ const client = new TrueForge({
 const { data: session } = await client.sessions.create({
   agent: {
     spec: {
-      model: { name: 'anthropic/claude-sonnet-4-6' }, // a model you configured in Settings
+      model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' }, // a model you configured in Settings
       instructions: 'You are a concise, helpful assistant.',
     },
   },
@@ -138,7 +138,7 @@ client = TrueForge(
 session = client.sessions.create(
     agent={
         "spec": {
-            "model": {"name": "anthropic/claude-sonnet-4-6"},  # a model you configured in Settings
+            "model": {"type": "fixed", "name": "anthropic/claude-sonnet-4-6"},  # a model you configured in Settings
             "instructions": "You are a concise, helpful assistant.",
         },
     },
