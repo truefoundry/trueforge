@@ -29,7 +29,7 @@ class ConfigurationClient:
 
     def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetConfigurationResponse:
         """
-        Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+        Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
 
         Parameters
         ----------
@@ -105,7 +105,7 @@ class AsyncConfigurationClient:
 
     async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetConfigurationResponse:
         """
-        Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+        Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
 
         Parameters
         ----------

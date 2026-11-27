@@ -8,7 +8,8 @@ export const getConfigurationRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.CONFIGURATION],
   summary: 'Get the tenant configuration',
-  description: 'Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.',
+  description:
+    'Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.',
   'x-fern-sdk-group-name': ['settings', 'configuration'],
   'x-fern-sdk-method-name': 'get',
   responses: {
@@ -19,10 +20,6 @@ export const getConfigurationRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid Bearer token or auth cookie.',
-    },
-    403: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Authenticated but not an admin.',
     },
   },
 });

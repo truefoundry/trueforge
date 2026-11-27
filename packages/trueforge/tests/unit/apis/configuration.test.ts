@@ -93,6 +93,41 @@ describe('settings configuration router', () => {
     });
   });
 
+  it("GET returns the caller tenant document and never another tenant's, even for a non-admin", async () => {
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const store = new SqliteConfigurationStore(db);
+    const router = createConfigurationRouter({
+      resolveConfigurationStore: () => store,
+      resolveModelProviderStore: () => new ListedModelsStore({ db, names: modelNames(10) }),
+      resolveRequestContext: c => ({
+        ...STANDALONE_REQUEST_CONTEXT,
+        tenant_id: c.req.header('x-tenant') ?? 'missing',
+        roles: [],
+      }),
+    });
+    const asTenant = (tenant: string, init: RequestInit = {}): Promise<Response> =>
+      Promise.resolve(router.request('/', { ...init, headers: { 'x-tenant': tenant, ...init.headers } }));
+    const candidates = modelNames(4);
+
+    await asTenant('tenant-a', {
+      ...patchInit({ web_search: { enabled: false }, auto_model_routing: { candidate_models: candidates } }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const own = await (await asTenant('tenant-a')).json();
+    expect(own).toMatchObject({
+      data: { manifest: { web_search: { enabled: false }, auto_model_routing: { candidate_models: candidates } } },
+    });
+    const other = await (await asTenant('tenant-b')).json();
+    expect(other).toMatchObject({
+      data: { manifest: { web_search: { enabled: true }, auto_model_routing: { candidate_models: [] } } },
+    });
+    await expect(store.getConfiguration('tenant-a')).resolves.toMatchObject({
+      manifest: { web_search: { enabled: false } },
+    });
+  });
+
   it('PATCH saves the switches and a later GET reads them back', async () => {
     const { router } = await createRouter();
 

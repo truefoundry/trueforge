@@ -28,7 +28,7 @@ class RawConfigurationClient:
 
     def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[GetConfigurationResponse]:
         """
-        Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+        Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
 
         Parameters
         ----------
@@ -57,17 +57,6 @@ class RawConfigurationClient:
                 return HttpResponse(response=_response, data=_data)
             if _response.status_code == 401:
                 raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -179,7 +168,7 @@ class AsyncRawConfigurationClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetConfigurationResponse]:
         """
-        Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+        Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
 
         Parameters
         ----------
@@ -208,17 +197,6 @@ class AsyncRawConfigurationClient:
                 return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 401:
                 raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

@@ -24,12 +24,11 @@ export class ConfigurationClient {
     }
 
     /**
-     * Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+     * Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
      *
      * @param {ConfigurationClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
-     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -83,17 +82,6 @@ export class ConfigurationClient {
             switch (_response.error.statusCode) {
                 case 401:
                     throw new TrueForge.UnauthorizedError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 403:
-                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

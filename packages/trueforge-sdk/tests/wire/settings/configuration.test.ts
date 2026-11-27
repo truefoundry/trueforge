@@ -67,25 +67,6 @@ describe("ConfigurationClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
-    test("get (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/configuration")
-            .respondWith()
-            .statusCode(403)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.configuration.get();
-        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
-    });
-
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

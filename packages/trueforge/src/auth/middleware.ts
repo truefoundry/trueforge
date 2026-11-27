@@ -62,6 +62,17 @@ export function buildAdminAuthMiddleware({
   };
 }
 
+/** Reads (GET) need only a signed-in caller; every other method needs an admin. */
+export function buildConfigurationAuthMiddleware({
+  readMiddleware,
+  adminMiddleware,
+}: {
+  readMiddleware: MiddlewareHandler;
+  adminMiddleware: MiddlewareHandler;
+}): MiddlewareHandler {
+  return (c, next) => (c.req.method === 'GET' ? readMiddleware(c, next) : adminMiddleware(c, next));
+}
+
 /** Constant-time compare so a rejection does not leak how much of the key matched. */
 function matchesServiceKey({ provided, expected }: { provided: string; expected: string }): boolean {
   const providedBytes = Buffer.from(provided, 'utf8');

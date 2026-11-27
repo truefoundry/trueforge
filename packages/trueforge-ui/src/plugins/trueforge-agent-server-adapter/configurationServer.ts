@@ -1,6 +1,6 @@
 /**
  * Maps the trueforge-ui tenant-switch port onto Harness
- * `/api/v1/settings/configuration` (admin-only, one document per tenant).
+ * `/api/v1/settings/configuration` (reads open to signed-in users, changes admin-only; one document per tenant).
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { ConfigurationServer, TenantConfiguration, UpdateTenantConfigurationRequest } from '../../server/types.js';

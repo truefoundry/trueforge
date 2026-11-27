@@ -19,6 +19,6 @@ Only admins can change these switches. In TrueFoundry mode, a tenant admin can o
 
 ## Manage through the API
 
-- `GET /api/v1/settings/configuration` reads the tenant switches.
-- `PATCH /api/v1/settings/configuration` updates one or both, for example `{ "manifest": { "web_search": { "enabled": false }, "memory": { "enabled": true } } }`.
+- `GET /api/v1/settings/configuration` reads the tenant switches. Any signed-in user can call it.
+- `PATCH /api/v1/settings/configuration` updates one or both and is admin-only, for example `{ "manifest": { "web_search": { "enabled": false }, "memory": { "enabled": true } } }`.
 - `GET /api/v1/capabilities` reports whether web search and memory are available to agents, including when a tenant switch is off.

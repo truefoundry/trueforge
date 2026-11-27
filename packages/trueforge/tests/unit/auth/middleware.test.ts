@@ -6,6 +6,7 @@ import type { Authenticator } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import {
   buildAdminAuthMiddleware,
+  buildConfigurationAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
 } from '../../../src/auth/middleware';
@@ -405,6 +406,44 @@ describe('createAuthMiddleware / buildAdminAuthMiddleware', () => {
       const res = await createApp(new OidcAuthenticator()).request(path);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ public: true });
+    });
+
+    describe('read-auth, admin-write gate', () => {
+      function createConfigurationApp() {
+        const authenticator = new OidcAuthenticator();
+        const app = new OpenAPIHono();
+        app.onError((error, c) => {
+          if (error instanceof HTTPException) {
+            return c.json({ error: { message: error.message } }, error.status);
+          }
+          throw error;
+        });
+        const router = new OpenAPIHono();
+        router.use(
+          '*',
+          buildConfigurationAuthMiddleware({
+            readMiddleware: createAuthMiddleware(authenticator),
+            adminMiddleware: buildAdminAuthMiddleware({ authenticator, accessible: true }),
+          }),
+        );
+        router.get('/', c => c.json({ ok: true }));
+        router.patch('/', c => c.json({ ok: true }));
+        app.route('/api/v1/settings/configuration', router);
+        return app;
+      }
+
+      it.each([
+        { caller: 'not signed in', groups: undefined, get: 401, patch: 401 },
+        { caller: 'a signed-in non-admin', groups: [], get: 200, patch: 403 },
+        { caller: 'an admin', groups: ['admin'], get: 200, patch: 200 },
+      ])('gates $caller: GET $get, PATCH $patch', async ({ groups, get, patch }) => {
+        const headers: Record<string, string> =
+          groups === undefined ? {} : { Cookie: `id_token=${await createIdToken({ groups })}` };
+        const app = createConfigurationApp();
+        const path = '/api/v1/settings/configuration';
+        expect((await app.request(path, { headers })).status).toBe(get);
+        expect((await app.request(path, { method: 'PATCH', headers })).status).toBe(patch);
+      });
     });
   });
 });

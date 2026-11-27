@@ -4349,7 +4349,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dl>
 <dd>
 
-Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.
+Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.
 </dd>
 </dl>
 </dd>

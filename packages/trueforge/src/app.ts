@@ -34,6 +34,7 @@ import type { Authorizer } from './auth/authorizer';
 import { areCatalogSettingsAvailable, resolveRequestContext, type RequestContext } from './auth/identity';
 import {
   buildAdminAuthMiddleware,
+  buildConfigurationAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
   createAuthOrServiceKeyMiddleware,
@@ -563,8 +564,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/artifacts',
     withAuth(createArtifactsRouter({ artifactStore: deps.artifactStore, resolveRequestContext }), authMiddleware),
   );
-  // Registered before /api/v1/settings: tenant-wide switches are admin-gated in every mode,
-  // while the catalog settings below stay closed in TrueFoundry mode.
+  // Registered before /api/v1/settings: any signed-in user may read the tenant-wide switches,
+  // only admins may change them in every mode, while the catalog settings below stay closed in TrueFoundry mode.
   app.route(
     '/api/v1/settings/configuration',
     withAuth(
@@ -573,7 +574,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
         resolveRequestContext,
       }),
-      adminAuthMiddleware,
+      buildConfigurationAuthMiddleware({ readMiddleware: authMiddleware, adminMiddleware: adminAuthMiddleware }),
     ),
   );
   app.route(

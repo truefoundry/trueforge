@@ -11847,7 +11847,7 @@
     },
     "/api/v1/settings/configuration": {
       "get": {
-        "description": "Tenant-wide feature switches. Tenants with nothing saved yet get every switch enabled.",
+        "description": "Tenant-wide feature switches. Any signed-in user can read it. Tenants with nothing saved yet get every switch enabled.",
         "responses": {
           "200": {
             "content": {
@@ -11868,16 +11868,6 @@
               }
             },
             "description": "Invalid Bearer token or auth cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Authenticated but not an admin."
           }
         },
         "summary": "Get the tenant configuration",
