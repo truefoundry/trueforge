@@ -1,6 +1,6 @@
 import { join } from 'node:path/posix';
 import { z } from 'zod';
-import { shellEscape } from './provider/Provider';
+import { shellEscape } from '../provider/Provider';
 
 const UPLOAD_REQUESTS_DIR_NAME = 'uploads';
 // Above the script's own upload deadline, so the script reports timeouts itself.

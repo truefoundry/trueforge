@@ -3,12 +3,15 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { artifactUploadRequestPath, buildArtifactUploadRequestFile } from '../../../src/core/sandbox/artifactTransfer';
-import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
-import { Sandbox } from '../../../src/core/sandbox/Sandbox';
-import { sandboxScripts } from '../../../src/core/sandbox/sandboxScripts.gen';
-import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../harnessMocks';
+import {
+  artifactUploadRequestPath,
+  buildArtifactUploadRequestFile,
+} from '../../../../src/core/sandbox/artifacts/artifactTransfer';
+import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../../src/core/sandbox/provider/Provider';
+import { Sandbox } from '../../../../src/core/sandbox/Sandbox';
+import { sandboxScripts } from '../../../../src/core/sandbox/sandboxScripts.gen';
+import { NOOP_AGENT_TRACING } from '../../../../src/core/tracing/NoopAgentTracing';
+import { makeSilentLogger } from '../../harnessMocks';
 
 describe('artifact_transfer_v1.py', () => {
   let root: string;

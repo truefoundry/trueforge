@@ -1,4 +1,4 @@
-import type { ArtifactDirMetadata } from '../sandbox/artifactTransfer';
+import type { ArtifactDirMetadata } from '../sandbox/artifacts/artifactTransfer';
 import type { ArtifactPushLimits } from './ArtifactsProvider';
 
 interface ArtifactPushFile {

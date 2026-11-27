@@ -27,7 +27,7 @@ import {
   type ArtifactDirMetadata,
   type ArtifactUploadRequest,
   type ArtifactUploadResult,
-} from './artifactTransfer';
+} from './artifacts/artifactTransfer';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';

@@ -4,7 +4,7 @@ import type {
   ArtifactDirMetadata,
   ArtifactUploadRequest,
   ArtifactUploadResult,
-} from '../../../../src/core/sandbox/artifactTransfer';
+} from '../../../../src/core/sandbox/artifacts/artifactTransfer';
 import type { ArtifactTransferRun } from '../../../../src/core/sandbox/Sandbox';
 import { NOOP_AGENT_TRACING } from '../../../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../../harnessMocks';

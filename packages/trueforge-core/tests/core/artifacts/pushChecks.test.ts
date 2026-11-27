@@ -1,6 +1,6 @@
 import type { ArtifactPushLimits } from '../../../src/core/artifacts/ArtifactsProvider';
 import { checkArtifactPush } from '../../../src/core/artifacts/pushChecks';
-import type { ArtifactDirMetadata } from '../../../src/core/sandbox/artifactTransfer';
+import type { ArtifactDirMetadata } from '../../../src/core/sandbox/artifacts/artifactTransfer';
 
 const LIMITS: ArtifactPushLimits = { max_files: 3, max_total_bytes: 1500 };
 
