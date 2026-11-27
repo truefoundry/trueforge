@@ -81,7 +81,7 @@ describe('resolveTurnArtifactsProvider', () => {
   it('creates artifacts and versions bound to the session', async () => {
     const { provider, createArtifactWithVersion, createVersion } = setup();
     const files_metadata = FILES_METADATA;
-    const id = provider?.store.newArtifact({ name: 'Q3 report' }).id ?? '';
+    const id = provider?.store.newArtifactId({ name: 'Q3 report' }) ?? '';
 
     expect(id).toMatch(/^[0-9a-z]{26}$/);
     await expect(
@@ -102,7 +102,7 @@ describe('resolveTurnArtifactsProvider', () => {
 
   it('rejects an invalid artifact name', async () => {
     const { provider, createArtifactWithVersion } = setup();
-    expect(() => provider?.store.newArtifact({ name: 'a/b' })).toThrow('Invalid artifact name');
+    expect(() => provider?.store.newArtifactId({ name: 'a/b' })).toThrow('Invalid artifact name');
     await expect(
       provider?.store.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
     ).rejects.toThrow('Invalid artifact name');

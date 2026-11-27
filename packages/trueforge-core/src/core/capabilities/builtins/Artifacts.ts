@@ -112,7 +112,7 @@ class ArtifactTools extends LocalToolMCP {
           return failure('name is required when artifact_id is omitted.', metadata);
         }
         newName = input.name;
-        artifactId = provider.store.newArtifact({ name: newName }).id;
+        artifactId = provider.store.newArtifactId({ name: newName });
       }
       const pushId = randomUUID();
       const rootPath = `artifacts/${provider.tenantId}/${artifactId}/${pushId}`;

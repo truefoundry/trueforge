@@ -37,7 +37,7 @@ function setup(
   const uploadRequests: ArtifactUploadRequest[] = [];
   const createdVersions: CreateVersionInput[] = [];
   const listedPrefixes: string[] = [];
-  const newArtifact = jest.fn(() => ({ id: 'art-new' }));
+  const newArtifactId = jest.fn(() => 'art-new');
   const createArtifactWithVersion = jest.fn((input: CreateArtifactWithVersionInput) => {
     createdVersions.push({ artifact_id: input.id, files_metadata: input.files_metadata });
     return Promise.resolve({ version: 1 });
@@ -46,7 +46,7 @@ function setup(
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(options.accessDenied),
-      newArtifact,
+      newArtifactId,
       createArtifactWithVersion,
       createVersion: input => {
         createdVersions.push(input);
@@ -90,7 +90,7 @@ function setup(
       body: JSON.parse(content?.type === 'text' ? content.text : '{}') as Record<string, unknown>,
     };
   };
-  return { call, toolSet, uploadRequests, createdVersions, listedPrefixes, newArtifact, createArtifactWithVersion };
+  return { call, toolSet, uploadRequests, createdVersions, listedPrefixes, newArtifactId, createArtifactWithVersion };
 }
 
 describe('push_artifact', () => {
@@ -104,7 +104,7 @@ describe('push_artifact', () => {
   });
 
   it('uploads every file, then creates the artifact with its first version', async () => {
-    const { call, uploadRequests, listedPrefixes, newArtifact, createArtifactWithVersion } = setup();
+    const { call, uploadRequests, listedPrefixes, newArtifactId, createArtifactWithVersion } = setup();
     const { isError, body } = await call({
       name: 'Q3 report',
       dir: '/home/trueforge/report',
@@ -113,7 +113,7 @@ describe('push_artifact', () => {
 
     expect(isError).toBe(false);
     expect(body).toEqual({ artifact_id: 'art-new', version: 1, url: '/artifacts/art-new/v1' });
-    expect(newArtifact).toHaveBeenCalledWith({ name: 'Q3 report' });
+    expect(newArtifactId).toHaveBeenCalledWith({ name: 'Q3 report' });
     const rootPath = createArtifactWithVersion.mock.calls[0]?.[0].files_metadata.root_path ?? '';
     expect(rootPath).toMatch(/^artifacts\/t1\/art-new\/[0-9a-f-]+$/);
     expect(listedPrefixes).toEqual([`${rootPath}/`]);
@@ -134,7 +134,7 @@ describe('push_artifact', () => {
   });
 
   it('adds a version to an existing artifact', async () => {
-    const { call, newArtifact, createArtifactWithVersion, createdVersions } = setup();
+    const { call, newArtifactId, createArtifactWithVersion, createdVersions } = setup();
     const { isError, body } = await call({
       artifact_id: 'art-1',
       dir: '/home/trueforge/report',
@@ -142,7 +142,7 @@ describe('push_artifact', () => {
     });
     expect(isError).toBe(false);
     expect(body).toMatchObject({ artifact_id: 'art-1', version: 2 });
-    expect(newArtifact).not.toHaveBeenCalled();
+    expect(newArtifactId).not.toHaveBeenCalled();
     expect(createArtifactWithVersion).not.toHaveBeenCalled();
     expect(createdVersions[0]?.artifact_id).toBe('art-1');
   });

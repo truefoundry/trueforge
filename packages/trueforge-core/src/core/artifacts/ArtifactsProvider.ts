@@ -27,8 +27,8 @@ interface ArtifactFilesMetadata {
 export interface ScopedArtifactStore {
   /** Error message when the artifact is missing or the user may not push to it; undefined when allowed. */
   checkPushAccess(input: { artifact_id: string }): Promise<string | undefined>;
-  /** Validates the name and mints an id; nothing is stored until `createArtifactWithVersion`. Throws on an invalid name. */
-  newArtifact(input: { name: string }): { id: string };
+  /** Validates the name and mints an id for a new artifact; nothing is stored. Throws on an invalid name. */
+  newArtifactId(input: { name: string }): string;
   /** Creates the artifact with version 1 in one write. */
   createArtifactWithVersion(input: {
     id: string;

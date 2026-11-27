@@ -161,7 +161,7 @@ describe('builtinsFromSpec artifacts', () => {
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(undefined),
-      newArtifact: () => ({ id: 'a1' }),
+      newArtifactId: () => 'a1',
       createArtifactWithVersion: () => Promise.resolve({ version: 1 }),
       createVersion: () => Promise.resolve({ version: 1 }),
     },

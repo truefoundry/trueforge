@@ -50,9 +50,9 @@ export function resolveTurnArtifactsProvider(input: {
         }
         return undefined;
       },
-      newArtifact: ({ name }) => {
+      newArtifactId: ({ name }) => {
         parseName(name);
-        return { id: newId() };
+        return newId();
       },
       createArtifactWithVersion: async ({ id, name, files_metadata }) => {
         const { version } = await artifactStore.createArtifactWithVersion({
