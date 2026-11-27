@@ -15,6 +15,8 @@ export const AnalyticsEvents = {
   Composer: {
     ASSISTANT_SELECTED: 'trueforge.composer.assistant_selected',
     AGENT_SELECTED: 'trueforge.composer.agent_selected',
+    ADD_MENU_OPENED: 'trueforge.composer.add_menu_opened',
+    ADD_MENU_ITEM_SELECTED: 'trueforge.composer.add_menu_item_selected',
   },
 
   Session: {

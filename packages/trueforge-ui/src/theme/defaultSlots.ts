@@ -65,9 +65,10 @@ import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorConten
 import { AgentSkillsHeaderActionSlot } from '../atoms/draft/AgentSkillsHeaderActionSlot.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
+import { CatalogRow, ConnectorConnectButton } from '../atoms/draft/DraftCatalogRow.js';
 import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
-import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
+import { DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
 import { InstructionsFullScreenEditor } from '../atoms/draft/InstructionsFullScreenEditor.js';
 import { InstructionsMarkdownEditor } from '../atoms/draft/InstructionsMarkdownEditor.js';

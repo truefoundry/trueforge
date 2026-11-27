@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { Button } from './primitives/Button.js';
 
 export type ComposerLeftSectionProps = {
@@ -35,19 +35,16 @@ export type ComposerLeftSectionSlot = (props: ComposerLeftSectionProps) => React
 export type ComposerRightSectionSlot = (props: ComposerRightSectionProps) => ReactNode;
 export type ComposerSendButtonSlot = (props: ComposerSendButtonProps) => ReactNode;
 
-export function ComposerLeftSection({ onAttach }: ComposerLeftSectionProps) {
+/** Plus menu with only Add Files: thread composers without a mutable draft spec have no other sources. */
+export function ComposerLeftSection({ disabled, onAttach }: ComposerLeftSectionProps) {
+  const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
   if (!onAttach) return null;
 
   return (
-    <button
-      type="button"
-      aria-label="Attach"
-      title="Attach"
-      className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-      onClick={onAttach}
-    >
-      <Icon name="paperclip" />
-    </button>
+    <DraftComposerActionsMenu
+      disabled={disabled}
+      actions={[{ id: 'attach', label: 'Add Files or photos', icon: 'paperclip', onSelect: onAttach }]}
+    />
   );
 }
 

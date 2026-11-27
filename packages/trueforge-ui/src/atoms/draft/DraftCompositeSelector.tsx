@@ -1,343 +1,39 @@
 'use client';
 
 import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useMCPAuth } from '../../hooks/useMcpAuth.js';
-import { Icon } from '../../icons/Icon.js';
-import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
-import { isSettingsSectionEnabled } from '../../server/serverChrome.js';
-import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
-import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { environmentUnavailableReason } from '../environments/environmentDisplay.js';
-import { useSandboxEnvironments } from '../environments/useSandboxEnvironments.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
-import { cn } from '../lib/cn.js';
-import { useCompactLayout } from '../lib/CompactLayoutContext.js';
-import { auiInputClass } from '../lib/inputClasses.js';
-import { useIsMobile } from '../lib/useIsMobile.js';
-import { BottomSheet } from '../primitives/BottomSheet.js';
-import { Button } from '../primitives/Button.js';
-import { CatalogLogo } from '../primitives/CatalogLogo.js';
-import { Checkbox } from '../primitives/Checkbox.js';
-import { Tooltip } from '../primitives/Tooltip.js';
-import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
-import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
-import { useDraftCatalog } from './DraftCatalogProvider.js';
-import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
-import { skillFamilyId, skillRepoName } from './SkillVersionSelector.js';
-
-/** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
-export type DraftMount = { id: string; name: string; preload?: boolean };
-
-/**
- * Harness wire mounts are name-keyed (`{ name }` only). Catalog rows use
- * `id === name`, so missing ids hydrate from name — otherwise save/load drops
- * mounts from the picker and the next flush can wipe them from the spec.
- */
-export function draftMountsFromSpec(value: unknown): DraftMount[] {
-  if (!Array.isArray(value)) return [];
-  const mounts: DraftMount[] = [];
-  for (const item of value) {
-    if (typeof item !== 'object' || item === null) continue;
-    const name = Reflect.get(item, 'name');
-    if (typeof name !== 'string') continue;
-    const id = Reflect.get(item, 'id');
-    const displayName = Reflect.get(item, 'display_name');
-    const preload = Reflect.get(item, 'preload');
-    mounts.push({
-      id: typeof id === 'string' ? id : name,
-      name: typeof displayName === 'string' ? displayName : name,
-      ...(typeof preload === 'boolean' ? { preload } : {}),
-    });
-  }
-  return mounts;
-}
-type AttachTab = 'connectors' | 'skills' | 'environments';
-
-const TABS: { id: AttachTab; label: string; icon: string }[] = [
-  { id: 'connectors', label: 'Connectors', icon: 'plug' },
-  { id: 'skills', label: 'Skills', icon: 'scroll-text' },
-  { id: 'environments', label: 'Environment', icon: 'monitor' },
-];
+import type { DraftComposerAction } from './DraftComposerActionsMenu.js';
+import { DraftConnectorsPanel } from './DraftConnectorsPanel.js';
+import { DraftEnvironmentPanel } from './DraftEnvironmentPanel.js';
+import { draftMountsFromSpec, type DraftMount } from './draftMounts.js';
+import { DraftSelectionChips } from './DraftSelectionChips.js';
+import { DraftSkillsPanel } from './DraftSkillsPanel.js';
+import { skillFamilyId } from './SkillVersionSelector.js';
 
 const SPEC_FLUSH_MS = 300;
-const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
-
-export function CatalogRow({
-  title,
-  description,
-  badge,
-  logo,
-  fallbackIcon,
-  checked,
-  disabled = false,
-  disabledReason,
-  selectionControl = 'checkbox',
-  onToggle,
-  onActivate,
-  action,
-}: {
-  title: string;
-  description?: string;
-  badge?: ReactNode;
-  /** Catalog logo URL; when absent, `fallbackIcon` (or the title initial) is shown. */
-  logo?: string | undefined;
-  fallbackIcon?: string;
-  checked: boolean;
-  disabled?: boolean;
-  /** Shown on hover when `disabled` — e.g. host capability unavailable. */
-  disabledReason?: string;
-  selectionControl?: 'checkbox' | 'radio';
-  onToggle: () => void;
-  onActivate?: () => void;
-  action?: ReactNode;
-}) {
-  const content = (
-    <>
-      <span
-        className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border text-xs font-semibold"
-        aria-hidden
-      >
-        {logo ? (
-          <CatalogLogo src={logo} alt={title} className="size-4" />
-        ) : fallbackIcon ? (
-          <Icon name={fallbackIcon} className="text-text-primary size-4" />
-        ) : (
-          title.charAt(0).toUpperCase()
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="text-text-primary truncate text-sm font-medium">{title}</span>
-          {badge}
-        </span>
-        {description ? (
-          <Tooltip
-            content={description}
-            side="bottom"
-            className="max-w-sm whitespace-normal text-left"
-            triggerClassName="block min-w-0 w-full"
-            interactive={false}
-          >
-            <span className="text-text-secondary block truncate text-xs">{description}</span>
-          </Tooltip>
-        ) : null}
-      </span>
-    </>
-  );
-
-  const control =
-    selectionControl === 'radio' ? (
-      <span
-        className={cn(
-          'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
-          checked ? 'border-primary-button-bg bg-primary-button-bg' : 'border-text-secondary/60 bg-input-box-bg',
-        )}
-        aria-hidden
-      >
-        {checked ? <span className="size-1.5 rounded-full bg-primary-button-text" /> : null}
-      </span>
-    ) : (
-      <Checkbox checked={checked} />
-    );
-
-  const role = selectionControl === 'radio' ? 'menuitemradio' : 'menuitemcheckbox';
-  const controlButton = (
-    <button
-      type="button"
-      role={selectionControl === 'radio' ? 'radio' : 'checkbox'}
-      aria-checked={checked}
-      aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
-      disabled={disabled}
-      className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
-      onClick={event => {
-        event.stopPropagation();
-        if (disabled) return;
-        onToggle();
-      }}
-    >
-      {control}
-    </button>
-  );
-  // Tooltip only on the control — row hover must not surface the disabled reason.
-  const selectionControlNode =
-    disabled && disabledReason ? (
-      <Tooltip content={disabledReason} className="max-w-xs text-left">
-        <span className="inline-flex shrink-0">{controlButton}</span>
-      </Tooltip>
-    ) : (
-      controlButton
-    );
-
-  if (action || onActivate || disabled) {
-    return (
-      <div
-        role={role}
-        aria-checked={checked}
-        aria-disabled={disabled || undefined}
-        tabIndex={disabled ? -1 : 0}
-        className={cn(
-          'hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left',
-          disabled && 'cursor-default opacity-50 hover:bg-transparent',
-        )}
-        onClick={() => {
-          if (disabled) return;
-          (onActivate ?? onToggle)();
-        }}
-        onKeyDown={event => {
-          if (event.key !== 'Enter' && event.key !== ' ') return;
-          event.preventDefault();
-          if (disabled) return;
-          (onActivate ?? onToggle)();
-        }}
-      >
-        {content}
-        {action ? (
-          <span
-            className="shrink-0"
-            onClick={event => event.stopPropagation()}
-            onKeyDown={event => event.stopPropagation()}
-          >
-            {action}
-          </span>
-        ) : null}
-        {selectionControlNode}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      role={role}
-      aria-checked={checked}
-      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
-      onClick={onToggle}
-    >
-      {content}
-      {control}
-    </button>
-  );
-}
-
-export function isUnauthenticatedDcrConnector(connector: ConnectorState): boolean {
-  const auth = Reflect.get(connector, 'auth');
-  return (
-    connector.authenticated === false &&
-    typeof auth === 'object' &&
-    auth !== null &&
-    Reflect.get(auth, 'type') === 'dcr'
-  );
-}
-
-export function ConnectorConnectButton({
-  connector,
-  onConnected,
-}: {
-  connector: ConnectorState;
-  onConnected: () => Promise<void>;
-}) {
-  const { handleAuthorize, isOAuthLoading } = useMCPAuth();
-
-  return (
-    <Button.Secondary
-      type="button"
-      aria-label={`Connect ${connector.name}`}
-      disabled={isOAuthLoading}
-      size="small"
-      onKeyDown={event => {
-        event.stopPropagation();
-      }}
-      onClick={event => {
-        event.stopPropagation();
-        void handleAuthorize(connector.id, isSuccess => {
-          if (isSuccess) void onConnected();
-        });
-      }}
-    >
-      {isOAuthLoading ? 'Connecting...' : 'Connect'}
-    </Button.Secondary>
-  );
-}
-
-function SearchField({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <label className="relative mx-3 my-2 block">
-      <Icon
-        name="search"
-        className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
-      />
-      <input
-        type="search"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={auiInputClass('h-8 bg-secondary-bg py-1 pr-2 pl-7 dark:bg-primary-bg')}
-      />
-    </label>
-  );
-}
 
 export type DraftCompositeSelectorProps = {
   disabled?: boolean;
   onAttach?: () => void;
 };
 
-const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
-const WEB_SEARCH_BUILTIN_DESCRIPTION = 'Search the web for up-to-date answers';
-const TRUEFORGE_BUILTIN_TITLE = 'TrueForge';
-const TRUEFORGE_BUILTIN_DESCRIPTION = 'Create and update agents, schedules, and sandbox environments';
-
-function SectionHeading({ label, count }: { label: string; count?: number }) {
-  return (
-    <div className="text-text-secondary px-3 pt-2 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
-      {count == null ? label : `${label} (${count})`}
-    </div>
-  );
-}
-
-/** What a row in this panel cannot do, kept readable while the row itself is dimmed. */
-function RowNote({ children, icon = 'lock' }: { children: string; icon?: 'lock' | 'info' }) {
-  return (
-    <div
-      role="status"
-      className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-start gap-2 rounded-lg border p-3"
-    >
-      <Icon name={icon} className="text-primary-button-bg mt-px size-3 shrink-0" />
-      <span className="text-xs leading-snug">{children}</span>
-    </div>
-  );
-}
-
+/**
+ * Plus menu for the draft composer. Connector, skill, and environment edits go to a
+ * local copy while the menu is open and flush to the agent spec on a debounce or on close.
+ */
 export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSelectorProps) {
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
-  const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
-  const settingsCatalog = useOptionalCatalogServer();
-  const shell = useOptionalShellMode();
-  const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();
+  const track = useTrackAnalytics();
+  const { agentSpec } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
-  // Turns reuse the session sandbox; changing environment after create would only update the spec.
-  const environmentLocked = draftSessionId != null;
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<AttachTab>('connectors');
-  const [query, setQuery] = useState('');
-  // Section membership is snapped when the picker opens, so toggles don't jump rows mid-session.
-  const [pinnedMcpIds, setPinnedMcpIds] = useState<Set<string>>(() => new Set());
-  const [pinnedSkillIds, setPinnedSkillIds] = useState<Set<string>>(() => new Set());
-  // Local working copy while open — flush to AgentSpec on debounce / close.
   const [localMcp, setLocalMcp] = useState<DraftMount[]>([]);
   const [localSkills, setLocalSkills] = useState<DraftMount[]>([]);
   const dirtyRef = useRef(false);
@@ -347,73 +43,12 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
   localMcpRef.current = localMcp;
   localSkillsRef.current = localSkills;
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const menuId = useId();
-  const isMobile = useIsMobile();
-  const compactLayout = useCompactLayout();
-  const skillsDisabled = capabilities?.skill.enabled !== true;
-  const skillsDisabledReason = capabilities?.skill.reason;
   const environmentsCapabilityEnabled = capabilities?.sandbox?.environments?.enabled === true;
-  const webSearchDisabledReason = capabilities?.webSearch?.reason ?? WEB_SEARCH_UNAVAILABLE_HINT;
-  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? capabilities?.webSearch?.enabled === true;
-  // A chat that already searches the web keeps it until the user turns it off; only
-  // turning it back on needs the capability.
-  const { locked: webSearchLocked, offIsFinal: webSearchOffIsFinal } = webSearchGate({
-    capabilities,
-    enabled: webSearchEnabled,
-  });
-  const canToggleWebSearch = !webSearchLocked;
-  const trueforgeEnabled = readDraftTrueforgeEnabled(agentSpec?.config) !== false;
-  const needsSandbox = capabilities?.sandbox.enabled === false;
-  const settings = capabilities?.settings;
-  const canConfigureConnectors =
-    isSettingsSectionEnabled({ settings, section: 'mcpServers' }) && settingsCatalog?.connectorCatalog != null;
-  const canConfigureSkills =
-    isSettingsSectionEnabled({ settings, section: 'skills' }) && settingsCatalog?.skillCatalog != null;
-  const canConfigureSandbox =
-    isSettingsSectionEnabled({ settings, section: 'sandboxProviders' }) && settingsCatalog?.sandboxCatalog != null;
-  const attachTabs = useMemo(
-    () => TABS.filter(t => t.id !== 'environments' || environmentsCapabilityEnabled),
-    [environmentsCapabilityEnabled],
-  );
-
-  useEffect(() => {
-    if (!environmentsCapabilityEnabled && tab === 'environments') {
-      setTab('connectors');
-    }
-  }, [environmentsCapabilityEnabled, tab]);
-
+  const hasValidModel = Boolean(agentSpec?.model?.name.trim());
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
-
   const selectedMcp = open ? localMcp : specMcp;
   const selectedSkills = open ? localSkills : specSkills;
-  const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
-  const hasValidModel = Boolean(agentSpec?.model?.name.trim());
-  const toolsCount =
-    selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0) + (trueforgeEnabled ? 1 : 0);
-  const toolsTooltip = useMemo(() => {
-    const formatNames = (items: Array<{ name: string }>) => {
-      const names = items.map(item => item.name);
-      if (names.length <= 4) return names.join(', ');
-      return `${names.slice(0, 4).join(', ')} +${names.length - 4}`;
-    };
-    const lines: string[] = [];
-    const builtins = [
-      ...(trueforgeEnabled ? [TRUEFORGE_BUILTIN_TITLE] : []),
-      ...(webSearchEnabled ? [WEB_SEARCH_BUILTIN_TITLE] : []),
-    ];
-    if (builtins.length > 0) {
-      lines.push(`Built-in: ${builtins.join(', ')}`);
-    }
-    if (selectedMcp.length > 0) {
-      lines.push(`Connectors: ${formatNames(selectedMcp)}`);
-    }
-    if (selectedSkills.length > 0) {
-      lines.push(`Skills: ${formatNames(selectedSkills)}`);
-    }
-    return lines.length > 0 ? lines.join('\n') : 'No connectors or skills selected';
-  }, [selectedMcp, selectedSkills, trueforgeEnabled, webSearchEnabled]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -440,87 +75,29 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
     }, SPEC_FLUSH_MS);
   }, [clearFlushTimer, flushSpec]);
 
-  const setOpenAndFlush = useCallback(
-    (next: boolean) => {
-      if (!next) flushSpec();
-      setOpen(next);
-    },
-    [flushSpec],
-  );
+  const closeMenu = useCallback(() => {
+    flushSpec();
+    setOpen(false);
+  }, [flushSpec]);
 
-  useEffect(() => {
-    if (open) ensureLoaded();
-  }, [open, ensureLoaded]);
-
-  useEffect(() => {
-    if (open && !hasValidModel) {
-      setOpenAndFlush(false);
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      closeMenu();
+      return;
     }
-  }, [hasValidModel, open, setOpenAndFlush]);
+    setLocalMcp(specMcp);
+    setLocalSkills(specSkills);
+    dirtyRef.current = false;
+    clearFlushTimer();
+    setOpen(true);
+    track(AnalyticsEvents.Composer.ADD_MENU_OPENED);
+  };
 
   useEffect(() => {
-    if (!open) return;
-    // Flush on pointer or keyboard focus leaving the picker so Save Agent (and
-    // other outside actions) see the latest local connector/skill toggles.
-    const handler = (e: Event) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpenAndFlush(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    document.addEventListener('focusin', handler);
-    return () => {
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('focusin', handler);
-    };
-  }, [open, setOpenAndFlush]);
+    if (open && !hasValidModel) closeMenu();
+  }, [hasValidModel, open, closeMenu]);
 
   useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
-
-  const catalogConnectors = useMemo(
-    () => connectorsWithSelectedStubs({ connectors, selected: selectedMcp }),
-    [connectors, selectedMcp],
-  );
-
-  const filteredConnectors = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const matches = needle
-      ? catalogConnectors.filter(
-          c => c.name.toLowerCase().includes(needle) || (c.description?.toLowerCase().includes(needle) ?? false),
-        )
-      : catalogConnectors;
-    return [...matches].sort(
-      (left, right) => Number(isUnauthenticatedDcrConnector(left)) - Number(isUnauthenticatedDcrConnector(right)),
-    );
-  }, [catalogConnectors, query]);
-
-  const filteredSkills = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return skills;
-    return skills.filter(
-      skill =>
-        skill.name.toLowerCase().includes(needle) ||
-        (skillRepoName(skill)?.toLowerCase().includes(needle) ?? false) ||
-        (skill.description?.toLowerCase().includes(needle) ?? false),
-    );
-  }, [skills, query]);
-
-  const pinnedSelectedConnectors = useMemo(
-    () => filteredConnectors.filter(c => pinnedMcpIds.has(c.id)),
-    [filteredConnectors, pinnedMcpIds],
-  );
-  const pinnedAvailableConnectors = useMemo(
-    () => filteredConnectors.filter(c => !pinnedMcpIds.has(c.id)),
-    [filteredConnectors, pinnedMcpIds],
-  );
-  const pinnedSelectedSkills = useMemo(
-    () => filteredSkills.filter(s => pinnedSkillIds.has(skillFamilyId(s.id))),
-    [filteredSkills, pinnedSkillIds],
-  );
-  const pinnedAvailableSkills = useMemo(
-    () => filteredSkills.filter(s => !pinnedSkillIds.has(skillFamilyId(s.id))),
-    [filteredSkills, pinnedSkillIds],
-  );
 
   const toggleConnector = (connector: ConnectorState) => {
     setLocalMcp(prev =>
@@ -531,40 +108,6 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
     dirtyRef.current = true;
     scheduleFlush();
   };
-
-  const toggleWebSearch = () => {
-    if (!canToggleWebSearch || agentSpec == null) return;
-    const nextEnabled = !webSearchEnabled;
-    const nextSpec = {
-      ...agentSpec,
-      config: {
-        ...agentSpec.config,
-        webSearch: { enabled: nextEnabled },
-      },
-    };
-    updateAgentSpec?.({ config: nextSpec.config });
-    // Flush seed immediately — New Chat can run before the preference bridge effect.
-    shell?.rememberDraftSpec(nextSpec, 'chat');
-  };
-
-  const toggleTrueforge = () => {
-    if (agentSpec == null) return;
-    const nextSpec = {
-      ...agentSpec,
-      config: { ...agentSpec.config, trueforge: { enabled: !trueforgeEnabled } },
-    };
-    updateAgentSpec?.({ config: nextSpec.config });
-    // Flush seed immediately — New Chat can run before the preference bridge effect.
-    shell?.rememberDraftSpec(nextSpec, 'chat');
-  };
-
-  const matchesBuiltinQuery = (title: string, description: string) => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return true;
-    return title.toLowerCase().includes(needle) || description.toLowerCase().includes(needle);
-  };
-  const showWebSearchBuiltin = matchesBuiltinQuery(WEB_SEARCH_BUILTIN_TITLE, WEB_SEARCH_BUILTIN_DESCRIPTION);
-  const showTrueforgeBuiltin = matchesBuiltinQuery(TRUEFORGE_BUILTIN_TITLE, TRUEFORGE_BUILTIN_DESCRIPTION);
 
   const toggleSkill = (skill: AgentSkill) => {
     const family = skillFamilyId(skill.id);
@@ -586,394 +129,67 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
     scheduleFlush();
   };
 
-  const renderSkill = (skill: AgentSkill) => {
-    const selected = selectedSkills.find(mount => skillFamilyId(mount.id) === skillFamilyId(skill.id));
-    const repoName = skillRepoName(skill);
-    return (
-      <CatalogRow
-        key={skill.id}
-        title={skill.name}
-        description={skill.description}
-        badge={
-          repoName === undefined ? undefined : (
-            <span className="bg-primary-button-bg/10 text-primary-button-bg shrink-0 rounded-full px-1.5 py-0.5 text-[0.625rem]">
-              {repoName}
-            </span>
-          )
-        }
-        checked={selected !== undefined}
-        disabled={skillsDisabled && selected === undefined}
-        onToggle={() => toggleSkill(skill)}
-      />
-    );
+  const trackMenuItem = (item: string) => {
+    track(AnalyticsEvents.Composer.ADD_MENU_ITEM_SELECTED, { item });
   };
 
-  const {
-    environments,
-    defaultEnvironment,
-    loading: environmentsLoading,
-    refetch: refetchEnvironments,
-  } = useSandboxEnvironments();
-
-  const openPicker = (nextTab?: AttachTab) => {
-    if (nextTab != null) {
-      setTab(nextTab);
-      setQuery('');
-    }
-    const showEnvironments = nextTab === 'environments' || (nextTab == null && tab === 'environments');
-    if (open) {
-      if (showEnvironments) void refetchEnvironments();
-      return;
-    }
-    setLocalMcp(specMcp);
-    setLocalSkills(specSkills);
-    dirtyRef.current = false;
-    clearFlushTimer();
-    setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
-    setPinnedSkillIds(new Set(specSkills.map(skill => skillFamilyId(skill.id))));
-    setOpen(true);
-    if (showEnvironments) void refetchEnvironments();
-  };
-
-  const openSettings = (section: SettingsSection) => {
-    setOpenAndFlush(false);
-    setQuery('');
-    shell?.setSettingsOpen(true, section);
-  };
-
-  // Naming none means the tenant default applies, so show it rather than nothing selected.
-  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox) ?? defaultEnvironment?.name;
-
-  const filteredEnvironments = useMemo(() => {
-    // Everything is listed; what cannot be picked is greyed out and says why on hover.
-    const all: Array<{ value: string; title: string; description: string | undefined; unavailable?: string }> =
-      environments.map(e => {
-        const reason = environmentUnavailableReason(e);
-        return {
-          value: e.name,
-          title: e.name,
-          description: e.manifest.description,
-          ...(reason === undefined ? {} : { unavailable: reason }),
-        };
-      });
-    // Keep the session's recorded environment visible (and selected) if it left the catalog.
-    if (currentEnvName !== undefined && !all.some(item => item.value === currentEnvName)) {
-      all.unshift({
-        value: currentEnvName,
-        title: currentEnvName,
-        description: undefined,
-        unavailable: 'No longer available.',
-      });
-    }
-    const needle = query.trim().toLowerCase();
-    if (!needle) return all;
-    return all.filter(
-      item => item.title.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
-    );
-  }, [environments, query, currentEnvName]);
-
-  const selectEnvironment = (value: string) => {
-    if (environmentLocked) return;
-    updateAgentSpec?.({
-      config: {
-        ...agentSpec?.config,
-        sandbox: {
-          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, value),
-          enabled: true,
-        },
-      },
-    });
-  };
-
-  const content = (
-    <>
-      <div className="flex shrink-0 border-b border-border">
-        {attachTabs.map(t => {
-          const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              className={cn(
-                'text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
-                active && 'text-primary-button-bg border-b-2 border-primary-button-bg',
-              )}
-              onClick={() => {
-                setTab(t.id);
-                setQuery('');
-                if (t.id === 'environments') {
-                  void refetchEnvironments();
-                }
-              }}
-            >
-              <Icon name={t.icon} className="size-3.5" />
-              {t.label}
-              {count != null && count > 0 ? (
-                <span className="bg-secondary-bg rounded px-1 text-[0.625rem]">{count}</span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-
-      <>
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder={
-            tab === 'connectors'
-              ? 'Search connectors...'
-              : tab === 'skills'
-                ? 'Search skills...'
-                : 'Search environment...'
-          }
-        />
-        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? <RowNote>{skillsDisabledReason}</RowNote> : null}
-        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-          {tab === 'connectors' ? (
-            <>
-              {showTrueforgeBuiltin || showWebSearchBuiltin ? (
-                <>
-                  <SectionHeading label="Built-in" />
-                  {showTrueforgeBuiltin ? (
-                    <CatalogRow
-                      title={TRUEFORGE_BUILTIN_TITLE}
-                      description={TRUEFORGE_BUILTIN_DESCRIPTION}
-                      fallbackIcon="bot"
-                      checked={trueforgeEnabled}
-                      onToggle={toggleTrueforge}
-                    />
-                  ) : null}
-                  {showWebSearchBuiltin ? (
-                    <>
-                      <CatalogRow
-                        title={WEB_SEARCH_BUILTIN_TITLE}
-                        description={WEB_SEARCH_BUILTIN_DESCRIPTION}
-                        fallbackIcon="searchGlobe"
-                        checked={webSearchEnabled}
-                        disabled={!canToggleWebSearch}
-                        disabledReason={webSearchDisabledReason}
-                        onToggle={toggleWebSearch}
-                      />
-                      {canToggleWebSearch ? null : <RowNote>{webSearchDisabledReason}</RowNote>}
-                      {webSearchOffIsFinal ? <RowNote icon="info">{WEB_SEARCH_ONE_WAY_OFF_HINT}</RowNote> : null}
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-              {pinnedSelectedConnectors.length > 0 ? (
-                <>
-                  <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
-                  {pinnedSelectedConnectors.map(c => (
-                    <CatalogRow
-                      key={c.id}
-                      title={c.name}
-                      logo={connectorLogos[c.name]}
-                      fallbackIcon="mcp-server"
-                      checked={selectedMcpIds.has(c.id)}
-                      action={
-                        isUnauthenticatedDcrConnector(c) ? (
-                          <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
-                        ) : undefined
-                      }
-                      onToggle={() => toggleConnector(c)}
-                    />
-                  ))}
-                </>
-              ) : null}
-              {pinnedAvailableConnectors.length > 0 ? (
-                <>
-                  <SectionHeading label="Available" count={pinnedAvailableConnectors.length} />
-                  {pinnedAvailableConnectors.map(c => (
-                    <CatalogRow
-                      key={c.id}
-                      title={c.name}
-                      logo={connectorLogos[c.name]}
-                      fallbackIcon="mcp-server"
-                      checked={selectedMcpIds.has(c.id)}
-                      action={
-                        isUnauthenticatedDcrConnector(c) ? (
-                          <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
-                        ) : undefined
-                      }
-                      onToggle={() => toggleConnector(c)}
-                    />
-                  ))}
-                </>
-              ) : null}
-              {filteredConnectors.length === 0 && connectors.length > 0 && !showWebSearchBuiltin ? (
-                <DraftCatalogEmptyState loading={loading} emptyLabel="No connectors" settingsTarget="Connectors" />
-              ) : null}
-              {connectors.length === 0 ? (
-                <DraftCatalogEmptyState
-                  loading={loading}
-                  emptyLabel="No connectors"
-                  settingsTarget="Connectors"
-                  onOpenSettings={shell && canConfigureConnectors ? () => openSettings('connectors') : undefined}
-                />
-              ) : null}
-            </>
-          ) : tab === 'skills' ? (
-            <>
-              {pinnedSelectedSkills.length > 0 ? (
-                <>
-                  <SectionHeading label="Selected" count={pinnedSelectedSkills.length} />
-                  {pinnedSelectedSkills.map(renderSkill)}
-                </>
-              ) : null}
-              {pinnedAvailableSkills.length > 0 ? (
-                <>
-                  <SectionHeading label="Available" count={pinnedAvailableSkills.length} />
-                  {pinnedAvailableSkills.map(renderSkill)}
-                </>
-              ) : null}
-              {filteredSkills.length === 0 ? (
-                <DraftCatalogEmptyState
-                  loading={loading}
-                  emptyLabel="No skills"
-                  settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
-                  onOpenSettings={
-                    skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
-                      ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
-                      : undefined
-                  }
-                />
-              ) : null}
-            </>
-          ) : (
-            <>
-              {environmentLocked ? <RowNote>{ENVIRONMENT_LOCKED_HINT}</RowNote> : null}
-              {filteredEnvironments.map(env => {
-                const isSelected = currentEnvName === env.value;
-                const reason = environmentLocked ? ENVIRONMENT_LOCKED_HINT : env.unavailable;
-                return (
-                  <CatalogRow
-                    key={env.value}
-                    title={env.title}
-                    description={env.description}
-                    fallbackIcon="monitor"
-                    selectionControl="radio"
-                    checked={isSelected}
-                    disabled={reason !== undefined}
-                    {...(reason === undefined ? {} : { disabledReason: reason })}
-                    onToggle={() => selectEnvironment(env.value)}
-                  />
-                );
-              })}
-              {filteredEnvironments.length === 0 ? (
-                <DraftCatalogEmptyState
-                  loading={environmentsLoading}
-                  emptyLabel="No environments"
-                  settingsTarget="Environments"
-                  onOpenSettings={
-                    shell
-                      ? () => {
-                          setOpenAndFlush(false);
-                          shell.setEnvironmentsOpen(true);
-                        }
-                      : undefined
-                  }
-                />
-              ) : null}
-            </>
-          )}
-        </div>
-      </>
-    </>
-  );
-  const compactActions = [
-    ...(hasValidModel
-      ? [
-          {
-            id: 'tools',
-            label: `Tools (${toolsCount})`,
-            icon: 'wrench',
-            onSelect: () => openPicker(),
-          },
-        ]
-      : []),
+  const menuActions: DraftComposerAction[] = [
     ...(onAttach === undefined
       ? []
       : [
           {
             id: 'attach',
-            label: 'Attach a file',
+            label: 'Add Files or photos',
             icon: 'paperclip',
-            onSelect: onAttach,
+            onSelect: () => {
+              trackMenuItem('attach');
+              onAttach();
+            },
           },
         ]),
+    ...(hasValidModel
+      ? [
+          {
+            id: 'connectors',
+            label: 'Connectors',
+            icon: 'plug',
+            onSelect: () => trackMenuItem('connectors'),
+            submenu: (
+              <DraftConnectorsPanel selected={selectedMcp} onToggleConnector={toggleConnector} onClose={closeMenu} />
+            ),
+          },
+          {
+            id: 'skills',
+            label: 'Skills',
+            icon: 'scroll-text',
+            onSelect: () => trackMenuItem('skills'),
+            submenu: <DraftSkillsPanel selected={selectedSkills} onToggleSkill={toggleSkill} onClose={closeMenu} />,
+          },
+          ...(environmentsCapabilityEnabled
+            ? [
+                {
+                  id: 'environments',
+                  label: 'Environment',
+                  icon: 'monitor',
+                  onSelect: () => trackMenuItem('environments'),
+                  submenu: <DraftEnvironmentPanel onClose={closeMenu} />,
+                },
+              ]
+            : []),
+        ]
+      : []),
   ];
 
   return (
-    <div ref={containerRef} className="relative flex flex-wrap items-center">
-      {compactLayout ? (
-        <DraftComposerActionsMenu actions={compactActions} disabled={disabled} />
-      ) : hasValidModel ? (
-        <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label={`Tools (${toolsCount})`}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({ variant: 'ghost', size: 'large', className: 'gap-1.5 px-2 text-xs' })}
-            onClick={() => {
-              if (open) {
-                setOpenAndFlush(false);
-                return;
-              }
-              openPicker();
-            }}
-          >
-            <Icon name="wrench" />
-            <span>Tools</span>
-            <span className="rounded bg-primary-button-bg/10 px-1.5 py-0.5 text-[0.625rem] font-semibold text-primary-button-bg">
-              {toolsCount}
-            </span>
-          </button>
-        </Tooltip>
-      ) : null}
-
-      {!compactLayout && onAttach ? (
-        <Tooltip content="Attach a file">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={onAttach}
-          >
-            <Icon name="paperclip" />
-          </button>
-        </Tooltip>
-      ) : null}
-
-      {open && hasValidModel ? (
-        isMobile || compactLayout ? (
-          <BottomSheet id={menuId} open onOpenChange={setOpenAndFlush} aria-label="Add to composer">
-            {content}
-          </BottomSheet>
-        ) : (
-          <div
-            id={menuId}
-            role="dialog"
-            aria-label="Add to composer"
-            className="aui-popup-enter bg-card-bg text-text-primary absolute bottom-full left-0 z-50 mb-2 flex h-[22rem] w-[28rem] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border shadow-lg"
-          >
-            {content}
-          </div>
-        )
-      ) : null}
+    <div className="flex min-w-0 items-center gap-1.5">
+      <DraftComposerActionsMenu actions={menuActions} disabled={disabled} open={open} onOpenChange={handleOpenChange} />
+      <DraftSelectionChips connectors={selectedMcp} skills={selectedSkills} />
     </div>
   );
 }
 
 declare module '../../theme/SlotsProvider.js' {
   interface AtomSlots {
-    CatalogRow: typeof CatalogRow;
-    ConnectorConnectButton: typeof ConnectorConnectButton;
     DraftCompositeSelector: typeof DraftCompositeSelector;
   }
 }

@@ -4,15 +4,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '@/atoms/ComposerSections.js';
 
 describe('ComposerLeftSection', () => {
-  it('renders an accessible attachment action when a handler is provided', () => {
+  it('renders a plus button that adds files or photos directly', () => {
     const onAttach = vi.fn();
     render(<ComposerLeftSection disabled={false} isRunning={false} onAttach={onAttach} />);
 
-    const button = screen.getByRole('button', { name: 'Attach' });
-    expect(button).toHaveAttribute('type', 'button');
-    expect(button).toHaveAttribute('title', 'Attach');
-    fireEvent.click(button);
+    const trigger = screen.getByRole('button', { name: 'Add Files or photos' });
+    expect(trigger).toHaveAttribute('type', 'button');
+    expect(screen.queryByRole('button', { name: 'Attach' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
     expect(onAttach).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
   });
 
   it('renders nothing when attachment handling is unavailable', () => {

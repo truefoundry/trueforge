@@ -7,7 +7,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useScheduleServer } from '../../server/ServerContext.js';
 import type { ConnectorState, Schedule, ScheduleRun } from '../../server/types.js';
 import { useDraftCatalog } from '../draft/DraftCatalogProvider.js';
-import { ConnectorConnectButton } from '../draft/DraftCompositeSelector.js';
+import { ConnectorConnectButton } from '../draft/DraftCatalogRow.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
 import { formatCadenceSummary, formatRelativeTime } from './cadence.js';

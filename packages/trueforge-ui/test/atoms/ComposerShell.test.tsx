@@ -31,7 +31,7 @@ describe('ComposerShell', () => {
     expect(screen.getByText('GPT 5')).toBeInTheDocument();
     expect(screen.getByLabelText('Model icon')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Files or photos' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     expect(onAttach).toHaveBeenCalledOnce();
     expect(onSubmit).toHaveBeenCalledOnce();
