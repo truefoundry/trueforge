@@ -6,10 +6,10 @@ import { CreatedByCell } from '../CreatedByCell.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatRelativeTime } from '../lib/dateFormat.js';
-import { DropdownMenu, DropdownMenuSeparator } from '../primitives/DropdownMenu.js';
+import { DropdownMenu } from '../primitives/DropdownMenu.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../primitives/Table.js';
 import { RowActionItem } from '../RowActionItem.js';
-import { artifactPreviewKey, SHARE_UNAVAILABLE_REASON } from './artifactDisplay.js';
+import { artifactPreviewKey } from './artifactDisplay.js';
 
 export type ArtifactsTableProps = {
   artifacts: Artifact[];
@@ -17,10 +17,9 @@ export type ArtifactsTableProps = {
   onOpen: (artifact: Artifact) => void;
   onDownload: (artifact: Artifact) => void;
   onEdit: (artifact: Artifact) => void;
-  onDelete: (artifact: Artifact) => void;
 };
 
-export function ArtifactsTable({ artifacts, selectedKey, onOpen, onDownload, onEdit, onDelete }: ArtifactsTableProps) {
+export function ArtifactsTable({ artifacts, selectedKey, onOpen, onDownload, onEdit }: ArtifactsTableProps) {
   return (
     <Table className="min-w-160">
       <TableHeader>
@@ -71,15 +70,6 @@ export function ArtifactsTable({ artifacts, selectedKey, onOpen, onDownload, onE
                     icon="download"
                     reason={undefined}
                     onClick={() => onDownload(artifact)}
-                  />
-                  <RowActionItem label="Share" icon="share" reason={SHARE_UNAVAILABLE_REASON} onClick={() => {}} />
-                  <DropdownMenuSeparator />
-                  <RowActionItem
-                    label="Delete"
-                    icon="trash"
-                    className="text-failure-bg focus-visible:text-failure-bg"
-                    reason={undefined}
-                    onClick={() => onDelete(artifact)}
                   />
                 </DropdownMenu>
               </TableCell>

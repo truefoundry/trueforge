@@ -76,12 +76,21 @@ describe('buildPath', () => {
 
   it('returns null for disabled places', () => {
     const disabled = resolveRoutesConfig({
-      paths: { settings: false, library: false, libraryAgent: false, agent: false },
+      paths: { settings: false, library: false, libraryAgent: false, agent: false, artifacts: false },
     });
     expect(buildPath({ type: 'settings' }, disabled)).toBeNull();
     expect(buildPath({ type: 'library' }, disabled)).toBeNull();
     expect(buildPath({ type: 'libraryAgent', agentId: 'x' }, disabled)).toBeNull();
     expect(buildPath({ type: 'agent', agentName: 'x' }, disabled)).toBeNull();
+    expect(buildPath({ type: 'artifacts' }, disabled)).toBeNull();
+    expect(buildPath({ type: 'artifact', artifactRef: 'x--a1' }, disabled)).toBeNull();
+  });
+
+  it('nests the artifact preview under a custom artifacts path', () => {
+    const custom = resolveRoutesConfig({ paths: { artifacts: '/files' } });
+    expect(custom.artifact).toBe('/files/:artifactRef');
+    expect(buildPath({ type: 'artifact', artifactRef: 'q4--a1' }, custom)).toBe('/files/q4--a1');
+    expect(matchPath('/files/q4--a1', custom)).toEqual({ type: 'artifact', artifactRef: 'q4--a1' });
   });
 
   it('builds an absolute resume href with basename and cleared share search', () => {

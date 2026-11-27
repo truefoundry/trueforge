@@ -40,10 +40,8 @@ export type RoutesConfig = {
     schedules?: string | false;
     /** Environments page. `false` keeps environments overlay-only (no URL). Default `'/environments'`. */
     environments?: string | false;
-    /** Artifacts page. `false` keeps artifacts overlay-only (no URL). Default `'/artifacts'`. */
+    /** Artifacts page. Preview lives at `<artifacts>/:artifactRef`. `false` keeps artifacts overlay-only (no URL). Default `'/artifacts'`. */
     artifacts?: string | false;
-    /** Artifact preview (`name--id`). `false` disables. Default `'/artifacts/:artifactRef'`. */
-    artifact?: string | false;
     /** Agent builder. `false` disables its dedicated URL. Default `'/build-agent'`. */
     buildAgent?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
