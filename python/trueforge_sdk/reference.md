@@ -197,7 +197,7 @@ Creates an agent and allocates an immutable id. Fails if `name` is already taken
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AgentSpec, Model
+from trueforge_sdk import TrueForge, AgentSpec, AutoModel
 
 client = TrueForge(
     token="<token>",
@@ -207,8 +207,11 @@ client = TrueForge(
 client.agents.create(
     description="description",
     manifest=AgentSpec(
-        model=Model(
-            name="name",
+        model=AutoModel(
+            candidate_models=[
+                "candidate_models"
+            ],
+            type="auto",
         ),
     ),
     name="name",
@@ -363,7 +366,7 @@ Update an existing agent by immutable id.
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AgentSpec, Model
+from trueforge_sdk import TrueForge, AgentSpec, AutoModel
 
 client = TrueForge(
     token="<token>",
@@ -373,8 +376,11 @@ client = TrueForge(
 client.agents.update(
     agent_id="agent_id",
     manifest=AgentSpec(
-        model=Model(
-            name="name",
+        model=AutoModel(
+            candidate_models=[
+                "candidate_models"
+            ],
+            type="auto",
         ),
     ),
 )

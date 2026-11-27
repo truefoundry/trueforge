@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
     from .ask_user_questions_config import AskUserQuestionsConfig
     from .auto_capability import AutoCapability
     from .auto_capability_status import AutoCapabilityStatus
+    from .auto_model import AutoModel
     from .auto_model_routing_configuration import AutoModelRoutingConfiguration
     from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
     from .available_mcp_server import AvailableMcpServer
@@ -82,6 +83,7 @@ if typing.TYPE_CHECKING:
     from .file_content import FileContent
     from .finish_reason import FinishReason
     from .fireworks_model_provider import FireworksModelProvider
+    from .fixed_model import FixedModel
     from .generative_ui_config import GenerativeUiConfig
     from .get_agent_code_snippets_response import GetAgentCodeSnippetsResponse
     from .get_agent_response import GetAgentResponse
@@ -166,6 +168,7 @@ if typing.TYPE_CHECKING:
     from .memory_provider_manifest import MemoryProviderManifest
     from .metrics_unit import MetricsUnit
     from .model import Model
+    from .model_definition import ModelDefinition
     from .model_message_delta_event import ModelMessageDeltaEvent
     from .model_message_event import ModelMessageEvent
     from .model_message_event_content import ModelMessageEventContent
@@ -332,6 +335,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AskUserQuestionsConfig": ".ask_user_questions_config",
     "AutoCapability": ".auto_capability",
     "AutoCapabilityStatus": ".auto_capability_status",
+    "AutoModel": ".auto_model",
     "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
     "AutoModelRoutingConfigurationPatch": ".auto_model_routing_configuration_patch",
     "AvailableMcpServer": ".available_mcp_server",
@@ -391,6 +395,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileContent": ".file_content",
     "FinishReason": ".finish_reason",
     "FireworksModelProvider": ".fireworks_model_provider",
+    "FixedModel": ".fixed_model",
     "GenerativeUiConfig": ".generative_ui_config",
     "GetAgentCodeSnippetsResponse": ".get_agent_code_snippets_response",
     "GetAgentResponse": ".get_agent_response",
@@ -475,6 +480,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MemoryProviderManifest": ".memory_provider_manifest",
     "MetricsUnit": ".metrics_unit",
     "Model": ".model",
+    "ModelDefinition": ".model_definition",
     "ModelMessageDeltaEvent": ".model_message_delta_event",
     "ModelMessageEvent": ".model_message_event",
     "ModelMessageEventContent": ".model_message_event_content",
@@ -665,6 +671,7 @@ __all__ = [
     "AskUserQuestionsConfig",
     "AutoCapability",
     "AutoCapabilityStatus",
+    "AutoModel",
     "AutoModelRoutingConfiguration",
     "AutoModelRoutingConfigurationPatch",
     "AvailableMcpServer",
@@ -724,6 +731,7 @@ __all__ = [
     "FileContent",
     "FinishReason",
     "FireworksModelProvider",
+    "FixedModel",
     "GenerativeUiConfig",
     "GetAgentCodeSnippetsResponse",
     "GetAgentResponse",
@@ -808,6 +816,7 @@ __all__ = [
     "MemoryProviderManifest",
     "MetricsUnit",
     "Model",
+    "ModelDefinition",
     "ModelMessageDeltaEvent",
     "ModelMessageEvent",
     "ModelMessageEventContent",

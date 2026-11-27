@@ -154,7 +154,8 @@ export class AgentsClient {
      *         description: "description",
      *         manifest: {
      *             model: {
-     *                 name: "name"
+     *                 candidateModels: ["candidate_models"],
+     *                 type: "auto"
      *             }
      *         },
      *         name: "name"
@@ -363,7 +364,8 @@ export class AgentsClient {
      *     await client.agents.update("agent_id", {
      *         manifest: {
      *             model: {
-     *                 name: "name"
+     *                 candidateModels: ["candidate_models"],
+     *                 type: "auto"
      *             }
      *         }
      *     })

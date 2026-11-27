@@ -395,6 +395,32 @@
         ],
         "type": "object"
       },
+      "AutoModel": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models the router may choose from, covering every routing category.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 4,
+            "type": "array"
+          },
+          "type": {
+            "description": "Route each turn to the cheapest candidate model that suits the task.",
+            "enum": [
+              "auto"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "candidate_models"
+        ],
+        "type": "object"
+      },
       "AutoModelRoutingConfiguration": {
         "additionalProperties": false,
         "properties": {
@@ -1670,6 +1696,31 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "FixedModel": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
+          },
+          "type": {
+            "description": "Run every turn on the model named in `name`.",
+            "enum": [
+              "fixed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
         ],
         "type": "object"
       },
@@ -3087,6 +3138,23 @@
         }
       },
       "Model": {
+        "discriminator": {
+          "mapping": {
+            "auto": "#/components/schemas/AutoModel",
+            "fixed": "#/components/schemas/FixedModel"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FixedModel"
+          },
+          {
+            "$ref": "#/components/schemas/AutoModel"
+          }
+        ]
+      },
+      "ModelDefinition": {
         "properties": {
           "name": {
             "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
@@ -3214,7 +3282,7 @@
             "type": "string"
           },
           "model": {
-            "$ref": "#/components/schemas/Model"
+            "$ref": "#/components/schemas/ModelDefinition"
           },
           "name": {
             "description": "Optional participant name.",

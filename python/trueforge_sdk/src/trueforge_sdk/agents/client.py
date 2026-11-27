@@ -110,7 +110,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, Model, TrueForge
+        from trueforge_sdk import AgentSpec, AutoModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -119,8 +119,8 @@ class AgentsClient:
         client.agents.create(
             description="description",
             manifest=AgentSpec(
-                model=Model(
-                    name="name",
+                model=AutoModel(
+                    candidate_models=["candidate_models"],
                 ),
             ),
             name="name",
@@ -193,7 +193,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, Model, TrueForge
+        from trueforge_sdk import AgentSpec, AutoModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -202,8 +202,8 @@ class AgentsClient:
         client.agents.update(
             agent_id="agent_id",
             manifest=AgentSpec(
-                model=Model(
-                    name="name",
+                model=AutoModel(
+                    candidate_models=["candidate_models"],
                 ),
             ),
         )
@@ -350,7 +350,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, Model
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, AutoModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -362,8 +362,8 @@ class AsyncAgentsClient:
             await client.agents.create(
                 description="description",
                 manifest=AgentSpec(
-                    model=Model(
-                        name="name",
+                    model=AutoModel(
+                        candidate_models=["candidate_models"],
                     ),
                 ),
                 name="name",
@@ -449,7 +449,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, Model
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, AutoModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -461,8 +461,8 @@ class AsyncAgentsClient:
             await client.agents.update(
                 agent_id="agent_id",
                 manifest=AgentSpec(
-                    model=Model(
-                        name="name",
+                    model=AutoModel(
+                        candidate_models=["candidate_models"],
                     ),
                 ),
             )

@@ -2,8 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface Model {
-    /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
-    name: string;
-    params?: TrueForge.ModelParams;
-}
+export type Model = TrueForge.AutoModel | TrueForge.FixedModel;
