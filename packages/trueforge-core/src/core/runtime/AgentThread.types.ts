@@ -221,10 +221,22 @@ export interface AgentThreadSnapshot {
   capability_state: CapabilityState | null;
 }
 
+/**
+ * How a thread's model was chosen. `routed`: the router picked it. `carried`: routing owns the thread but it kept a
+ * saved, inherited or fallback model. `configured`: routing is not involved.
+ */
+export type ModelChoice = 'routed' | 'carried' | 'configured';
+
+/** What `resolveModel` yields: the model plus how it was chosen. */
+export interface ModelResolution {
+  model: AgentModel;
+  choice: ModelChoice;
+}
+
 export interface AgentThreadConstructorInput {
   definition: AgentDefinition;
-  /** Resolves the thread's model when it first runs. `routed` when model routing chose it. */
-  resolveModel: () => Promise<{ model: AgentModel; routed: boolean }>;
+  /** Resolves the thread's model when it first runs. `choice` says how it was chosen. */
+  resolveModel: () => Promise<ModelResolution>;
   threadId: string;
   title: string;
   parent?: AgentParent | undefined;

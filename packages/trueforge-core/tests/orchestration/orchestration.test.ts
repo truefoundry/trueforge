@@ -56,7 +56,7 @@ describe('orchestration: mocked LLM and no tools', () => {
             },
             name: TEST_MODEL_NAME,
           },
-          routed: false,
+          choice: 'configured',
         }),
       threadId: THREAD_ID,
       title: 'orchestration',

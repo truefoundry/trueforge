@@ -124,7 +124,14 @@ describe('createModelRouter', () => {
   }
 
   it("routes to the classified cluster's cheapest pair", async () => {
-    await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
+    const create = jest.fn(() => Promise.resolve(decisionFor('fixed_steps')));
+    await expect(route({ create })).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
+    expect(create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: { 'tfg.thread_id': 'child', 'tfg.model_selection': 'fixed' },
+      }),
+    );
   });
 
   it('routes to the frontier cluster when the caller offers it', async () => {

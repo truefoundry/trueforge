@@ -120,7 +120,7 @@ export function createModelRouter(
       });
       isTruncated = request.isTruncated;
       const decision = await classifier.client.create(request.body, {
-        metadata: { 'tfg.thread_id': route.threadId },
+        metadata: { 'tfg.thread_id': route.threadId, 'tfg.model_selection': 'fixed' },
       });
       const classification = readClassification(decision);
       if (classification === undefined) {

@@ -53,6 +53,7 @@ describe('LargeToolResponse sandbox object identity (ISSUE-035)', () => {
       currentContextUsage: getEmptyCurrentContextUsage(),
       context: [],
       model: { client: makeMockILLM(), name: TEST_MODEL_NAME },
+      choice: 'configured',
     });
 
     expect(sandboxResult.message.content).toContain('It MUST write the full output to a file');

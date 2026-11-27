@@ -128,7 +128,7 @@ async function toolNamesSentToModel(input: {
           client: { create, createNonStream: jest.fn() },
           name: TEST_MODEL_NAME,
         },
-        routed: false,
+        choice: 'configured',
       }),
     context: [{ role: 'user', content: 'hi' }],
     ...(input.sandbox ? { sandbox: input.sandbox } : {}),

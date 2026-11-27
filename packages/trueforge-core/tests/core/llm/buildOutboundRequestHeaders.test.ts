@@ -66,4 +66,21 @@ describe('buildOutboundRequestHeaders', () => {
     });
     expect(JSON.parse(headers['x-tfy-metadata'] ?? '')).toEqual({ 'tfg.compaction': 'true' });
   });
+
+  it('folds tfg.model_selection into x-tfy-metadata', () => {
+    const headers = buildOutboundRequestHeaders({
+      providerType: 'truefoundry',
+      clientHeaders: {},
+      options: {
+        metadata: {
+          'tfg.thread_id': 'main',
+          'tfg.model_selection': 'auto',
+        },
+      },
+    });
+    expect(JSON.parse(headers['x-tfy-metadata'] ?? '')).toEqual({
+      'tfg.thread_id': 'main',
+      'tfg.model_selection': 'auto',
+    });
+  });
 });

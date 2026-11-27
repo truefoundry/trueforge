@@ -23,7 +23,7 @@ import {
   type RoutedModel,
 } from '../core/modelRouting/router';
 import type { AgentModel } from '../core/runtime/AgentModel';
-import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
+import type { AgentInfo, ModelChoice, ModelResolution, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
@@ -308,12 +308,15 @@ export class TurnResourceResolver<
 
   async resolveModel(input: {
     spec: AgentSpec;
-    model: ModelSnapshot | undefined;
+    carriedModel: ModelSnapshot | undefined;
     routingInput: RouteInput | undefined;
-  }): Promise<{ model: AgentModel; routed: boolean }> {
+  }): Promise<ModelResolution> {
     const { spec } = input;
-    const routed = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
-    const chosen = routed === undefined ? input.model : { name: routed.model, effort: routed.effort };
+    // What the router picked on this call; undefined when it was not asked or found no match.
+    const routedModel = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
+    // The model to run: the routed one, else the saved or inherited one passed in.
+    const chosen =
+      routedModel === undefined ? input.carriedModel : { name: routedModel.model, effort: routedModel.effort };
     if (chosen === undefined && spec.model.name === AUTO_MODEL) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }
@@ -322,9 +325,15 @@ export class TurnResourceResolver<
     // The spec's params belong to its own model, and routing drops them; any other model runs on its defaults. A chosen
     // effort replaces either.
     const baseParams =
-      routed === undefined && name === spec.model.name
+      routedModel === undefined && name === spec.model.name
         ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
         : { ...resolvedModel.defaultModelParams };
+    // A named root is the only thread resolved with neither a model to carry nor a task to route.
+    const isNamedRoot = input.routingInput === undefined && input.carriedModel === undefined;
+    let choice: ModelChoice = 'configured';
+    if (this.autoModelRouterAvailable && !isNamedRoot) {
+      choice = routedModel === undefined ? 'carried' : 'routed';
+    }
     return {
       model: {
         client: resolvedModel.modelClient,
@@ -333,7 +342,7 @@ export class TurnResourceResolver<
         properties: resolvedModel.modelProperties,
         params: applySavedEffort(baseParams, chosen?.effort),
       },
-      routed: routed !== undefined,
+      choice,
     };
   }
 

@@ -79,7 +79,7 @@ describe('AgentThread model.message reasoning_content', () => {
             client: modelClient,
             name: TEST_MODEL_NAME,
           },
-          routed: false,
+          choice: 'configured',
         }),
       context: [{ role: 'user', content: 'hi' }],
     });
