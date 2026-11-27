@@ -28,7 +28,7 @@ function toHeaderJson(value: unknown): string {
 }
 
 const spec = {
-  model: { name: 'openai/gpt-5' },
+  model: { type: 'fixed', name: 'openai/gpt-5' },
   instructions: 'You are Ask TFY.',
   mcp_servers: MCP_NAMES.map(name => ({ name })),
   skills: [{ name: SKILL_NAME }],

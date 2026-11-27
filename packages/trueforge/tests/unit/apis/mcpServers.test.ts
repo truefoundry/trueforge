@@ -1035,7 +1035,7 @@ describe('mcp-servers routers', () => {
         name: 'connector-user',
         description: 'Test agent.',
         manifest: AgentSpecSchema.parse({
-          model: { name: 'anthropic/claude-sonnet-4-6' },
+          model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
           mcp_servers: [{ name: disposable.name }],
         }),
         external_id: null,

@@ -16,7 +16,7 @@ function agentRecord() {
     id: 'agent-1',
     name: 'reporter',
     manifest: AgentSpecSchema.parse({
-      model: { name: 'test-provider/test-model' },
+      model: { type: 'fixed', name: 'test-provider/test-model' },
       instructions: 'test',
     }),
   };

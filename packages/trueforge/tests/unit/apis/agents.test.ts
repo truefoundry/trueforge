@@ -29,7 +29,7 @@ const modelProvider = {
 };
 
 const manifest = {
-  model: { name: 'anthropic/claude-sonnet-4-6' },
+  model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'Be helpful.',
   config: {
     context_management: {
@@ -50,7 +50,7 @@ const writeBody = {
 const updateBody = {
   description: 'Updated research agent.',
   manifest: {
-    model: { name: 'anthropic/claude-sonnet-4-6' },
+    model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Updated instructions.',
   },
 };
@@ -60,7 +60,7 @@ type WireAgent = {
   name: string;
   description: string;
   manifest: {
-    model: { name: string };
+    model: { type: 'fixed'; name: string };
     instructions?: string;
     config?: {
       context_management?: {
@@ -151,7 +151,7 @@ describe('agents router', () => {
       name: 'research',
       description: 'Research helper.',
       manifest: {
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
         config: {
           context_management: {
@@ -283,7 +283,7 @@ describe('agents router', () => {
       jsonInit('POST', {
         name: 'other',
         description: 'Other agent.',
-        manifest: { ...manifest, model: { name: 'missing/model' } },
+        manifest: { ...manifest, model: { type: 'fixed', name: 'missing/model' } },
       }),
     );
     expect(unknownModel.status).toBe(422);

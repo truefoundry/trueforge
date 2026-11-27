@@ -309,7 +309,7 @@ describe('skills routers', () => {
         name: 'skill-user',
         description: 'Test agent.',
         manifest: AgentSpecSchema.parse({
-          model: { name: 'anthropic/claude-sonnet-4-6' },
+          model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
           skills: [{ name: disposable.name }],
         }),
         external_id: null,

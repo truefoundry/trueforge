@@ -93,7 +93,10 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
     },
     name: 'reporter',
     description: 'Test agent.',
-    manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+    manifest: AgentSpecSchema.parse({
+      model: { type: 'fixed', name: 'test-provider/test-model' },
+      instructions: 'test',
+    }),
     external_id: 'reporter-external-id',
   });
 
@@ -259,7 +262,10 @@ describe('schedule list agent_names filter', () => {
       },
       name: 'reporter-two',
       description: 'Test agent.',
-      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      manifest: AgentSpecSchema.parse({
+        model: { type: 'fixed', name: 'test-provider/test-model' },
+        instructions: 'test',
+      }),
       external_id: null,
     });
 
@@ -479,7 +485,10 @@ describe('internal schedule execution', () => {
       },
       name: 'reporter',
       description: 'reporter description',
-      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      manifest: AgentSpecSchema.parse({
+        model: { type: 'fixed', name: 'test-provider/test-model' },
+        instructions: 'test',
+      }),
       external_id: 'reporter-external-id',
     });
     const { schedule } = await scheduleStore.createScheduleAndRun({

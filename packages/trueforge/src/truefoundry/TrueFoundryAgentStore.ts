@@ -1,5 +1,5 @@
 import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, modelNames } from '@truefoundry/trueforge-core/core';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
@@ -43,7 +43,7 @@ function toPutRemoteAgentPayload({
   return {
     name,
     description: (description || name).slice(0, AGENT_DESCRIPTION_MAX_LENGTH),
-    model: manifest.model.name,
+    models: modelNames(manifest.model),
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
   };
 }

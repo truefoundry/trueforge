@@ -53,7 +53,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       Promise.resolve({
         session_id: 's1',
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-        agent_spec: { model: { name: 'test-provider/test-model' } },
+        agent_spec: { model: { type: 'fixed', name: 'test-provider/test-model' } },
         record: {
           last_turn_details: null,
           created_by_subject: {
@@ -61,7 +61,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
             subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
           },
-          agent: { type: 'inline', spec: { model: { name: 'test-provider/test-model' } } },
+          agent: { type: 'inline', spec: { model: { type: 'fixed', name: 'test-provider/test-model' } } },
         },
         createTurn: () => Promise.reject(error),
       }),

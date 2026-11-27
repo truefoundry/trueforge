@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { parseTrueFoundryModelRouting } from '../../../src/config';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { ModelInfo } from '../../../src/db/modelProviderStore';
 import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
@@ -25,6 +26,23 @@ const SUBJECT = {
   subject_type: 'user' as const,
   subject_display_name: 'Tester',
 };
+
+const routableModel = (name: string, canonicalModel: string | undefined): ModelInfo => ({
+  name,
+  model_id: name,
+  provider: { name: 'acct' },
+  properties: {},
+  canonicalModel,
+  cost: 1,
+});
+// Together these serve every routing category: direct, fixed_steps, adaptive and frontier.
+const COVERING = [
+  routableModel('acct/haiku', 'anthropic/claude-haiku-5-5'),
+  routableModel('acct/sonnet', 'anthropic/claude-sonnet-5-5'),
+  routableModel('acct/luna', 'openai/gpt-6-luna'),
+  routableModel('acct/fable', 'anthropic/claude-fable-5-2'),
+];
+const autoModel = { type: 'auto', candidate_models: COVERING.map(model => model.name) };
 
 async function createSandboxEnvironment(store: SqliteSandboxEnvironmentStore, name: string): Promise<void> {
   await store.createEnvironment({
@@ -141,7 +159,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: false } },
         }),
@@ -158,7 +176,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'auto' },
+          model: autoModel,
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -171,8 +189,9 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
-  it('accepts auto when model routing is on for the tenant, without a catalog lookup', async () => {
+  it('accepts auto when its candidate models can route every category', async () => {
     const stores = await setup();
+    jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue(COVERING);
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
         decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
@@ -182,7 +201,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'auto' },
+          model: autoModel,
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -193,8 +212,10 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('rejects params on an auto model', async () => {
+  it('rejects auto when its candidate models cannot route every category', async () => {
     const stores = await setup();
+    const extras = [1, 2].map(index => routableModel(`acct/extra-${String(index)}`, 'google/gemini-3-8-flash'));
+    jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue([...COVERING, ...extras]);
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
         decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
@@ -204,7 +225,8 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'auto', params: { temperature: 0.2, reasoning_effort: 'high' } },
+          // Haiku, Luna and Flash serve the cheaper categories only; adaptive and frontier get no model.
+          model: { type: 'auto', candidate_models: ['acct/haiku', 'acct/luna', ...extras.map(model => model.name)] },
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -214,7 +236,7 @@ describe('validateAgentSpec', () => {
       }),
     ).rejects.toMatchObject({
       status: 422,
-      message: 'Model "auto" does not accept model params',
+      message: expect.stringContaining("don't cover every tier"),
     } satisfies Partial<HTTPException>);
   });
 
@@ -237,7 +259,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'auto' },
+          model: autoModel,
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -256,7 +278,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'not-a-fqn' },
+          model: { type: 'fixed', name: 'not-a-fqn' },
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -274,7 +296,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'missing-provider/test-model' },
+          model: { type: 'fixed', name: 'missing-provider/test-model' },
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -292,7 +314,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/missing-model' },
+          model: { type: 'fixed', name: 'test-provider/missing-model' },
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -310,7 +332,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model', params: { reasoning_effort: 'medium' } },
+          model: { type: 'fixed', name: 'test-provider/test-model', params: { reasoning_effort: 'medium' } },
           instructions: 'test',
         }),
         tenant_id: 'default',
@@ -328,7 +350,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           mcp_servers: [{ name: 'missing-mcp' }],
         }),
@@ -347,7 +369,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           skills: [{ name: 'missing-skill' }],
         }),
@@ -366,7 +388,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
@@ -385,7 +407,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -405,7 +427,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -430,7 +452,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -458,7 +480,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -466,7 +488,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
         previousSpec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -479,7 +501,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -487,7 +509,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
         previousSpec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -508,7 +530,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: false } },
         }),
@@ -516,7 +538,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
         previousSpec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { web_search: { enabled: true } },
         }),
@@ -537,7 +559,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: true } },
         }),
@@ -562,7 +584,7 @@ describe('validateAgentSpec', () => {
       },
     });
     const memorySpec = AgentSpecSchema.parse({
-      model: { name: 'test-provider/test-model' },
+      model: { type: 'fixed', name: 'test-provider/test-model' },
       instructions: 'test',
       config: { memory: { enabled: true } },
     });
@@ -594,7 +616,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: true } },
         }),
@@ -602,7 +624,7 @@ describe('validateAgentSpec', () => {
         created_by_subject_id: 'test-subject',
         ...stores,
         previousSpec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: false } },
         }),
@@ -626,7 +648,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: true } },
         }),
@@ -649,7 +671,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: true } },
         }),
@@ -677,7 +699,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { memory: { enabled: true } },
         }),
@@ -705,7 +727,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           skills: [{ name: 'demo' }],
         }),
@@ -737,7 +759,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: true, environment_name: 'team-base' } },
         }),
@@ -765,7 +787,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
@@ -799,7 +821,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: true, environment_name: 'shared-env' } },
         }),
@@ -832,7 +854,7 @@ describe('validateAgentSpec', () => {
         .spyOn(stores.sandboxEnvironmentStore, 'getEnvironment')
         .mockResolvedValue({ environment: { enabled: false } } as never);
       const spec = AgentSpecSchema.parse({
-        model: { name: 'test-provider/test-model' },
+        model: { type: 'fixed', name: 'test-provider/test-model' },
         instructions: 'test',
         config: { sandbox: { enabled: true, environment_name: 'retired-env' } },
       });
@@ -878,7 +900,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
@@ -937,7 +959,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           skills: [{ name: fqn }],
         }),
@@ -964,7 +986,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
         }),
@@ -1002,7 +1024,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
           skills: [{ name: 'echo', preload: true }],
         }),

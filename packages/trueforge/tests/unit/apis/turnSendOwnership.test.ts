@@ -119,7 +119,7 @@ async function createHarness(initial: { executorId: string; state: 'paused' | 'r
     },
     agent: {
       type: 'inline',
-      spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' }, instructions: 'test' }),
     },
     custom: null,
     metadata: {},

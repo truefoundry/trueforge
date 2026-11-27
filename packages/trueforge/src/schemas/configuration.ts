@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { parseModelFqn } from './common';
+import { MAX_AUTO_CANDIDATE_MODELS, MIN_AUTO_CANDIDATE_MODELS, parseModelFqn } from '@truefoundry/trueforge-core/core';
 
 const WebSearchConfigurationSchema = z
   .object({
@@ -20,10 +20,6 @@ const MemoryConfigurationSchema = z
 const AutoModelRoutingEnabledSchema = z
   .boolean()
   .describe('Whether this tenant may use auto model routing, which picks a model for each turn and each subagent.');
-
-export const MAX_AUTO_CANDIDATE_MODELS = 10;
-
-export const MIN_AUTO_CANDIDATE_MODELS = 4;
 
 const AutoModelRoutingCandidateModelsBaseSchema = z
   .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))

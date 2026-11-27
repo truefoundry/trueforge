@@ -66,20 +66,31 @@ function jsonArray(path: RawBuilder<unknown>) {
   return sql`CASE WHEN jsonb_typeof(${path}) = 'array' THEN ${path} ELSE '[]'::jsonb END`;
 }
 
+/** Every model an agent may run on: its fixed model, or each auto candidate. */
+const MODEL_REFERENCES = sql`
+  CROSS JOIN LATERAL jsonb_array_elements_text(
+    CASE WHEN manifest->'model'->>'type' = 'auto'
+      THEN ${jsonArray(sql`manifest->'model'->'candidate_models'`)}
+      ELSE jsonb_build_array(manifest->'model'->>'name')
+    END
+  ) AS model_ref(name)`;
+
 /**
  * Every `(agent, referenced name)` pair a manifest exposes for one entity kind.
- * A provider is referenced through the segment of `model.name` before the first `/`.
+ * A provider is referenced through the segment of a model name before the first `/`.
  */
 function catalogUsagePairs({ entity, tenant_id }: { entity: AgentCatalogEntity; tenant_id: string }) {
   switch (entity) {
     case 'model_provider':
       return sql`
-        SELECT name AS agent_name, split_part(manifest->'model'->>'name', '/', 1) AS reference_name
-        FROM agent WHERE tenant_id = ${tenant_id}`;
+        SELECT agent.name AS agent_name, split_part(model_ref.name, '/', 1) AS reference_name
+        FROM agent ${MODEL_REFERENCES}
+        WHERE tenant_id = ${tenant_id}`;
     case 'model':
       return sql`
-        SELECT name AS agent_name, manifest->'model'->>'name' AS reference_name
-        FROM agent WHERE tenant_id = ${tenant_id}`;
+        SELECT agent.name AS agent_name, model_ref.name AS reference_name
+        FROM agent ${MODEL_REFERENCES}
+        WHERE tenant_id = ${tenant_id}`;
     case 'mcp_server':
       return sql`
         SELECT agent.name AS agent_name, entry.value->>'name' AS reference_name

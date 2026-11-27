@@ -33,7 +33,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: `agent-${String(Date.now())}-${String(Math.random()).slice(2, 8)}`,
       description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
       }),
       external_id: null,

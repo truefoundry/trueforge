@@ -11,7 +11,10 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 const OWNER: Subject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
 const OTHER_GRANTER: Subject = { subject_id: 'other', subject_type: 'user', subject_display_name: 'Other' };
-const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
+const SPEC = AgentSpecSchema.parse({
+  model: { type: 'fixed', name: 'test-provider/test-model' },
+  instructions: 'test',
+});
 
 export interface AccessControlStoreContractEnv {
   store: IAccessControlStore;

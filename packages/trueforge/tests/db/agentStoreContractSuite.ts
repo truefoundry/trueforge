@@ -17,7 +17,7 @@ const CREATED_BY_SUBJECT: Subject = {
 /** Overrides are schema input, so callers may omit fields that carry defaults. */
 function manifest(overrides: Partial<z.input<typeof AgentSpecSchema>> = {}): AgentSpec {
   return AgentSpecSchema.parse({
-    model: { name: 'anthropic/claude-sonnet-4-6' },
+    model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Be helpful.',
     ...overrides,
   });
@@ -435,7 +435,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         name: 'support',
         description: 'Test agent.',
         manifest: manifest({
-          model: { name: 'openai/gpt-5' },
+          model: { type: 'fixed', name: 'openai/gpt-5' },
           mcp_servers: [{ name: 'github' }],
           skills: [{ name: 'pdf-extract' }],
         }),
@@ -447,7 +447,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         name: 'triage',
         description: 'Test agent.',
         manifest: manifest({
-          model: { name: 'openai/gpt-5-mini' },
+          model: { type: 'fixed', name: 'openai/gpt-5-mini' },
           mcp_servers: [{ name: 'github' }, { name: 'linear' }],
         }),
         external_id: null,
@@ -457,7 +457,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'stranger',
         description: 'Test agent.',
-        manifest: manifest({ model: { name: 'openai/gpt-5' }, mcp_servers: [{ name: 'github' }] }),
+        manifest: manifest({ model: { type: 'fixed', name: 'openai/gpt-5' }, mcp_servers: [{ name: 'github' }] }),
         external_id: null,
       });
     }
@@ -484,6 +484,41 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       expect(
         await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model', names: ['openai/gpt-5'] }),
       ).toEqual([{ agent_name: 'support', reference_name: 'openai/gpt-5' }]);
+    });
+
+    it('matches an auto agent through each of its candidate models and their providers', async () => {
+      const store = getStore();
+      await seedReferencingAgents(store);
+      await store.createAgent({
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'router',
+        description: 'Test agent.',
+        manifest: manifest({
+          model: {
+            type: 'auto',
+            candidate_models: ['openai/gpt-5', 'anthropic/claude-haiku-5-5', 'google/gemini-4', 'xai/grok-4'],
+          },
+        }),
+        external_id: null,
+      });
+
+      expect(
+        await store.listAgentCatalogUsage({
+          tenant_id: TENANT,
+          entity: 'model',
+          names: ['anthropic/claude-haiku-5-5'],
+        }),
+      ).toEqual([{ agent_name: 'router', reference_name: 'anthropic/claude-haiku-5-5' }]);
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model', names: ['openai/gpt-5'] }),
+      ).toEqual([
+        { agent_name: 'router', reference_name: 'openai/gpt-5' },
+        { agent_name: 'support', reference_name: 'openai/gpt-5' },
+      ]);
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model_provider', names: ['anthropic'] }),
+      ).toEqual([{ agent_name: 'router', reference_name: 'anthropic' }]);
     });
 
     it('matches MCP servers and skills nested in manifest arrays', async () => {

@@ -46,14 +46,14 @@ describe('TrueFoundry naming vs NameSchema', () => {
       name: 'support-bot',
       description: 'Support agent.',
       manifest: {
-        model: { name: MODEL_FQN },
+        model: { type: 'fixed', name: MODEL_FQN },
         mcp_servers: [{ name: LONG_MCP_NAME }],
         skills: [{ name: SKILL_FQN, preload: false }],
       },
     });
     expect(body.name).toBe('support-bot');
     expect(NameSchema.safeParse(body.name).success).toBe(true);
-    expect(body.manifest.model.name).toBe(MODEL_FQN);
+    expect(body.manifest.model).toEqual({ type: 'fixed', name: MODEL_FQN });
     expect(body.manifest.mcp_servers?.[0]?.name).toBe(LONG_MCP_NAME);
     expect(body.manifest.skills?.[0]?.name).toBe(SKILL_FQN);
 
@@ -61,35 +61,35 @@ describe('TrueFoundry naming vs NameSchema', () => {
       CreateAgentRequestSchema.safeParse({
         name: SKILL_FQN,
         description: 'x',
-        manifest: { model: { name: MODEL_FQN } },
+        manifest: { model: { type: 'fixed', name: MODEL_FQN } },
       }).success,
     ).toBe(false);
     expect(
       CreateAgentRequestSchema.safeParse({
         name: 'my.agent',
         description: 'x',
-        manifest: { model: { name: MODEL_FQN } },
+        manifest: { model: { type: 'fixed', name: MODEL_FQN } },
       }).success,
     ).toBe(false);
 
     const updated = UpdateAgentRequestSchema.parse({
       manifest: {
-        model: { name: 'custom.provider/my_model.v1' },
+        model: { type: 'fixed', name: 'custom.provider/my_model.v1' },
         mcp_servers: [{ name: LONG_MCP_NAME }],
         skills: [{ name: SKILL_FQN, preload: true }],
       },
     });
-    expect(updated.manifest.model.name).toBe('custom.provider/my_model.v1');
+    expect(updated.manifest.model).toEqual({ type: 'fixed', name: 'custom.provider/my_model.v1' });
     expect(updated.manifest.skills?.[0]?.name).toBe(SKILL_FQN);
   });
 
   it('AgentSpecSchema alone accepts the same non-NameSchema refs', () => {
     const spec = AgentSpecSchema.parse({
-      model: { name: 'custom.provider/my_model.v1' },
+      model: { type: 'fixed', name: 'custom.provider/my_model.v1' },
       mcp_servers: [{ name: LONG_MCP_NAME }, { name: 'svc.mcp_with.dots' }],
       skills: [{ name: SKILL_FQN }, { name: 'agent-skill:org/repo.with.dots/skill_name:12' }],
     });
-    expect(spec.model.name).toBe('custom.provider/my_model.v1');
+    expect(spec.model).toEqual({ type: 'fixed', name: 'custom.provider/my_model.v1' });
     expect(spec.mcp_servers?.map(s => s.name)).toEqual([LONG_MCP_NAME, 'svc.mcp_with.dots']);
     expect(spec.skills?.map(s => s.name)).toEqual([SKILL_FQN, 'agent-skill:org/repo.with.dots/skill_name:12']);
   });

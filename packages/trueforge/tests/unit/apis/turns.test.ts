@@ -167,7 +167,7 @@ describe('turns', () => {
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
-            model: { name: 'test-provider/test-model' },
+            model: { type: 'fixed', name: 'test-provider/test-model' },
             instructions: 'test',
           }),
         },
@@ -260,7 +260,7 @@ describe('turns', () => {
         tenant_id: 'default',
         name: 'managed-agent',
         description: 'Test agent.',
-        manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+        manifest: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } }),
         external_id: 'managed-agent-external',
         created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
       });
@@ -358,7 +358,7 @@ describe('turns', () => {
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
-            model: { name: 'test-provider/test-model' },
+            model: { type: 'fixed', name: 'test-provider/test-model' },
             instructions: 'test',
           }),
         },
@@ -435,7 +435,7 @@ describe('turns', () => {
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
-            model: { name: 'test-provider/test-model' },
+            model: { type: 'fixed', name: 'test-provider/test-model' },
             instructions: 'test',
           }),
         },
@@ -511,7 +511,7 @@ describe('turns', () => {
           Promise.resolve({
             session_id: 's1',
             tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-            spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+            spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } }),
             record: {
               last_turn_details: null,
               created_by_subject: {
@@ -521,7 +521,7 @@ describe('turns', () => {
               },
               agent: {
                 type: 'inline',
-                spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+                spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } }),
               },
             },
             createTurn: () =>
@@ -643,7 +643,7 @@ describe('turns', () => {
           Promise.resolve({
             session_id: 's1',
             tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-            spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+            spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } }),
             record: {
               last_turn_details: null,
               created_by_subject: {
@@ -653,7 +653,7 @@ describe('turns', () => {
               },
               agent: {
                 type: 'inline',
-                spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+                spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } }),
               },
             },
             createTurn: () =>
@@ -775,7 +775,7 @@ describe('turns', () => {
         },
       });
 
-      const agentSpec = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } });
+      const agentSpec = AgentSpecSchema.parse({ model: { type: 'fixed', name: 'test-provider/test-model' } });
       const sessions = {
         get: () =>
           Promise.resolve({
@@ -870,7 +870,7 @@ describe('turns', () => {
         name: 'named-for-turn',
         description: 'Test agent.',
         manifest: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
         }),
         external_id: null,
@@ -1011,7 +1011,7 @@ describe('turns', () => {
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
-            model: { name: 'test-provider/test-model' },
+            model: { type: 'fixed', name: 'test-provider/test-model' },
             instructions: 'test',
           }),
         },
