@@ -2,6 +2,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
+import type { TrackAnalytics } from '@/analytics/types.js';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
@@ -77,6 +80,7 @@ function renderSelector({
   catalog = settingsCatalog,
   compact = false,
   environmentServer,
+  track,
 }: {
   onAttach?: () => void;
   getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
@@ -85,6 +89,7 @@ function renderSelector({
   catalog?: CatalogServer | null;
   compact?: boolean;
   environmentServer?: SandboxEnvironmentServer;
+  track?: TrackAnalytics;
 } = {}) {
   const server = createMockAgentUIServer({
     ...(catalog === null ? {} : { catalog }),
@@ -115,7 +120,17 @@ function renderSelector({
       </DraftCatalogProvider>
     </ServerProvider>
   );
-  return render(compact ? <CompactLayoutProvider>{selector}</CompactLayoutProvider> : selector);
+  const laidOut = compact ? <CompactLayoutProvider>{selector}</CompactLayoutProvider> : selector;
+  return render(track ? <AnalyticsProvider track={track}>{laidOut}</AnalyticsProvider> : laidOut);
+}
+
+function openAddMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+}
+
+// Submenus open on hover/focus in the browser; ArrowRight is the keyboard path the menu itself uses.
+function openSubmenu(name: RegExp) {
+  fireEvent.keyDown(screen.getByRole('menuitem', { name }), { key: 'ArrowRight' });
 }
 
 describe('DraftCompositeSelector', () => {
@@ -137,16 +152,13 @@ describe('DraftCompositeSelector', () => {
     vi.useRealTimers();
   });
 
-  it('shows one combined Tools count only for a valid model', () => {
-    const view = renderSelector();
-    const toolsTrigger = screen.getByRole('button', { name: 'Tools (3)' });
-    expect(toolsTrigger).toHaveTextContent('Tools');
-    expect(toolsTrigger).toHaveTextContent('3');
-    fireEvent.click(toolsTrigger);
-    expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
+  it('shows the plus trigger with Connectors and Skills rows only for a valid model', () => {
+    const view = renderSelector({ onAttach: vi.fn() });
+    openAddMenu();
+    expect(screen.getByRole('menuitem', { name: 'Add Files or photos' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Connectors/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Skills/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Capabilities/ })).not.toBeInTheDocument();
 
     agentSpec = { ...agentSpec, model: { name: '  ' } };
     view.rerender(
@@ -156,8 +168,18 @@ describe('DraftCompositeSelector', () => {
         </DraftCatalogProvider>
       </ServerProvider>,
     );
-    expect(screen.queryByRole('button', { name: /Tools/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+  });
+
+  it('runs Add Files directly when it is the only menu item', () => {
+    agentSpec = { ...agentSpec, model: { name: '  ' } };
+    const onAttach = vi.fn();
+    renderSelector({ onAttach });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Files or photos' }));
+
+    expect(onAttach).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
   });
 
   it('keeps registry skills plain in the draft composer', async () => {
@@ -168,8 +190,8 @@ describe('DraftCompositeSelector', () => {
     );
     renderSelector({ getSkills: async () => [skill] });
 
-    fireEvent.click(screen.getByRole('button', { name: /Tools/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     // Capabilities arrive a tick after the catalog, which replaces the disabled row with an enabled one.
     await waitFor(() => {
@@ -181,7 +203,8 @@ describe('DraftCompositeSelector', () => {
 
   it('uses contrasting search surfaces in light and dark themes', () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
 
     expect(screen.getByPlaceholderText('Search connectors...')).toHaveClass(
       'border-input-border',
@@ -192,7 +215,8 @@ describe('DraftCompositeSelector', () => {
 
   it('filters the complete connector catalog client-side', async () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
 
     expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
@@ -203,65 +227,44 @@ describe('DraftCompositeSelector', () => {
     expect(screen.queryByRole('menuitemcheckbox', { name: /Slack/ })).not.toBeInTheDocument();
   });
 
-  it('shows selected connectors and skills in the Tools tooltip', () => {
+  it('lists selected connectors under a Selected heading', async () => {
     renderSelector();
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (3)' }));
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Built-in: TrueForge');
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Slack');
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Skills: Research');
+    openAddMenu();
+    openSubmenu(/Connectors/);
+
+    expect(await screen.findByText('Selected (1)')).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: /Slack/ })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('truncates Tools tooltip names after 4 with a remainder count', () => {
-    agentSpec = {
-      ...agentSpec,
-      mcpServers: [
-        { id: 'a', name: 'Alpha' },
-        { id: 'b', name: 'Beta' },
-        { id: 'c', name: 'Gamma' },
-        { id: 'd', name: 'Delta' },
-        { id: 'e', name: 'Epsilon' },
-        { id: 'f', name: 'Zeta' },
-      ],
-      skills: [],
-    };
-    renderSelector();
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (7)' }));
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Alpha, Beta, Gamma, Delta +2');
-  });
-
-  it('renders attachment as a standalone tooltip control', () => {
+  it('runs the attachment handler from the Add Files or photos item and closes the menu', () => {
     const onAttach = vi.fn();
     renderSelector({ onAttach });
+    openAddMenu();
 
-    const attach = screen.getByRole('button', { name: 'Attach a file' });
-    fireEvent.mouseEnter(attach);
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Attach a file');
-    fireEvent.click(attach);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add Files or photos' }));
+
     expect(onAttach).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Add Files or photos' })).not.toBeInTheDocument();
   });
 
-  it('groups compact tools and attachment actions under a plus menu', () => {
-    const onAttach = vi.fn();
-    renderSelector({ onAttach, compact: true });
+  it('drills into connectors inside the compact sheet and back out again', async () => {
+    renderSelector({ onAttach: vi.fn(), compact: true });
 
-    expect(screen.queryByRole('button', { name: 'Tools (3)' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Attach a file' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('menuitem', { name: 'Tools (3)' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Attach a file' }));
-
-    expect(onAttach).toHaveBeenCalledOnce();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Tools (3)' }));
+    openAddMenu();
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Connectors/ }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Add Files or photos' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Back' }));
+    expect(screen.getByRole('menuitem', { name: 'Add Files or photos' })).toBeInTheDocument();
   });
 
   it('debounces connector changes into one draft update', async () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
@@ -279,18 +282,19 @@ describe('DraftCompositeSelector', () => {
 
   it('opens settings from the empty connectors state', async () => {
     renderSelector({ getMcp: async () => [] });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Connectors in the settings/ }));
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true, 'connectors');
-    expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Connectors/ })).not.toBeInTheDocument();
   });
 
   it('opens settings from the empty skills state', async () => {
     renderSelector({ getSkills: async () => [] });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
 
@@ -309,8 +313,8 @@ describe('DraftCompositeSelector', () => {
       }),
       getSkills: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     expect(await screen.findByRole('status')).toHaveTextContent('Skills run in a sandbox, which is not configured.');
     const emptyState = screen.getByRole('button', { name: /Please configure a Sandbox in the settings/ });
@@ -331,8 +335,8 @@ describe('DraftCompositeSelector', () => {
       }),
       getSkills: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
 
@@ -341,7 +345,8 @@ describe('DraftCompositeSelector', () => {
 
   it('does not offer connector settings without a settings catalog', async () => {
     renderSelector({ getMcp: async () => [], catalog: null });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
@@ -360,7 +365,8 @@ describe('DraftCompositeSelector', () => {
       }),
       getMcp: async () => [],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
@@ -368,8 +374,8 @@ describe('DraftCompositeSelector', () => {
 
   it('does not offer skills settings when the skills settings section is unavailable', async () => {
     renderSelector({ getSkills: async () => [], catalog: createMockCatalog() });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure Skills/ })).not.toBeInTheDocument();
@@ -388,8 +394,8 @@ describe('DraftCompositeSelector', () => {
       getSkills: async () => [],
       catalog: createMockCatalog({ skillCatalog }),
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    openAddMenu();
+    openSubmenu(/Skills/);
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
@@ -456,8 +462,10 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+    openAddMenu();
+    // Environment is gated on capabilities, which resolve after the first render.
+    await screen.findByRole('menuitem', { name: /Environment/ });
+    openSubmenu(/Environment/);
 
     expect(await screen.findByText('trueforge-sandbox-env')).toBeInTheDocument();
     expect(screen.getByText('Default environment')).toBeInTheDocument();
@@ -537,8 +545,10 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+    openAddMenu();
+    // Environment is gated on capabilities, which resolve after the first render.
+    await screen.findByRole('menuitem', { name: /Environment/ });
+    openSubmenu(/Environment/);
 
     expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
     fireEvent.click(screen.getByText('trueforge-sandbox-env'));
@@ -551,8 +561,10 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+    openAddMenu();
+    // Environment is gated on capabilities, which resolve after the first render.
+    await screen.findByRole('menuitem', { name: /Environment/ });
+    openSubmenu(/Environment/);
 
     expect(await screen.findByRole('button', { name: /Please configure Environments/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
@@ -584,8 +596,10 @@ describe('DraftCompositeSelector', () => {
     });
 
     renderSelector({ environmentServer });
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Environment/ }));
+    openAddMenu();
+    // Environment is gated on capabilities, which resolve after the first render.
+    await screen.findByRole('menuitem', { name: /Environment/ });
+    openSubmenu(/Environment/);
 
     expect(await screen.findByText('gone-env')).toBeInTheDocument();
     expect(screen.queryByText('This environment is no longer available')).not.toBeInTheDocument();
@@ -614,7 +628,8 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     expect(screen.getByText('Built-in')).toBeInTheDocument();
     await waitFor(() => {
       const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
@@ -637,7 +652,8 @@ describe('DraftCompositeSelector', () => {
 
   it('enables TrueForge under Built-in by default and lets the user turn it off', () => {
     renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     const row = screen.getByRole('menuitemcheckbox', { name: /TrueForge/ });
     expect(row).toHaveAttribute('aria-checked', 'true');
 
@@ -671,7 +687,8 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     await waitFor(() => {
       const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
       expect(row).toHaveAttribute('aria-disabled', 'true');
@@ -713,7 +730,8 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     // The row renders locked with a generic hint until capabilities land, so wait for the reason.
     const note = await screen.findByText('Web search is turned off for this tenant.');
     expect(note.closest('[role="status"]')).not.toBeNull();
@@ -736,7 +754,8 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     await waitFor(() => {
       const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
       expect(row).toHaveAttribute('aria-checked', 'true');
@@ -767,10 +786,57 @@ describe('DraftCompositeSelector', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (4)' }));
+    openAddMenu();
+    openSubmenu(/Connectors/);
     await waitFor(() => {
       expect(screen.getByRole('menuitemcheckbox', { name: /Web search/ })).toHaveAttribute('aria-checked', 'true');
     });
     expect(screen.queryByText(/Turning it off here is final/)).not.toBeInTheDocument();
+  });
+
+  it('shows selected connectors and a skill count beside the plus button', () => {
+    agentSpec = {
+      ...agentSpec,
+      mcpServers: [
+        { id: 'slack', name: 'Slack' },
+        { id: 'github', name: 'GitHub' },
+        { id: 'jira', name: 'Jira' },
+        { id: 'notion', name: 'Notion' },
+        { id: 'linear', name: 'Linear' },
+      ],
+      skills: [
+        { id: 'research', name: 'Research' },
+        { id: 'writing', name: 'Writing' },
+      ],
+    };
+    renderSelector();
+
+    expect(screen.getByRole('img', { name: 'Slack' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'GitHub' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Jira' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Notion' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '2 more connectors' })).toBeInTheDocument();
+    expect(screen.getByText('2 Skills')).toBeInTheDocument();
+  });
+
+  it('shows no selection chips when nothing is selected', () => {
+    agentSpec = { ...agentSpec, mcpServers: [], skills: [] };
+    renderSelector();
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Skills?$/)).not.toBeInTheDocument();
+  });
+
+  it('tracks opening the plus menu and choosing an item', () => {
+    const track = vi.fn();
+    const onAttach = vi.fn();
+    renderSelector({ onAttach, track });
+
+    openAddMenu();
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Composer.ADD_MENU_OPENED, undefined);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /Add Files or photos/ }));
+    expect(onAttach).toHaveBeenCalledOnce();
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Composer.ADD_MENU_ITEM_SELECTED, { item: 'attach' });
   });
 });

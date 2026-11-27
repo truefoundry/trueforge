@@ -385,7 +385,7 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
-Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. Runtime Config opens in a second right-side drawer. The compact Tools picker contains only Connectors and Skills. The Save Agent drawer only edits the agent name while preserving the active draft configuration; cancelling it discards that local edit. Model context and output limits render when the server supplies that optional catalog metadata.
+Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. Runtime Config opens in a second right-side drawer. The composer's single plus (+) menu holds Add Files or photos, Connectors (including the built-in TrueForge and Web search toggles), Skills, and Environment when sandbox environments are enabled. Compact layouts open the same items as a bottom sheet with drill-down sections. The Save Agent drawer only edits the agent name while preserving the active draft configuration; cancelling it discards that local edit. Model context and output limits render when the server supplies that optional catalog metadata.
 
 ```tsx
 {
@@ -495,7 +495,7 @@ function MyBubble({ children, error, actionBar, className }: AssistantMessageBub
 />;
 ```
 
-Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, agent metrics (`AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, `AgentMetricStatistics`, `AgentMetricChart`), and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
+Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`, `DraftComposerActionsMenu` for the plus menu shell), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, agent metrics (`AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, `AgentMetricStatistics`, `AgentMetricChart`), and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
 
 See [docs/customization.md](./docs/customization.md) for the full slot list.
 

@@ -280,8 +280,8 @@ describe('TrueForgeUI', () => {
       expect(getMcp).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (1)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: /Skills/ }), { key: 'ArrowRight' });
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
   });
 

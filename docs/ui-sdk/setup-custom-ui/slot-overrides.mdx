@@ -46,7 +46,9 @@ honor the props you receive — several are rendered nodes (`actionBar`, `error`
 
     The draft composer has its own slots — `DraftComposerLeftSection`,
     `DraftComposerRightSection`, `DraftModelSelector`, and `DraftCompositeSelector` — so you can
-    restyle the draft chrome without touching the standard composer.
+    restyle the draft chrome without touching the standard composer. `DraftCompositeSelector`
+    renders the plus menu through the `DraftComposerActionsMenu` slot, which you can override to
+    restyle the menu itself.
 
     The two sets interact. In a mutable draft the container substitutes the draft sections
     behind `ComposerLeftSection` / `ComposerRightSection`, but only while those slots are still

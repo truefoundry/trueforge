@@ -3,14 +3,11 @@
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
-import { Icon } from '../../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import type { ComposerLeftSectionProps, ComposerRightSectionProps } from '../ComposerSections.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
-import { Tooltip } from '../primitives/Tooltip.js';
 
 export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
@@ -21,29 +18,35 @@ export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSec
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
-  const compactActions = [
-    {
-      id: 'agent-config',
-      label: 'Agent config',
-      icon: 'sliders',
-      onSelect: () => {
-        track(
-          AnalyticsEvents.Config.OPENED,
-          withSessionProps(undefined, {
-            ...(shell?.mode.status === 'active'
-              ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName }
-              : {}),
-          }),
-        );
-        shell?.setAgentConfigOpen(true);
-      },
-    },
+  // Agent config lives in the plus menu only when the side panel can't be shown;
+  // with attach alone the menu collapses to a direct attach button.
+  const builderActions = [
+    ...(compact
+      ? [
+          {
+            id: 'agent-config',
+            label: 'Agent config',
+            icon: 'sliders',
+            onSelect: () => {
+              track(
+                AnalyticsEvents.Config.OPENED,
+                withSessionProps(undefined, {
+                  ...(shell?.mode.status === 'active'
+                    ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName }
+                    : {}),
+                }),
+              );
+              shell?.setAgentConfigOpen(true);
+            },
+          },
+        ]
+      : []),
     ...(onAttach === undefined
       ? []
       : [
           {
             id: 'attach',
-            label: 'Attach a file',
+            label: 'Add Files or photos',
             icon: 'paperclip',
             onSelect: onAttach,
           },
@@ -53,21 +56,8 @@ export function DraftComposerLeftSection({ disabled, onAttach }: ComposerLeftSec
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {!isBuilder ? <DraftCompositeSelector disabled={disabled} onAttach={onAttach} /> : null}
-      {isBuilder && compact ? <DraftComposerActionsMenu actions={compactActions} disabled={disabled} /> : null}
+      {isBuilder ? <DraftComposerActionsMenu actions={builderActions} disabled={disabled} /> : null}
       {isBuilder && !compact && isMobile ? <DraftAgentConfigTrigger disabled={disabled} /> : null}
-      {isBuilder && !compact && onAttach != null ? (
-        <Tooltip content="Attach a file">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={onAttach}
-          >
-            <Icon name="paperclip" />
-          </button>
-        </Tooltip>
-      ) : null}
     </div>
   );
 }
