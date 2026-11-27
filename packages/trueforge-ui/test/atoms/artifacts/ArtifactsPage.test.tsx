@@ -161,11 +161,13 @@ describe('ArtifactsPage', () => {
     await waitFor(() => expect(listArtifacts.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 
-  it('keeps Share disabled because artifacts carry no session to share', async () => {
+  it('hides Share and Delete until the API supports them', async () => {
     renderWith(createMockArtifactServer({ listArtifacts: async () => ({ data: sample }) }));
     await screen.findByText('Q4 brief');
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Q4 brief' }));
-    expect(await screen.findByRole('menuitem', { name: 'Share' })).toBeDisabled();
+    await screen.findByRole('menuitem', { name: 'Edit' });
+    expect(screen.queryByRole('menuitem', { name: 'Share' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
   });
 });
 

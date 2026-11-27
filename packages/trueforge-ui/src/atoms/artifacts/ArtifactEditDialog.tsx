@@ -1,25 +1,27 @@
 'use client';
 
-import type { QueryClient } from '@tanstack/react-query';
-import { useState, type MutableRefObject } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
-import type { TrackAnalytics } from '../../analytics/types.js';
-import type { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useServerQueryClient } from '../../server/queryClient.js';
 import { queryKeys } from '../../server/queryKeys.js';
-import type { Artifact, ArtifactServer } from '../../server/types.js';
+import { useArtifactServer } from '../../server/ServerContext.js';
+import type { Artifact } from '../../server/types.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { Button } from '../primitives/Button.js';
-import ConfirmDeleteDialog from '../primitives/ConfirmDeleteDialog.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
-import { artifactPreviewKey } from './artifactDisplay.js';
 
 export function ArtifactEditDialog({
   artifact,
+  saving,
   onCancel,
   onSave,
 }: {
   artifact: Artifact;
+  saving: boolean;
   onCancel: () => void;
   onSave: (name: string) => void;
 }) {
@@ -54,7 +56,7 @@ export function ArtifactEditDialog({
         </Button.Secondary>
         <Button.Primary
           type="button"
-          disabled={trimmed.length === 0 || trimmed === artifact.name}
+          disabled={saving || trimmed.length === 0 || trimmed === artifact.name}
           onClick={() => onSave(trimmed)}
         >
           Save
@@ -64,77 +66,23 @@ export function ArtifactEditDialog({
   );
 }
 
-export function ArtifactDeleteDialog({
-  artifact,
-  onCancel,
-  onConfirm,
-}: {
-  artifact: Artifact;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <ConfirmDeleteDialog
-      title="Delete artifact"
-      description={
-        <>
-          Delete <span className="font-medium text-text-primary">{artifact.name}</span>? This cannot be undone.
-        </>
-      }
-      confirmLabel="Delete"
-      onCancel={onCancel}
-      onConfirm={onConfirm}
-    />
+export function useRenameArtifact() {
+  const artifactServer = useArtifactServer();
+  const queryClient = useServerQueryClient();
+  const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
+
+  return useMutation(
+    {
+      mutationFn: ({ artifact, name }: { artifact: Artifact; name: string }) =>
+        artifactServer.updateArtifact({ id: artifact.id, name }),
+      onSuccess: (_updated, { artifact }) => {
+        track(AnalyticsEvents.Artifact.EDITED, { artifact_id: artifact.id });
+        toaster?.showSuccess({ title: 'Artifact updated' });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.all() });
+      },
+      onError: caught => toaster?.showError(caught),
+    },
+    queryClient,
   );
-}
-
-export function artifactMutations({
-  artifactServer,
-  queryClient,
-  toaster,
-  track,
-  previewTurnId,
-  closePreview,
-  setArtifactRef,
-  openedRef,
-}: {
-  artifactServer: ArtifactServer;
-  queryClient: QueryClient;
-  toaster: ReturnType<typeof useToasterOptional>;
-  track: TrackAnalytics;
-  previewTurnId: string | undefined;
-  closePreview: () => void;
-  setArtifactRef: ((ref: string | null) => void) | undefined;
-  openedRef: MutableRefObject<string | null>;
-}) {
-  const saveName = async ({ artifact, name }: { artifact: Artifact; name: string }) => {
-    try {
-      await artifactServer.updateArtifact({ id: artifact.id, name });
-      track(AnalyticsEvents.Artifact.EDITED, { artifact_id: artifact.id });
-      toaster?.showSuccess({ title: 'Artifact updated' });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.all() });
-      return true;
-    } catch (caught) {
-      toaster?.showError(caught);
-      return false;
-    }
-  };
-
-  const deleteArtifact = async (artifact: Artifact) => {
-    try {
-      await artifactServer.deleteArtifact({ id: artifact.id });
-      if (artifactPreviewKey(artifact) === previewTurnId) {
-        openedRef.current = null;
-        closePreview();
-        setArtifactRef?.(null);
-      }
-      track(AnalyticsEvents.Artifact.DELETED, { artifact_id: artifact.id });
-      toaster?.showSuccess({ title: 'Artifact deleted' });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.all() });
-    } catch (caught) {
-      toaster?.showError(caught);
-    }
-  };
-
-  return { saveName, deleteArtifact };
 }

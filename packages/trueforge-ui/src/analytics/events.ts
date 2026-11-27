@@ -97,7 +97,6 @@ export const AnalyticsEvents = {
     PREVIEW_OPENED: 'trueforge.artifact.preview_opened',
     DOWNLOADED: 'trueforge.artifact.downloaded',
     EDITED: 'trueforge.artifact.edited',
-    DELETED: 'trueforge.artifact.deleted',
     SESSION_CARD_PREVIEW_OPENED: 'trueforge.artifact.session_card_preview_opened',
     SESSION_CARD_SHOW_MORE: 'trueforge.artifact.session_card_show_more',
   },

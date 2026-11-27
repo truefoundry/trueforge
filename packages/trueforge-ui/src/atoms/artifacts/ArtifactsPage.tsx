@@ -22,7 +22,7 @@ import SearchInput from '../primitives/SearchInput.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import { DEFAULT_TABLE_PAGE_SIZE, TableTokenPagination } from '../primitives/Table.js';
 import { artifactPreviewTarget } from './artifactDisplay.js';
-import { ArtifactDeleteDialog, ArtifactEditDialog, artifactMutations } from './ArtifactEditDialog.js';
+import { ArtifactEditDialog, useRenameArtifact } from './ArtifactEditDialog.js';
 import { ArtifactsEmptyState } from './ArtifactsEmptyState.js';
 import { ArtifactsTable } from './ArtifactsTable.js';
 
@@ -60,7 +60,6 @@ function ArtifactsPageBody() {
   const [searchInput, setSearchInput] = useState('');
   const [name, setName] = useState('');
   const [editing, setEditing] = useState<Artifact | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Artifact | null>(null);
   const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
   const pageScope = JSON.stringify([pageSize, name]);
   const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>({
@@ -154,16 +153,7 @@ function ArtifactsPageBody() {
     }
   }, [previewOpen, setArtifactRef]);
 
-  const { saveName, deleteArtifact } = artifactMutations({
-    artifactServer,
-    queryClient,
-    toaster,
-    track,
-    previewTurnId: preview.target?.turnId,
-    closePreview,
-    setArtifactRef,
-    openedRef: openedRefRef,
-  });
+  const renameArtifact = useRenameArtifact();
 
   const downloadArtifact = async (artifact: Artifact) => {
     try {
@@ -213,7 +203,6 @@ function ArtifactsPageBody() {
                 onOpen={openPreview}
                 onDownload={artifact => void downloadArtifact(artifact)}
                 onEdit={setEditing}
-                onDelete={setPendingDelete}
               />
               {hasPageNav ? (
                 <TableTokenPagination
@@ -237,25 +226,9 @@ function ArtifactsPageBody() {
       {editing != null ? (
         <ArtifactEditDialog
           artifact={editing}
+          saving={renameArtifact.isPending}
           onCancel={() => setEditing(null)}
-          onSave={next => {
-            if (editing == null) return;
-            void saveName({ artifact: editing, name: next }).then(saved => {
-              if (saved) setEditing(null);
-            });
-          }}
-        />
-      ) : null}
-      {pendingDelete != null ? (
-        <ArtifactDeleteDialog
-          artifact={pendingDelete}
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => {
-            if (pendingDelete == null) return;
-            const target = pendingDelete;
-            setPendingDelete(null);
-            void deleteArtifact(target);
-          }}
+          onSave={name => renameArtifact.mutate({ artifact: editing, name }, { onSuccess: () => setEditing(null) })}
         />
       ) : null}
     </div>

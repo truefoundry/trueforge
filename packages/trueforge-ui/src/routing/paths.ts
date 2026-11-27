@@ -20,7 +20,6 @@ const DEFAULTS = {
   schedules: '/schedules',
   environments: '/environments',
   artifacts: '/artifacts',
-  artifact: '/artifacts/:artifactRef',
   buildAgent: '/build-agent',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
@@ -42,6 +41,8 @@ function resolveOptional(value: string | false | undefined, fallback: string): s
 
 export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
   const paths = routes?.paths;
+  // The preview is a child of the list, so disabling the list also disables the preview.
+  const artifacts = resolveOptional(paths?.artifacts, DEFAULTS.artifacts);
   return {
     basename: routes?.basename ?? '',
     root: normalizePath(paths?.root ?? DEFAULTS.root),
@@ -50,8 +51,8 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     schedules: resolveOptional(paths?.schedules, DEFAULTS.schedules),
     environments: resolveOptional(paths?.environments, DEFAULTS.environments),
-    artifacts: resolveOptional(paths?.artifacts, DEFAULTS.artifacts),
-    artifact: resolveOptional(paths?.artifact, DEFAULTS.artifact),
+    artifacts,
+    artifact: artifacts == null ? null : `${artifacts}/:artifactRef`,
     buildAgent: resolveOptional(paths?.buildAgent, DEFAULTS.buildAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
