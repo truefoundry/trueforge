@@ -614,6 +614,38 @@
   }
 }
 
+/* Overlay/full preview fades and slides in. Uses `translate` so it never touches `transform`. */
+@media (prefers-reduced-motion: no-preference) {
+  .aui-file-preview {
+    animation: aui-file-preview-enter 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* Side pane is a flex sibling of the list: grow its width so the list shrinks in step
+     instead of jumping. ponytail: re-lays out the list each frame; fine for a short, small table. */
+  .aui-file-preview[data-mount-placement='side'] {
+    animation-name: aui-file-preview-grow;
+  }
+}
+
+@keyframes aui-file-preview-enter {
+  from {
+    opacity: 0;
+    translate: 1.5rem 0;
+  }
+}
+
+@keyframes aui-file-preview-grow {
+  from {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
 /* Dialog slide: off-canvas when closed; @starting-style + allow-discrete for enter/exit.
    Open state MUST be `none` (not translate(0)) so themePortalRoot fixed popovers/tooltips
    keep the viewport as containing block and are not clipped by overflow-hidden. */

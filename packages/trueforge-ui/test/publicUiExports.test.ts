@@ -86,6 +86,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'DraftComposerRightSection',
   'DraftCompositeSelector',
   'DraftModelSelector',
+  'ArtifactsButton',
+  'ArtifactsPage',
   'EnvironmentsButton',
   'EnvironmentsPage',
   'ToasterProvider',

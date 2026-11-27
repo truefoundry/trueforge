@@ -230,7 +230,8 @@ function ThreadListItemRow({
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true ||
-    shell?.environmentsOpen === true;
+    shell?.environmentsOpen === true ||
+    shell?.artifactsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -320,6 +321,7 @@ function ThreadListItemRow({
           shell?.setSessionsOpen(false);
           shell?.setSchedulesOpen(false);
           shell?.setEnvironmentsOpen(false);
+          shell?.setArtifactsOpen(false);
 
           // A row created in this client has no custom yet; defaulting to mutable would
           // reopen a saved-agent chat as a draft, so ask the server first.
@@ -558,6 +560,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const ArtifactsButton = useSlot('ArtifactsButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -702,6 +705,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
     shell?.setEnvironmentsOpen(false);
+    shell?.setArtifactsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -746,6 +750,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         <>
           <SessionsBrowserButton />
           <SchedulesButton />
+          <ArtifactsButton />
         </>
       )}
     </div>

@@ -1,6 +1,7 @@
 import type {
   AgentMetricChartDataRequest,
   AgentMetricRangeRequest,
+  ListArtifactsParams,
   ListSandboxEnvironmentsParams,
   ListSchedulesParams,
   ListSessionEventsParams,
@@ -103,6 +104,10 @@ export const queryKeys = {
     list: (params: ListSandboxEnvironmentsParams) => key('environments', 'list', params),
     allPages: (params: ListSandboxEnvironmentsParams) => key('environments', 'all-pages', params),
     detail: (name: string) => key('environments', 'detail', name),
+  },
+  artifacts: {
+    all: () => key('artifacts'),
+    list: (params: ListArtifactsParams) => key('artifacts', 'list', params),
   },
   metrics: {
     all: () => key('metrics'),

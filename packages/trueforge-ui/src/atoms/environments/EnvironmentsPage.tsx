@@ -28,7 +28,7 @@ import { PageHeader } from '../PageHeader.js';
 import { Badge } from '../primitives/Badge.js';
 import { Button } from '../primitives/Button.js';
 import ConfirmDeleteDialog from '../primitives/ConfirmDeleteDialog.js';
-import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
+import { DropdownMenu } from '../primitives/DropdownMenu.js';
 import SearchInput from '../primitives/SearchInput.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import {
@@ -42,6 +42,7 @@ import {
   TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
+import { RowActionItem } from '../RowActionItem.js';
 import { formatNetworkingSummary, formatResourcesSummary, isReservedEnvironmentName } from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
@@ -112,37 +113,6 @@ function environmentRowActionReasons({
           ? undefined
           : 'You do not have permission to delete this environment.',
   };
-}
-
-/** A row action that stays visible when unavailable, greyed out and explaining itself on hover. */
-function EnvironmentActionItem({
-  label,
-  icon,
-  reason,
-  className,
-  onClick,
-}: {
-  label: string;
-  icon: string;
-  /** Why the action is unavailable; when set the item is disabled and shows this on hover. */
-  reason: string | undefined;
-  className?: string;
-  onClick: () => void;
-}) {
-  const item = (
-    <DropdownMenuItem className={cn('whitespace-nowrap', className)} disabled={reason !== undefined} onClick={onClick}>
-      <Icon name={icon} className="size-3.5" />
-      {label}
-    </DropdownMenuItem>
-  );
-  // The tooltip hangs off a wrapping span: a disabled item takes no mouse events of its own.
-  return reason === undefined ? (
-    item
-  ) : (
-    <Tooltip content={reason} side="left" className="max-w-xs whitespace-normal text-left" interactive={false}>
-      <span className="block w-full">{item}</span>
-    </Tooltip>
-  );
 }
 
 export type EnvironmentsPageProps = {
@@ -512,13 +482,13 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
                               </button>
                             }
                           >
-                            <EnvironmentActionItem
+                            <RowActionItem
                               label="Edit"
                               icon="pencil"
                               reason={actions.edit}
                               onClick={() => setDrawer({ kind: 'edit', environment: env })}
                             />
-                            <EnvironmentActionItem
+                            <RowActionItem
                               label="Set as default"
                               icon="check"
                               reason={actions.setDefault}
@@ -529,7 +499,7 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
                                 })
                               }
                             />
-                            <EnvironmentActionItem
+                            <RowActionItem
                               label={env.enabled ? 'Disable' : 'Enable'}
                               icon={env.enabled ? 'circle-xmark' : 'circle-check'}
                               reason={actions.toggleEnabled}
@@ -544,7 +514,7 @@ export function EnvironmentsPage({ embedded = false }: EnvironmentsPageProps) {
                                 })
                               }
                             />
-                            <EnvironmentActionItem
+                            <RowActionItem
                               label="Delete"
                               icon="trash"
                               className="text-failure-bg focus-visible:text-failure-bg"

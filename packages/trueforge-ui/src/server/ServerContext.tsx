@@ -17,6 +17,7 @@ import type {
   AgentMetricsServer,
   AgentSessionsServer,
   AgentUIServer,
+  ArtifactServer,
   CatalogServer,
   ConfigurationServer,
   PermissionsServer,
@@ -167,6 +168,18 @@ export function useSandboxEnvironmentServer(): SandboxEnvironmentServer {
 
 export function useOptionalSandboxEnvironmentServer(): SandboxEnvironmentServer | null {
   return useOptionalServer()?.sandboxEnvironments ?? null;
+}
+
+export function useArtifactServer(): ArtifactServer {
+  const server = useServer();
+  if (server.artifacts == null) {
+    throw new Error('useArtifactServer requires AgentUIServer.artifacts. Pass artifacts to createTrueForgeServer.');
+  }
+  return server.artifacts;
+}
+
+export function useOptionalArtifactServer(): ArtifactServer | null {
+  return useOptionalServer()?.artifacts ?? null;
 }
 
 export function useOptionalPermissionsServer(): PermissionsServer | null {

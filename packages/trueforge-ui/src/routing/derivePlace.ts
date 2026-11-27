@@ -28,7 +28,7 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
   return { type: 'root' };
 }
 
-/** Full place with overlay priority: settings, schedules, environments, sessions, library, chat. */
+/** Full place with overlay priority: settings, schedules, environments, artifacts, sessions, library, chat. */
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   // Environments is a Settings tab but keeps its own `/environments` URL.
   if (snapshot.settingsOpen && snapshot.settingsSection === 'environments') {
@@ -37,6 +37,10 @@ export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   if (snapshot.settingsOpen) return { type: 'settings' };
   if (snapshot.schedulesOpen) return { type: 'schedules' };
   if (snapshot.environmentsOpen) return { type: 'environments' };
+  if (snapshot.artifactsOpen && snapshot.artifactRef != null) {
+    return { type: 'artifact', artifactRef: snapshot.artifactRef };
+  }
+  if (snapshot.artifactsOpen) return { type: 'artifacts' };
   if (snapshot.sessionsOpen && snapshot.sharedSessionId != null) {
     return { type: 'sharedSession', sessionId: snapshot.sharedSessionId };
   }

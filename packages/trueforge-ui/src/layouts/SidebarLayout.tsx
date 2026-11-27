@@ -192,12 +192,14 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const ArtifactsButton = useSlot('ArtifactsButton');
   const showNewActions = shell?.isNewChatEnabled !== false;
   const overlayOpen =
     shell?.settingsOpen === true ||
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
-    shell?.schedulesOpen === true;
+    shell?.schedulesOpen === true ||
+    shell?.artifactsOpen === true;
   const mode = shell?.mode;
   // Match history-row active: main thread is a persisted session (has remoteId).
   const viewingHistorySession = useAuiState(s => {
@@ -224,6 +226,7 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setArtifactsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -286,6 +289,7 @@ function SidebarNav({ compact = false }: { compact?: boolean }): ReactNode {
       <AgentsLibraryButton compact={compact} />
       <SessionsBrowserButton compact={compact} />
       <SchedulesButton compact={compact} />
+      <ArtifactsButton compact={compact} />
       {compact ? <CollapsedChatHistoryButton /> : null}
     </nav>
   );
@@ -479,6 +483,7 @@ function SidebarLayoutBody({ className }: { className?: string }) {
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ArtifactsPage = useSlot('ArtifactsPage');
   const ShareChatButton = useSlot('ShareChatButton');
   const ResetAgentBuilderButton = useSlot('ResetAgentBuilderButton');
   const ClearChatButton = useSlot('ClearChatButton');
@@ -496,11 +501,12 @@ function SidebarLayoutBody({ className }: { className?: string }) {
   const libraryListOpen = libraryOpen && shell?.libraryAgentId == null;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const artifactsOpen = shell?.artifactsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || artifactsOpen;
   const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
-  // Build Agent, Sessions, and Schedules are desktop-only; keep the URL and show a notice.
+  // Build Agent, Sessions, Schedules, and Artifacts are desktop-only; keep the URL and show a notice.
   const showDesktopOnlyNotice =
-    isMobile && (sessionsOpen || schedulesOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
+    isMobile && (sessionsOpen || schedulesOpen || artifactsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
   const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
   const hasChatHeaderContent = useChatHeaderContentVisible();
   // Agents / Settings own a page header — put the hamburger there instead of a second top bar.
@@ -669,6 +675,22 @@ function SidebarLayoutBody({ className }: { className?: string }) {
                       }
                     >
                       <SchedulesPage />
+                    </Suspense>
+                  ) : artifactsOpen ? (
+                    <Suspense
+                      fallback={
+                        <div
+                          className="flex h-full items-center justify-center"
+                          role="status"
+                          aria-live="polite"
+                          aria-busy="true"
+                        >
+                          <Spinner size={28} className="text-text-primary" />
+                          <span className="sr-only">Loading</span>
+                        </div>
+                      }
+                    >
+                      <ArtifactsPage />
                     </Suspense>
                   ) : isIdle ? (
                     <SelectAgentEmptyState />

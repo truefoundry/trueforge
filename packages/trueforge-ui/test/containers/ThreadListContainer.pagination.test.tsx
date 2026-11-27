@@ -88,6 +88,7 @@ vi.mock('@/server/ServerContext.js', () => ({
   useOptionalPermissionsServer: () => null,
   useOptionalScheduleServer: () => null,
   useOptionalSandboxEnvironmentServer: () => null,
+  useOptionalArtifactServer: () => null,
   useServerCapabilities: () => ({
     sandbox: { enabled: true, environments: { enabled: true } },
     skill: { enabled: true },
@@ -115,6 +116,7 @@ vi.mock('@/server/ShellModeContext.js', () => ({
     setSchedulesOpen,
     setSessionsOpen,
     setEnvironmentsOpen: vi.fn(),
+    setArtifactsOpen: vi.fn(),
     selectLibraryAgent: vi.fn(),
     openDraft: vi.fn(),
     openAgentBuilder: vi.fn(),

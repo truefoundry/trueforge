@@ -1,4 +1,4 @@
-import type { AgentUIServer, CatalogServer, PermissionsServer } from './types.js';
+import type { AgentUIServer, ArtifactServer, CatalogServer, PermissionsServer } from './types.js';
 
 /**
  * Built-in backends init inside `<TrueForgeUI />`.
@@ -14,6 +14,10 @@ export type TrueForgeBuiltInServerConfig = {
   fetch?: typeof fetch;
   catalog?: CatalogServer;
   permissions?: PermissionsServer;
+  /** Custom artifacts port. When set, it replaces the built-in list client. */
+  artifacts?: ArtifactServer;
+  /** Attach the built-in list client. Ignored when `artifacts` is set. */
+  artifactsEnabled?: boolean;
 };
 
 /**

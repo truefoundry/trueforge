@@ -32,6 +32,7 @@ import { withSentryRootSpan } from './sentryFetch';
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+const ARTIFACTS_ENABLED = import.meta.env.VITE_ENABLE_ARTIFACTS === 'true';
 
 if (SENTRY_DSN) {
   Sentry.init({
@@ -258,6 +259,7 @@ export function App() {
           type: 'trueforge',
           baseUrl: API_BASE_URL,
           fetch: authAwareFetch,
+          ...(ARTIFACTS_ENABLED ? { artifactsEnabled: true } : {}),
         }}
         layout="sidebar"
         withRouter

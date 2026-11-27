@@ -12,6 +12,7 @@ import type { ListPermissionsResponse, PermissionsServer } from '@/server/types.
 import {
   createMockAgentSessionsServer,
   createMockAgentUIServer,
+  createMockArtifactServer,
   createMockCatalog,
   createMockSandboxEnvironmentServer,
   createMockScheduleServer,
@@ -55,6 +56,7 @@ function SettingsCatalogProvider({
   includeSessions = true,
   includeSchedules = false,
   includeEnvironments = false,
+  includeArtifacts = false,
   getSession,
   permissions,
 }: {
@@ -65,6 +67,7 @@ function SettingsCatalogProvider({
   includeSessions?: boolean;
   includeSchedules?: boolean;
   includeEnvironments?: boolean;
+  includeArtifacts?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -80,6 +83,7 @@ function SettingsCatalogProvider({
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
     ...(includeEnvironments ? { sandboxEnvironments: createMockSandboxEnvironmentServer() } : {}),
+    ...(includeArtifacts ? { artifacts: createMockArtifactServer() } : {}),
     ...(permissions == null ? {} : { permissions }),
     getCapabilities: async () => {
       if (capabilitiesFail) throw new Error('Unavailable');
@@ -118,6 +122,7 @@ function Harness({
   includeSessions = true,
   includeSchedules = false,
   includeEnvironments = false,
+  includeArtifacts = false,
   getSession,
   permissions,
 }: {
@@ -130,6 +135,7 @@ function Harness({
   includeSessions?: boolean;
   includeSchedules?: boolean;
   includeEnvironments?: boolean;
+  includeArtifacts?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -150,6 +156,7 @@ function Harness({
       includeSessions={includeSessions}
       includeSchedules={includeSchedules}
       includeEnvironments={includeEnvironments}
+      includeArtifacts={includeArtifacts}
       getSession={getSession}
       permissions={permissions}
     >
@@ -173,6 +180,7 @@ function renderSync(opts: {
   includeSessions?: boolean;
   includeSchedules?: boolean;
   includeEnvironments?: boolean;
+  includeArtifacts?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -196,6 +204,7 @@ function renderSync(opts: {
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
         includeEnvironments={opts.includeEnvironments}
+        includeArtifacts={opts.includeArtifacts}
         getSession={opts.getSession}
         permissions={opts.permissions}
       />
@@ -757,6 +766,66 @@ describe('ShellRouteSync', () => {
       expect(shell.environmentsOpen).toBe(true);
     });
     expect(pathname).toBe('/environments');
+  });
+
+  it('unregisters /artifacts when the artifacts port is missing', async () => {
+    renderSync({
+      initialEntries: ['/artifacts'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeArtifacts: false,
+    });
+    await waitFor(() => {
+      expect(shell.artifactsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setArtifactsOpen(true));
+    expect(shell.artifactsOpen).toBe(false);
+  });
+
+  it('opens artifacts from a deep link, mirrors open state, and closes back to chat', async () => {
+    renderSync({
+      initialEntries: ['/artifacts'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeArtifacts: true,
+    });
+    await waitFor(() => {
+      expect(shell.artifactsOpen).toBe(true);
+      expect(pathname).toBe('/artifacts');
+    });
+    act(() => shell.setArtifactsOpen(false));
+    expect(pathname).toBe('/');
+    act(() => shell.setArtifactsOpen(true));
+    expect(pathname).toBe('/artifacts');
+  });
+
+  it('opens an artifact preview from a deep link and returns to the list', async () => {
+    renderSync({
+      initialEntries: ['/artifacts/q4-brief--a1'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeArtifacts: true,
+    });
+    await waitFor(() => {
+      expect(shell.artifactsOpen).toBe(true);
+      expect(shell.artifactRef).toBe('q4-brief--a1');
+      expect(pathname).toBe('/artifacts/q4-brief--a1');
+    });
+    act(() => shell.setArtifactRef(null));
+    expect(pathname).toBe('/artifacts');
+    act(() => shell.setArtifactRef('eval-results-a2'));
+    expect(pathname).toBe('/artifacts/eval-results-a2');
+  });
+
+  it('opening artifacts closes environments', async () => {
+    renderSync({
+      initialEntries: ['/environments'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+      includeArtifacts: true,
+    });
+    await waitFor(() => expect(shell.environmentsOpen).toBe(true));
+    act(() => shell.setArtifactsOpen(true));
+    expect(shell.environmentsOpen).toBe(false);
+    expect(shell.artifactsOpen).toBe(true);
   });
 
   it('restoring /settings leaves the Environments tab so history does not bounce back', async () => {

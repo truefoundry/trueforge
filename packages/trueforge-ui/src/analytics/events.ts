@@ -92,6 +92,12 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
   },
+  Artifact: {
+    PAGE_OPENED: 'trueforge.artifact.page_opened',
+    PREVIEW_OPENED: 'trueforge.artifact.preview_opened',
+    DOWNLOADED: 'trueforge.artifact.downloaded',
+    EDITED: 'trueforge.artifact.edited',
+  },
   FilePreview: {
     RELOADED: 'trueforge.file_preview.reloaded',
   },

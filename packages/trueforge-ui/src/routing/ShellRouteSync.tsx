@@ -7,6 +7,7 @@ import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
 import {
   useOptionalAgentSessionsServer,
+  useOptionalArtifactServer,
   useOptionalCatalogServer,
   useOptionalPermissionsServer,
   useOptionalSandboxEnvironmentServer,
@@ -56,14 +57,15 @@ export function ShellRouteSync({
   const permissions = useOptionalPermissionsServer();
   const schedules = useOptionalScheduleServer();
   const sandboxEnvironments = useOptionalSandboxEnvironmentServer();
+  const artifacts = useOptionalArtifactServer();
   const capabilities = useServerCapabilities();
   const capabilitiesSettled = useServerCapabilitiesSettled();
   const navigate = useNavigate();
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
   const effectiveRoutes = useMemo(
-    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules, sandboxEnvironments }),
-    [routes, catalog, capabilities, sessions, schedules, sandboxEnvironments],
+    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules, sandboxEnvironments, artifacts }),
+    [routes, catalog, capabilities, sessions, schedules, sandboxEnvironments, artifacts],
   );
   const settingsChromeEnabled = effectiveRoutes.settings != null;
   // Gate identity only — avoid re-syncing when capabilities object identity churns
@@ -75,6 +77,8 @@ export function ShellRouteSync({
     effectiveRoutes.libraryAgent,
     effectiveRoutes.schedules,
     effectiveRoutes.environments,
+    effectiveRoutes.artifacts,
+    effectiveRoutes.artifact,
   ].join('\0');
 
   const snapshot: ShellSnapshot = {
@@ -86,6 +90,8 @@ export function ShellRouteSync({
     libraryAgentId: shell.libraryAgentId,
     schedulesOpen: shell.schedulesOpen,
     environmentsOpen: shell.environmentsOpen,
+    artifactsOpen: shell.artifactsOpen,
+    artifactRef: shell.artifactRef,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
     sessionAccessError: shell.sessionAccessError,
@@ -129,6 +135,7 @@ export function ShellRouteSync({
     shell.setLibraryOpen(false);
     shell.setSchedulesOpen(false);
     shell.setEnvironmentsOpen(false);
+    shell.setArtifactsOpen(false);
     switch (shell.agentConfigMode) {
       case 'AgentLibrary':
         shell.openLibraryHome();
@@ -291,6 +298,13 @@ export function ShellRouteSync({
         case 'environments':
           shell.setEnvironmentsOpen(true);
           return;
+        case 'artifacts':
+          shell.setArtifactsOpen(true);
+          return;
+        case 'artifact':
+          shell.setArtifactsOpen(true);
+          shell.setArtifactRef(target.artifactRef);
+          return;
         case 'buildAgent':
           shell.openAgentBuilder();
           return;
@@ -357,6 +371,8 @@ export function ShellRouteSync({
       shell.setSchedulesOpen(true);
     } else if (urlPlace.type === 'environments') {
       shell.setEnvironmentsOpen(true);
+    } else if (urlPlace.type === 'artifacts' || urlPlace.type === 'artifact') {
+      applyPlace(urlPlace);
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
@@ -481,6 +497,9 @@ export function ShellRouteSync({
       }
       if (urlPlace.type !== 'environments' && shell.environmentsOpen) {
         shell.setEnvironmentsOpen(false);
+      }
+      if (urlPlace.type !== 'artifacts' && urlPlace.type !== 'artifact' && shell.artifactsOpen) {
+        shell.setArtifactsOpen(false);
       }
       applyPlace(urlPlace);
     }

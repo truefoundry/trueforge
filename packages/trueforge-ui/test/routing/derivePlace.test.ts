@@ -12,6 +12,8 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     libraryAgentId: null,
     schedulesOpen: false,
     environmentsOpen: false,
+    artifactsOpen: false,
+    artifactRef: null,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -61,6 +63,19 @@ describe('derivePlace', () => {
     expect(derivePlace(snap({ environmentsOpen: true, pendingSessionId: 'abc' }))).toEqual({
       type: 'environments',
     });
+  });
+
+  it('artifacts overlay wins over chat but yields to environments', () => {
+    expect(derivePlace(snap({ artifactsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'artifacts' });
+    expect(derivePlace(snap({ artifactsOpen: true, environmentsOpen: true }))).toEqual({ type: 'environments' });
+  });
+
+  it('artifact preview is a distinct place only while artifacts is open', () => {
+    expect(derivePlace(snap({ artifactsOpen: true, artifactRef: 'q4-brief--a1' }))).toEqual({
+      type: 'artifact',
+      artifactRef: 'q4-brief--a1',
+    });
+    expect(derivePlace(snap({ artifactsOpen: false, artifactRef: 'q4-brief--a1' }))).toEqual({ type: 'root' });
   });
 
   it('settings Environments section keeps the /environments place', () => {

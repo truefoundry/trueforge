@@ -21,6 +21,8 @@ describe('resolveRoutesConfig', () => {
       libraryAgent: '/library/:agentId',
       schedules: '/schedules',
       environments: '/environments',
+      artifacts: '/artifacts',
+      artifact: '/artifacts/:artifactRef',
       buildAgent: '/build-agent',
       agent: '/agents/:agentName',
       session: '/sessions/:sessionId',
@@ -59,6 +61,8 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'libraryAgent', agentId: 'agent/id' }, routes)).toBe('/library/agent%2Fid');
     expect(buildPath({ type: 'schedules' }, routes)).toBe('/schedules');
     expect(buildPath({ type: 'environments' }, routes)).toBe('/environments');
+    expect(buildPath({ type: 'artifacts' }, routes)).toBe('/artifacts');
+    expect(buildPath({ type: 'artifact', artifactRef: 'q4-brief--a1' }, routes)).toBe('/artifacts/q4-brief--a1');
     expect(buildPath({ type: 'buildAgent' }, routes)).toBe('/build-agent');
     expect(buildPath({ type: 'agent', agentName: 'code-helper' }, routes)).toBe('/agents/code-helper');
     expect(buildPath({ type: 'session', sessionId: 'abc123' }, routes)).toBe('/sessions/abc123');
@@ -72,12 +76,21 @@ describe('buildPath', () => {
 
   it('returns null for disabled places', () => {
     const disabled = resolveRoutesConfig({
-      paths: { settings: false, library: false, libraryAgent: false, agent: false },
+      paths: { settings: false, library: false, libraryAgent: false, agent: false, artifacts: false },
     });
     expect(buildPath({ type: 'settings' }, disabled)).toBeNull();
     expect(buildPath({ type: 'library' }, disabled)).toBeNull();
     expect(buildPath({ type: 'libraryAgent', agentId: 'x' }, disabled)).toBeNull();
     expect(buildPath({ type: 'agent', agentName: 'x' }, disabled)).toBeNull();
+    expect(buildPath({ type: 'artifacts' }, disabled)).toBeNull();
+    expect(buildPath({ type: 'artifact', artifactRef: 'x--a1' }, disabled)).toBeNull();
+  });
+
+  it('nests the artifact preview under a custom artifacts path', () => {
+    const custom = resolveRoutesConfig({ paths: { artifacts: '/files' } });
+    expect(custom.artifact).toBe('/files/:artifactRef');
+    expect(buildPath({ type: 'artifact', artifactRef: 'q4--a1' }, custom)).toBe('/files/q4--a1');
+    expect(matchPath('/files/q4--a1', custom)).toEqual({ type: 'artifact', artifactRef: 'q4--a1' });
   });
 
   it('builds an absolute resume href with basename and cleared share search', () => {
@@ -188,6 +201,8 @@ describe('matchPath', () => {
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
     expect(matchPath('/schedules', routes)).toEqual({ type: 'schedules' });
     expect(matchPath('/environments', routes)).toEqual({ type: 'environments' });
+    expect(matchPath('/artifacts', routes)).toEqual({ type: 'artifacts' });
+    expect(matchPath('/artifacts/q4-brief--a1', routes)).toEqual({ type: 'artifact', artifactRef: 'q4-brief--a1' });
     expect(matchPath('/build-agent', routes)).toEqual({ type: 'buildAgent' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
     expect(matchPath('/sessions', routes)).toEqual({ type: 'sessionsBrowser' });
@@ -220,6 +235,8 @@ describe('matchPath', () => {
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
       { type: 'schedules' as const },
       { type: 'environments' as const },
+      { type: 'artifacts' as const },
+      { type: 'artifact' as const, artifactRef: 'q4-brief--a1' },
       { type: 'buildAgent' as const },
       { type: 'agent' as const, agentName: 'weird name/1' },
       { type: 'session' as const, sessionId: 'sess 9' },

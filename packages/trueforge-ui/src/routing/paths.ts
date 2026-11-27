@@ -19,6 +19,7 @@ const DEFAULTS = {
   libraryAgent: '/library/:agentId',
   schedules: '/schedules',
   environments: '/environments',
+  artifacts: '/artifacts',
   buildAgent: '/build-agent',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
@@ -40,6 +41,8 @@ function resolveOptional(value: string | false | undefined, fallback: string): s
 
 export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
   const paths = routes?.paths;
+  // The preview is a child of the list, so disabling the list also disables the preview.
+  const artifacts = resolveOptional(paths?.artifacts, DEFAULTS.artifacts);
   return {
     basename: routes?.basename ?? '',
     root: normalizePath(paths?.root ?? DEFAULTS.root),
@@ -48,6 +51,8 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     schedules: resolveOptional(paths?.schedules, DEFAULTS.schedules),
     environments: resolveOptional(paths?.environments, DEFAULTS.environments),
+    artifacts,
+    artifact: artifacts == null ? null : `${artifacts}/:artifactRef`,
     buildAgent: resolveOptional(paths?.buildAgent, DEFAULTS.buildAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
@@ -85,6 +90,10 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.schedules;
     case 'environments':
       return routes.environments;
+    case 'artifacts':
+      return routes.artifacts;
+    case 'artifact':
+      return routes.artifact == null ? null : fillTemplate(routes.artifact, place.artifactRef);
     case 'buildAgent':
       return routes.buildAgent;
     case 'agent':
@@ -290,6 +299,13 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   if (routes.environments != null && normalized === routes.environments) {
     return { type: 'environments' };
   }
+  if (routes.artifacts != null && normalized === routes.artifacts) {
+    return { type: 'artifacts' };
+  }
+  if (routes.artifact != null) {
+    const artifactRef = matchTemplate(routes.artifact, segments);
+    if (artifactRef != null) return { type: 'artifact', artifactRef };
+  }
   if (routes.buildAgent != null && normalized === routes.buildAgent) {
     return { type: 'buildAgent' };
   }
@@ -332,6 +348,7 @@ export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {
   if (a.type !== b.type) return false;
   if (a.type === 'agent' && b.type === 'agent') return a.agentName === b.agentName;
   if (a.type === 'libraryAgent' && b.type === 'libraryAgent') return a.agentId === b.agentId;
+  if (a.type === 'artifact' && b.type === 'artifact') return a.artifactRef === b.artifactRef;
   if (a.type === 'session' && b.type === 'session') return a.sessionId === b.sessionId;
   if (a.type === 'sharedSession' && b.type === 'sharedSession') return a.sessionId === b.sessionId;
   return true;
