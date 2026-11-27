@@ -5,6 +5,15 @@ Expand the name of the chart.
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{/* Cluster DNS domain for generated in-cluster service FQDNs. */}}
+{{- define "trueforge.clusterDomain" -}}
+{{- default "cluster.local" (.Values.global).clusterDomain -}}
+{{- end }}
+
+{{- define "trueforge.server.serviceFQDN" -}}
+{{- printf "%s.%s.svc.%s" (include "trueforge.server.fullname" .) .Release.Namespace (include "trueforge.clusterDomain" .) -}}
+{{- end }}
+
 {{/*
 Create a default fully qualified app name.
 
@@ -143,7 +152,7 @@ Service when controller.serverUrl is empty (https when mtls is enabled).
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
-{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.server.fullname" .) .Values.service.port -}}
+{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.server.serviceFQDN" .) .Values.service.port -}}
 {{- end -}}
 {{- end }}
 
@@ -200,7 +209,7 @@ Empty when the field is a valueFrom map (external secret/configmap).
 */}}
 {{- define "trueforge.postgres.host" -}}
 {{- if .Values.postgresql.enabled -}}
-{{- printf "%s-postgresql" .Release.Name -}}
+{{- printf "%s-postgresql.%s.svc.%s" .Release.Name (default .Release.Namespace .Values.postgresql.namespaceOverride) (include "trueforge.clusterDomain" .) -}}
 {{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.host)) "true" -}}
 {{- .Values.externalPostgres.host -}}
 {{- end -}}
@@ -249,7 +258,7 @@ redis.nameOverride / redis.fullnameOverride.
 {{- end }}
 
 {{- define "trueforge.redis.bundledUrl" -}}
-{{- printf "redis://%s-master:6379" (include "trueforge.redis.fullname" .) -}}
+{{- printf "redis://%s-master.%s.svc.%s:6379" (include "trueforge.redis.fullname" .) (default .Release.Namespace .Values.redis.namespaceOverride) (include "trueforge.clusterDomain" .) -}}
 {{- end }}
 
 {{/*
@@ -650,15 +659,11 @@ the env map, and mTLS.
 {{- $env = append $env (dict "name" "NODE_EXTRA_CA_CERTS" "value" "/etc/ssl/certs/ca-certificates.crt") -}}
 {{- end -}}
 
-{{- /* Bundled dev sandbox server: point the app at the subchart's Service.
-       The subchart's fullname helper computes the name; it needs the
-       subchart's scope (its values live under our tfy-sandbox-server key)
-       and is only defined while the dependency is enabled - the same flag
-       that gates this block. */ -}}
+{{- /* Use the enabled subchart's scope so endpoint helpers share its merged globals and overrides. */ -}}
 {{- if (.Values.truefoundry | default dict).devSandboxServerEnabled -}}
-{{- $sandbox := index .Values "tfy-sandbox-server" | default dict -}}
-{{- $sandboxSvc := $sandbox.service | default dict -}}
-{{- $sandboxHost := include "tfy-sandbox-server.fullname" (dict "Values" $sandbox "Chart" (dict "Name" "tfy-sandbox-server") "Release" .Release) -}}
+{{- $sandbox := index .Subcharts "tfy-sandbox-server" -}}
+{{- $sandboxSvc := $sandbox.Values.service | default dict -}}
+{{- $sandboxHost := include "tfy-sandbox-server.serviceFQDN" $sandbox -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_ENABLED" "value" "true") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_PROVIDER" "value" "truefoundry") -}}
 {{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SERVER_URL" "value" (printf "http://%s:%v" $sandboxHost ($sandboxSvc.port | default 8080))) -}}

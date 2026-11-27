@@ -160,9 +160,31 @@ global:
 
 `global.labels`, `global.annotations`, `global.podLabels`,
 `global.podAnnotations`, `global.imagePullSecrets`, `global.nodeSelector`,
-`global.affinity`, `global.customCA` and `global.resourceTier` are all applied.
+`global.affinity`, `global.customCA`, `global.resourceTier` and
+`global.clusterDomain` are all applied.
 The chart's own value wins on conflict; `tolerations` append to
 `global.tolerations` rather than replacing them.
+
+## Cluster DNS domain
+
+`global.clusterDomain` defaults to `cluster.local` and is inherited from a parent
+chart. It controls the generated server, bundled Postgres/Redis and sandbox
+service endpoints, including the sandbox's WebSocket bridge. Explicit external
+endpoints, `controller.serverUrl` and `env` overrides are left unchanged.
+
+The bundled Bitnami charts have separate, non-global settings for their own
+internal DNS/TLS templates. For a custom domain, also set `postgresql.clusterDomain`
+and `redis.clusterDomain` to the same value; those upstream charts do not read
+`global.clusterDomain`.
+
+```yaml
+global:
+  clusterDomain: example.internal
+postgresql:
+  clusterDomain: example.internal
+redis:
+  clusterDomain: example.internal
+```
 
 ## Resource tiers
 
@@ -385,6 +407,7 @@ extraObjects:
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
 | `global.resourceTier` | `small`                             | Tier when `resourceTierOverride` is empty. `small` / `medium` / `large`. |
+| `global.clusterDomain` | `cluster.local` | Kubernetes cluster DNS domain for generated service endpoints. |
 | `resourceTierOverride`| `""`                                | Optional `small` / `medium` / `large` preset. Empty uses `global.resourceTier`. An explicit resources table wins over this. |
 | `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3). |
 | `server.resources`    | `{}`                                | Server CPU, memory, and ephemeral-storage. A set table replaces the tier preset. |
