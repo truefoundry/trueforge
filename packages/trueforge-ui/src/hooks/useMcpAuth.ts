@@ -18,6 +18,9 @@ export type UseMCPAuthOptions = {
 
 const generatePopupUid = () => `mcp-oauth-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
+/** A popup the user closes never posts a result, so its closure is polled to settle the attempt. */
+const POPUP_CLOSE_POLL_MS = 500;
+
 const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
   if (typeof value !== 'object' || value === null) return false;
   const message = value as Partial<McpAuthPopupMessage>;
@@ -104,10 +107,20 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
     }) => {
       const channel = new BroadcastChannel(MCP_AUTH_POPUP_CHANNEL);
       let popup: Window | null = null;
+      // A popup the user closes before it posts a result never reaches the channel, so the
+      // closure is polled. The first tick runs after `popup` is assigned below.
+      const closeWatcher = window.setInterval(() => {
+        if (!popup?.closed) return;
+        cleanupChannel();
+        void reportVerifiedSuccess({ integrationId, callback, attempt }).finally(() => {
+          activeAttemptsRef.current.delete(attempt);
+        });
+      }, POPUP_CLOSE_POLL_MS);
       // Close the channel on result; leave the popup open so the callback screen can show
       // success/failure and close itself.
       const cleanupChannel = () => {
         channel.close();
+        window.clearInterval(closeWatcher);
         popupCleanupRef.current.delete(cleanupWithPopup);
       };
       const cleanupWithPopup = () => {
