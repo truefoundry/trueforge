@@ -21,6 +21,7 @@ Exit codes: 0 success, 1 validation or a transfer failed, 2 malformed input (std
 
 import base64
 import hashlib
+import http.client
 import json
 import os
 import stat
@@ -143,7 +144,7 @@ def _upload_one(base_path: str, f: dict) -> dict:
     except urllib.error.HTTPError as e:
         result["status"] = e.code
         result["error"] = _s3_error_code(e)
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as e:
         result["error"] = f"network: {getattr(e, 'reason', e)}"
     return result
 

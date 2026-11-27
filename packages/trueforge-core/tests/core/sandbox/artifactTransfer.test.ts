@@ -1,5 +1,6 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -107,6 +108,36 @@ describe('artifact_transfer_v1.py', () => {
         { path: 'missing.txt', status: null, error: expect.stringContaining('read_failed:') },
       ],
     });
+  });
+
+  it('upload reports an invalid HTTP response as a per-file network error', async () => {
+    const server = createServer(socket => {
+      socket.on('data', () => socket.end('garbage\r\n\r\n'));
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const requestPath = artifactUploadRequestPath({ transferDir, requestId: 'r1' });
+    writeFileSync(
+      requestPath,
+      buildArtifactUploadRequestFile({
+        concurrency: 1,
+        base_path: makeReport(),
+        files: [{ relative_path: 'index.html', url: `http://127.0.0.1:${port}/a`, headers: {} }],
+      }),
+    );
+    try {
+      const child = spawn('python3', [artifactTransferScriptPath(transferDir), 'upload', requestPath]);
+      let stdout = '';
+      child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+      const status = await new Promise<number | null>(resolve => child.on('close', resolve));
+      expect(status).toBe(1);
+      expect(JSON.parse(stdout)).toMatchObject({
+        files: [{ path: 'index.html', status: null, error: expect.stringContaining('network:') }],
+      });
+    } finally {
+      server.close();
+    }
   });
 
   it('removes request files older than 5 minutes and keeps recent or unreadable ones', () => {
