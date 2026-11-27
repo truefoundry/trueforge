@@ -333,10 +333,10 @@ export type { MemoryFact, ScopedMemory } from './memory/ScopedMemory';
 export type {
   ArtifactObject,
   ArtifactPushLimits,
-  ArtifactsBackend,
+  IArtifactsProvider,
   IObjectStore,
   ScopedArtifactStore,
-} from './artifacts/ArtifactsBackend';
+} from './artifacts/ArtifactsProvider';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

@@ -1,6 +1,6 @@
 import { builtinsFromSpec } from '../../src/agent-session/builtinsFromSpec';
 import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
-import type { ArtifactsBackend } from '../../src/core/artifacts/ArtifactsBackend';
+import type { IArtifactsProvider } from '../../src/core/artifacts/ArtifactsProvider';
 import { ARTIFACTS_SERVER_ID } from '../../src/core/capabilities/builtins/Artifacts';
 import {
   GET_OPENUI_INSTRUCTIONS_TOOL_NAME,
@@ -22,7 +22,7 @@ function runBuiltins(input: {
   isChild?: boolean;
   webSearchProvider?: Parameters<typeof builtinsFromSpec>[0]['webSearchProvider'];
   sandbox?: Parameters<typeof builtinsFromSpec>[0]['sandbox'];
-  artifactsBackend?: ArtifactsBackend;
+  artifactsProvider?: IArtifactsProvider;
 }): ReturnType<typeof builtinsFromSpec> {
   return builtinsFromSpec({
     spec: input.spec,
@@ -30,7 +30,7 @@ function runBuiltins(input: {
     sandbox: input.sandbox,
     tracing: NOOP_AGENT_TRACING,
     webSearchProvider: input.webSearchProvider,
-    artifactsBackend: input.artifactsBackend,
+    artifactsProvider: input.artifactsProvider,
     logger: makeSilentLogger(),
   });
 }
@@ -157,7 +157,7 @@ describe('builtinsFromSpec web_search', () => {
 
 describe('builtinsFromSpec artifacts', () => {
   const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
-  const backend: ArtifactsBackend = {
+  const provider: IArtifactsProvider = {
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(undefined),
@@ -174,11 +174,11 @@ describe('builtinsFromSpec artifacts', () => {
   const hasArtifacts = (capabilities: ReturnType<typeof builtinsFromSpec>) =>
     capabilities.some(cap => cap.systemToolSets?.some(ts => ts.name === ARTIFACTS_SERVER_ID));
 
-  it('mounts push_artifact only on a root thread with a sandbox and a backend', () => {
+  it('mounts push_artifact only on a root thread with a sandbox and a provider', () => {
     const sandbox = makeStubPublicSandbox();
-    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsBackend: backend }))).toBe(true);
-    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsBackend: backend, isChild: true }))).toBe(false);
-    expect(hasArtifacts(runBuiltins({ spec, artifactsBackend: backend }))).toBe(false);
+    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsProvider: provider }))).toBe(true);
+    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsProvider: provider, isChild: true }))).toBe(false);
+    expect(hasArtifacts(runBuiltins({ spec, artifactsProvider: provider }))).toBe(false);
     expect(hasArtifacts(runBuiltins({ spec, sandbox }))).toBe(false);
   });
 });

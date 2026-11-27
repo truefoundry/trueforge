@@ -1,6 +1,6 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IObjectStore } from '@truefoundry/trueforge-core/core';
-import { resolveTurnArtifactsBackend } from '../../../src/artifacts/turnArtifacts';
+import { resolveTurnArtifactsProvider } from '../../../src/artifacts/turnArtifacts';
 import type { ArtifactsConfig } from '../../../src/config';
 import type { ArtifactRecord, ArtifactVersionRecord } from '../../../src/db/artifactStore';
 
@@ -40,7 +40,7 @@ function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore 
   };
   const createArtifactWithVersion = jest.fn(() => Promise.resolve({ artifact: artifactRecord(), version }));
   const createVersion = jest.fn((): Promise<ArtifactVersionRecord | undefined> => Promise.resolve(undefined));
-  const backend = resolveTurnArtifactsBackend({
+  const provider = resolveTurnArtifactsProvider({
     tenant_id: 't1',
     session_id: 's1',
     agent_id: 'agent-1',
@@ -53,16 +53,16 @@ function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore 
     resolveObjectStore: () => ('objectStore' in options ? options.objectStore : OBJECT_STORE),
     artifactsConfig: ARTIFACTS_CONFIG,
   });
-  return { backend, createArtifactWithVersion, createVersion };
+  return { provider, createArtifactWithVersion, createVersion };
 }
 
-describe('resolveTurnArtifactsBackend', () => {
+describe('resolveTurnArtifactsProvider', () => {
   it('is undefined when the tenant has no object store', () => {
-    expect(setup({ objectStore: undefined }).backend).toBeUndefined();
+    expect(setup({ objectStore: undefined }).provider).toBeUndefined();
   });
 
   it('uses the configured limits', () => {
-    expect(setup().backend?.limits).toEqual({ max_files: 5, max_total_bytes: 100 });
+    expect(setup().provider?.limits).toEqual({ max_files: 5, max_total_bytes: 100 });
   });
 
   it.each([
@@ -74,20 +74,20 @@ describe('resolveTurnArtifactsBackend', () => {
     ],
     ["the user's own artifact", artifactRecord(), undefined],
   ])('checks push access to %s', async (_name, existing, expected) => {
-    const { backend } = setup(existing === undefined ? {} : { existing });
-    await expect(backend?.store.checkPushAccess({ artifact_id: 'art-1' })).resolves.toBe(expected);
+    const { provider } = setup(existing === undefined ? {} : { existing });
+    await expect(provider?.store.checkPushAccess({ artifact_id: 'art-1' })).resolves.toBe(expected);
   });
 
   it('creates artifacts and versions bound to the session', async () => {
-    const { backend, createArtifactWithVersion, createVersion } = setup();
+    const { provider, createArtifactWithVersion, createVersion } = setup();
     const files_metadata = FILES_METADATA;
-    const id = backend?.store.newArtifact({ name: 'Q3 report' }).id ?? '';
+    const id = provider?.store.newArtifact({ name: 'Q3 report' }).id ?? '';
 
     expect(id).toMatch(/^[0-9a-z]{26}$/);
     await expect(
-      backend?.store.createArtifactWithVersion({ id, name: '  Q3   report ', files_metadata }),
+      provider?.store.createArtifactWithVersion({ id, name: '  Q3   report ', files_metadata }),
     ).resolves.toMatchObject({ version: 1 });
-    await backend?.store.createVersion({ artifact_id: id, files_metadata });
+    await provider?.store.createVersion({ artifact_id: id, files_metadata });
 
     const createdBy = { created_by_subject: SUBJECT, created_by_session_id: 's1', created_by_agent_id: 'agent-1' };
     expect(createArtifactWithVersion).toHaveBeenCalledWith({
@@ -101,10 +101,10 @@ describe('resolveTurnArtifactsBackend', () => {
   });
 
   it('rejects an invalid artifact name', async () => {
-    const { backend, createArtifactWithVersion } = setup();
-    expect(() => backend?.store.newArtifact({ name: 'a/b' })).toThrow('Invalid artifact name');
+    const { provider, createArtifactWithVersion } = setup();
+    expect(() => provider?.store.newArtifact({ name: 'a/b' })).toThrow('Invalid artifact name');
     await expect(
-      backend?.store.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
+      provider?.store.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
     ).rejects.toThrow('Invalid artifact name');
     expect(createArtifactWithVersion).not.toHaveBeenCalled();
   });

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { normalize } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { ArtifactsBackend } from '../../artifacts/ArtifactsBackend';
+import type { IArtifactsProvider } from '../../artifacts/ArtifactsProvider';
 import { checkArtifactPush } from '../../artifacts/pushChecks';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
@@ -35,7 +35,7 @@ const pushArtifactInputSchema = z
 type PushArtifactInput = z.infer<typeof pushArtifactInputSchema>;
 
 /** What the tool does and its limits — param details live on the Zod schema `.describe`s. */
-function pushArtifactToolDescription(limits: ArtifactsBackend['limits']): string {
+function pushArtifactToolDescription(limits: IArtifactsProvider['limits']): string {
   return [
     'Save a sandbox directory as a new version of an artifact the user can open later. Returns the artifact id, version and URL.',
     '',
@@ -54,7 +54,7 @@ function failure(error_message: string, sandbox: SandboxMetadata): CallToolRespo
 }
 
 interface ArtifactsOptions {
-  backend: ArtifactsBackend;
+  provider: IArtifactsProvider;
   sandbox: Pick<HarnessSandbox, 'gatherArtifactDirMetadata' | 'uploadArtifactFiles'>;
   tracing: AgentTracing;
   logger: Logger;
@@ -72,7 +72,7 @@ class ArtifactTools extends LocalToolMCP {
     this.#tools = [
       defineTool({
         name: PUSH_ARTIFACT_TOOL_NAME,
-        description: pushArtifactToolDescription(options.backend.limits),
+        description: pushArtifactToolDescription(options.provider.limits),
         schema: pushArtifactInputSchema,
         handler: input => this.push(input),
       }),
@@ -84,9 +84,9 @@ class ArtifactTools extends LocalToolMCP {
   }
 
   private async push(input: PushArtifactInput): Promise<CallToolResponse> {
-    const { backend, sandbox, logger } = this.#options;
+    const { provider, sandbox, logger } = this.#options;
     if (input.artifact_id !== undefined) {
-      const denied = await backend.store.checkPushAccess({ artifact_id: input.artifact_id });
+      const denied = await provider.store.checkPushAccess({ artifact_id: input.artifact_id });
       if (denied !== undefined) {
         return failure(denied, undefined);
       }
@@ -99,7 +99,7 @@ class ArtifactTools extends LocalToolMCP {
       const check = checkArtifactPush({
         metadata: gathered.result,
         entry_point: input.entry_point,
-        limits: backend.limits,
+        limits: provider.limits,
       });
       if (!check.ok) {
         return failure(`Validation failed: ${check.errors.join('; ')}`, metadata);
@@ -112,15 +112,15 @@ class ArtifactTools extends LocalToolMCP {
           return failure('name is required when artifact_id is omitted.', metadata);
         }
         newName = input.name;
-        artifactId = backend.store.newArtifact({ name: newName }).id;
+        artifactId = provider.store.newArtifact({ name: newName }).id;
       }
       const pushId = randomUUID();
-      const rootPath = `artifacts/${backend.tenantId}/${artifactId}/${pushId}`;
+      const rootPath = `artifacts/${provider.tenantId}/${artifactId}/${pushId}`;
       const keyOf = (relativePath: string) => `${rootPath}/${relativePath}`;
 
       const files = await Promise.all(
         check.files.map(async file => {
-          const { url, headers } = await backend.objectStore.presignPut({
+          const { url, headers } = await provider.objectStore.presignPut({
             key: keyOf(file.relative_path),
             size_bytes: file.size_bytes,
             sha256_b64: file.sha256_b64,
@@ -142,7 +142,7 @@ class ArtifactTools extends LocalToolMCP {
       // The presigned PUTs are the only writers under this fresh prefix and S3 rejects a body that does not
       // match the signed size and sha256, so the expected keys at the expected sizes mean the approved bytes.
       const stored = new Map(
-        (await backend.objectStore.listObjects({ prefix: `${rootPath}/` })).map(o => [o.key, o.size_bytes]),
+        (await provider.objectStore.listObjects({ prefix: `${rootPath}/` })).map(o => [o.key, o.size_bytes]),
       );
       const mismatched = [
         ...check.files.filter(f => stored.get(keyOf(f.relative_path)) !== f.size_bytes).map(f => f.relative_path),
@@ -155,8 +155,8 @@ class ArtifactTools extends LocalToolMCP {
       const files_metadata = { entry_point: input.entry_point, total_bytes: check.total_bytes, root_path: rootPath };
       const version =
         newName === undefined
-          ? await backend.store.createVersion({ artifact_id: artifactId, files_metadata })
-          : await backend.store.createArtifactWithVersion({ id: artifactId, name: newName, files_metadata });
+          ? await provider.store.createVersion({ artifact_id: artifactId, files_metadata })
+          : await provider.store.createArtifactWithVersion({ id: artifactId, name: newName, files_metadata });
       if (version === undefined) {
         return failure(`Artifact not found: ${artifactId}`, metadata);
       }
@@ -176,7 +176,7 @@ class ArtifactTools extends LocalToolMCP {
   }
 }
 
-/** Root-thread `push_artifact`; mounted only when the turn has a sandbox and the host an artifacts backend. */
+/** Root-thread `push_artifact`; mounted only when the turn has a sandbox and the host an artifacts provider. */
 export function artifacts(options: ArtifactsOptions): AgentCapability {
   return { systemToolSets: [new ArtifactTools(options)] };
 }

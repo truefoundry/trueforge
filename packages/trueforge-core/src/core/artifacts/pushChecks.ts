@@ -1,5 +1,5 @@
 import type { ArtifactDirMetadata } from '../sandbox/artifactTransfer';
-import type { ArtifactPushLimits } from './ArtifactsBackend';
+import type { ArtifactPushLimits } from './ArtifactsProvider';
 
 interface ArtifactPushFile {
   // Relative to the pushed directory; also the object key suffix.

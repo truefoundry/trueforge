@@ -43,7 +43,7 @@ export interface ScopedArtifactStore {
 }
 
 /** What `push_artifact` needs from the host for one turn. */
-export interface ArtifactsBackend {
+export interface IArtifactsProvider {
   tenantId: string;
   store: ScopedArtifactStore;
   objectStore: IObjectStore;

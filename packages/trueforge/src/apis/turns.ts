@@ -32,8 +32,8 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
-  ArtifactsBackend,
   DecisionModel,
+  IArtifactsProvider,
   IWebSearchProvider,
   McpConnection,
   ModelRouterDeps,
@@ -69,7 +69,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import { resolveTurnArtifactsBackend } from '../artifacts/turnArtifacts';
+import { resolveTurnArtifactsProvider } from '../artifacts/turnArtifacts';
 import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
 import {
@@ -442,8 +442,8 @@ function createTurnResolver(deps: {
   turnMetadata: TurnMetadata;
   capabilitiesStore: ICapabilitiesStore;
   trueforgeMcp: McpConnection | undefined;
-  /** `push_artifact` backend; undefined when artifacts are off for the tenant. */
-  artifactsBackend: ArtifactsBackend | undefined;
+  /** `push_artifact` provider; undefined when artifacts are off for the tenant. */
+  artifactsProvider: IArtifactsProvider | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -462,7 +462,7 @@ function createTurnResolver(deps: {
     turnMetadata,
     capabilitiesStore,
     trueforgeMcp,
-    artifactsBackend,
+    artifactsProvider,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -567,7 +567,7 @@ function createTurnResolver(deps: {
       return record.manifest;
     },
     webSearchProvider,
-    artifactsBackend,
+    artifactsProvider,
     logger,
     // Client-side tools and memory belong only to the root thread.
     rootCapabilities: () => [
@@ -852,12 +852,12 @@ async function prepareTurnExecution<TTransaction>(input: {
     turnMetadata,
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
-    artifactsBackend:
+    artifactsProvider:
       input.deps.artifactStore === undefined ||
       input.deps.resolveObjectStore === undefined ||
       input.deps.requestContext === undefined
         ? undefined
-        : resolveTurnArtifactsBackend({
+        : resolveTurnArtifactsProvider({
             tenant_id: input.session.tenant_id,
             session_id: input.session.session_id,
             agent_id: sessionAgent.type === 'reference' ? sessionAgent.id : null,

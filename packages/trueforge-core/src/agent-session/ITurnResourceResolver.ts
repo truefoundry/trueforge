@@ -1,5 +1,5 @@
 import type { Logger } from 'winston';
-import type { ArtifactsBackend } from '../core/artifacts/ArtifactsBackend';
+import type { IArtifactsProvider } from '../core/artifacts/ArtifactsProvider';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
@@ -29,8 +29,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    * register search/fetch system tools. Omit when the host has no provider configured.
    */
   readonly webSearchProvider?: IWebSearchProvider | undefined;
-  /** Host artifacts backend for this turn. When set, a root thread with a sandbox gets `push_artifact`. */
-  readonly artifactsBackend?: ArtifactsBackend | undefined;
+  /** Host artifacts provider for this turn. When set, a root thread with a sandbox gets `push_artifact`. */
+  readonly artifactsProvider?: IArtifactsProvider | undefined;
   /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
   readonly logger: Logger;
   /** Whether model routing is available for this turn's tenant. A spec whose model is `auto` needs it. */

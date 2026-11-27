@@ -3,7 +3,7 @@
  * Plan / ask-user-secret stay gateway-side (extraCapabilities on the resolver).
  */
 import type { Logger } from 'winston';
-import type { ArtifactsBackend } from '../core/artifacts/ArtifactsBackend';
+import type { IArtifactsProvider } from '../core/artifacts/ArtifactsProvider';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import { artifacts } from '../core/capabilities/builtins/Artifacts';
 import { askUserQuestion } from '../core/capabilities/builtins/AskUserQuestion';
@@ -25,10 +25,10 @@ export function builtinsFromSpec(input: {
   sandbox: HarnessSandbox | undefined;
   tracing: AgentTracing;
   webSearchProvider: IWebSearchProvider | undefined;
-  artifactsBackend: ArtifactsBackend | undefined;
+  artifactsProvider: IArtifactsProvider | undefined;
   logger: Logger;
 }): AgentCapability[] {
-  const { spec, isChild, sandbox, tracing, webSearchProvider, artifactsBackend, logger } = input;
+  const { spec, isChild, sandbox, tracing, webSearchProvider, artifactsProvider, logger } = input;
   const config = spec.config;
   const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
 
@@ -71,8 +71,8 @@ export function builtinsFromSpec(input: {
     capabilities.push(webSearch({ provider: webSearchProvider, tracing }));
   }
 
-  if (!isChild && sandbox && artifactsBackend) {
-    capabilities.push(artifacts({ backend: artifactsBackend, sandbox, tracing, logger }));
+  if (!isChild && sandbox && artifactsProvider) {
+    capabilities.push(artifacts({ provider: artifactsProvider, sandbox, tracing, logger }));
   }
 
   return capabilities;

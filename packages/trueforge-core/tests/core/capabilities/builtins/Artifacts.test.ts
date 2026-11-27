@@ -1,4 +1,4 @@
-import type { ArtifactsBackend, ScopedArtifactStore } from '../../../../src/core/artifacts/ArtifactsBackend';
+import type { IArtifactsProvider, ScopedArtifactStore } from '../../../../src/core/artifacts/ArtifactsProvider';
 import { artifacts, PUSH_ARTIFACT_TOOL_NAME } from '../../../../src/core/capabilities/builtins/Artifacts';
 import type {
   ArtifactDirMetadata,
@@ -17,7 +17,7 @@ const FILES = [
 
 type CreateVersionInput = Parameters<ScopedArtifactStore['createVersion']>[0];
 type CreateArtifactWithVersionInput = Parameters<ScopedArtifactStore['createArtifactWithVersion']>[0];
-type StoredObjects = Awaited<ReturnType<ArtifactsBackend['objectStore']['listObjects']>>;
+type StoredObjects = Awaited<ReturnType<IArtifactsProvider['objectStore']['listObjects']>>;
 
 const storedFiles = (prefix: string): StoredObjects =>
   FILES.map(f => ({ key: `${prefix}${f.relative_path}`, size_bytes: f.size_bytes }));
@@ -42,7 +42,7 @@ function setup(
     createdVersions.push({ artifact_id: input.id, files_metadata: input.files_metadata });
     return Promise.resolve({ version: 1 });
   });
-  const backend: ArtifactsBackend = {
+  const provider: IArtifactsProvider = {
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(options.accessDenied),
@@ -64,7 +64,7 @@ function setup(
   };
   const [toolSet] =
     artifacts({
-      backend,
+      provider,
       sandbox: {
         gatherArtifactDirMetadata: () =>
           run(options.metadata ?? { success: true, exit_code: 0, error: null, files: FILES }),

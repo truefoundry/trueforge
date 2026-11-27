@@ -1,4 +1,4 @@
-import type { ArtifactPushLimits } from '../../../src/core/artifacts/ArtifactsBackend';
+import type { ArtifactPushLimits } from '../../../src/core/artifacts/ArtifactsProvider';
 import { checkArtifactPush } from '../../../src/core/artifacts/pushChecks';
 import type { ArtifactDirMetadata } from '../../../src/core/sandbox/artifactTransfer';
 

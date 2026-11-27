@@ -1,5 +1,5 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
-import type { ArtifactsBackend } from '@truefoundry/trueforge-core/core';
+import type { IArtifactsProvider } from '@truefoundry/trueforge-core/core';
 import { z } from 'zod';
 import type { ArtifactsConfig } from '../config';
 import type { IArtifactStore } from '../db/artifactStore';
@@ -16,10 +16,10 @@ function parseName(name: string): string {
 }
 
 /**
- * `push_artifact` backend for one turn, or undefined when artifacts are off for the tenant. Records
+ * `push_artifact` provider for one turn, or undefined when artifacts are off for the tenant. Records
  * are bound to the session's tenant, creator and agent, never to model input.
  */
-export function resolveTurnArtifactsBackend(input: {
+export function resolveTurnArtifactsProvider(input: {
   tenant_id: string;
   session_id: string;
   /** The session's registry agent; null for inline-spec sessions. */
@@ -28,7 +28,7 @@ export function resolveTurnArtifactsBackend(input: {
   artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifactWithVersion' | 'createVersion'>;
   resolveObjectStore: ResolveObjectStore;
   artifactsConfig: ArtifactsConfig | undefined;
-}): ArtifactsBackend | undefined {
+}): IArtifactsProvider | undefined {
   const { tenant_id, session_id, agent_id, subject, artifactStore, artifactsConfig } = input;
   const objectStore = input.resolveObjectStore(tenant_id);
   if (objectStore === undefined || artifactsConfig === undefined) {
