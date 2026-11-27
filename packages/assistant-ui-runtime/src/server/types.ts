@@ -1404,6 +1404,8 @@ export interface ListArtifactsParams extends Pick<PageParams, 'limit' | 'pageTok
 export interface ArtifactServer<TArtifact extends Artifact = Artifact> {
   /** Caller's artifacts, most recently updated first. */
   listArtifacts(req?: ListArtifactsParams): Promise<ListResult<TArtifact>>;
+  /** Artifacts with a version created in the session, most recently updated first. Not paginated. */
+  listSessionArtifacts(req: { sessionId: string }): Promise<TArtifact[]>;
   getArtifact(req: { id: string }): Promise<TArtifact>;
   updateArtifact(req: { id: string; name: string }): Promise<TArtifact>;
   deleteArtifact(req: { id: string }): Promise<void>;

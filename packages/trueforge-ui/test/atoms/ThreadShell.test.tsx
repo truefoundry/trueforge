@@ -32,8 +32,14 @@ describe('ThreadViewportShell', () => {
     expect(viewport).toHaveAttribute('data-slot', 'aui_thread-viewport');
     // CSS smooth scroll fights assistant-ui autoScroll and causes bounce on large streams.
     expect(viewport.className).not.toMatch(/\bscroll-smooth\b/);
-    expect(viewport.firstElementChild).toHaveClass('min-h-full', 'justify-center', 'pb-4');
-    expect(viewport.firstElementChild).toHaveStyle({ maxWidth: 'var(--thread-max-width, 44rem)' });
+    expect(viewport.querySelector('[data-slot="aui_thread-content"]')).toHaveClass(
+      'min-h-full',
+      'justify-center',
+      'pb-4',
+    );
+    expect(viewport.querySelector('[data-slot="aui_thread-content"]')).toHaveStyle({
+      maxWidth: 'var(--thread-max-width, 44rem)',
+    });
     expect(viewport).toHaveTextContent('Welcome');
 
     rerender(
@@ -41,8 +47,8 @@ describe('ThreadViewportShell', () => {
         <p>Messages</p>
       </ThreadViewportShell>,
     );
-    expect(viewport.firstElementChild).toHaveClass('pb-32');
-    expect(viewport.firstElementChild).not.toHaveClass('justify-center');
+    expect(viewport.querySelector('[data-slot="aui_thread-content"]')).toHaveClass('pb-32');
+    expect(viewport.querySelector('[data-slot="aui_thread-content"]')).not.toHaveClass('justify-center');
   });
 
   it('can leave scrolling to a parent surface', () => {
@@ -55,7 +61,9 @@ describe('ThreadViewportShell', () => {
   it('supports a wider content surface without changing the default', () => {
     render(<ThreadViewportShell contentMaxWidth="60rem" data-testid="viewport" />);
 
-    expect(screen.getByTestId('viewport').firstElementChild).toHaveStyle({ maxWidth: '60rem' });
+    expect(screen.getByTestId('viewport').querySelector('[data-slot="aui_thread-content"]')).toHaveStyle({
+      maxWidth: '60rem',
+    });
   });
 });
 

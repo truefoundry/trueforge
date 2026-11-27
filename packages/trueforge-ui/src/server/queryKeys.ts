@@ -108,6 +108,8 @@ export const queryKeys = {
   artifacts: {
     all: () => key('artifacts'),
     list: (params: ListArtifactsParams) => key('artifacts', 'list', params),
+    /** Nested under `all()` so artifact rename/delete invalidation reaches the session card. */
+    session: (sessionId: string) => key('artifacts', 'session', sessionId),
   },
   metrics: {
     all: () => key('metrics'),

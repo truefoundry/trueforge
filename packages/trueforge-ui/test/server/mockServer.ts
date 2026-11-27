@@ -85,6 +85,7 @@ export function createMockSandboxEnvironmentServer(
 export function createMockArtifactServer(overrides: Partial<ArtifactServer> = {}): ArtifactServer {
   return {
     listArtifacts: async () => ({ data: [] }),
+    listSessionArtifacts: async () => [],
     getArtifact: unavailable,
     updateArtifact: unavailable,
     deleteArtifact: unavailable,

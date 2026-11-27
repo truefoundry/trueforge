@@ -6,6 +6,7 @@ import { clampPreviewWidth } from '../filePreview/previewPaneWidth.js';
 import { FILE_PREVIEW_HIGHLIGHT_CHAR_LIMIT, type ReadFilePreviewResult } from '../filePreview/readFilePreview.js';
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { artifactType } from './artifacts/artifactDisplay.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Button } from './primitives/Button.js';
@@ -235,7 +236,7 @@ export function FilePreviewPanel({
         </div>
       ) : null}
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Icon name="file" size={16} className="shrink-0 text-text-secondary" />
+        <Icon name={artifactType({ name }).icon} size={16} className="shrink-0 text-text-secondary" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{name}</span>
         {onReload != null ? (
           <Button.Ghost

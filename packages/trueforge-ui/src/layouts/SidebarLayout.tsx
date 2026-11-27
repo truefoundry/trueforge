@@ -485,6 +485,7 @@ function SidebarLayoutBody({ className }: { className?: string }) {
   const SessionsPage = useSlot('SessionsPage');
   const ArtifactsPage = useSlot('ArtifactsPage');
   const ShareChatButton = useSlot('ShareChatButton');
+  const SessionArtifactsToggleButton = useSlot('SessionArtifactsToggleButton');
   const ResetAgentBuilderButton = useSlot('ResetAgentBuilderButton');
   const ClearChatButton = useSlot('ClearChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
@@ -603,6 +604,7 @@ function SidebarLayoutBody({ className }: { className?: string }) {
                     !overlayOpen && !showDesktopOnlyNotice ? (
                       <>
                         <ResetAgentBuilderButton />
+                        <SessionArtifactsToggleButton />
                         <ShareChatButton />
                         <ClearChatButton />
                         <SaveAgentButton />

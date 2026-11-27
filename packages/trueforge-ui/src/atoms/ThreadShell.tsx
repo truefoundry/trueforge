@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithRef, type CSSProperties } from 'react';
+import { forwardRef, type ComponentPropsWithRef, type CSSProperties, type ReactNode } from 'react';
 
 import { cn } from './lib/cn.js';
 
@@ -33,10 +33,12 @@ export type ThreadViewportShellProps = ComponentPropsWithRef<'div'> & {
   scrollable?: boolean;
   /** Override the conversation content width without changing the scroll root width. */
   contentMaxWidth?: string;
+  /** Column beside the messages inside the scroll root, so the scrollbar stays at the far right edge. */
+  aside?: ReactNode;
 };
 
 export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShellProps>(
-  ({ className, isEmpty, scrollable = true, contentMaxWidth, children, ...rest }, ref) => (
+  ({ className, isEmpty, scrollable = true, contentMaxWidth, aside, children, ...rest }, ref) => (
     <div
       ref={ref}
       data-slot="aui_thread-viewport"
@@ -47,14 +49,18 @@ export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShel
       )}
       {...rest}
     >
-      <div
-        className={cn(
-          'mx-auto flex w-full min-w-0 flex-col px-3 pt-3',
-          isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
-        )}
-        style={{ maxWidth: contentMaxWidth ?? THREAD_CONTENT_MAX_WIDTH }}
-      >
-        {children}
+      <div className="flex min-h-full w-full min-w-0">
+        <div
+          data-slot="aui_thread-content"
+          className={cn(
+            'mx-auto flex w-full min-w-0 flex-1 flex-col px-3 pt-3',
+            isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
+          )}
+          style={{ maxWidth: contentMaxWidth ?? THREAD_CONTENT_MAX_WIDTH }}
+        >
+          {children}
+        </div>
+        {aside}
       </div>
     </div>
   ),

@@ -21,7 +21,7 @@ import { PageHeader } from '../PageHeader.js';
 import SearchInput from '../primitives/SearchInput.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import { DEFAULT_TABLE_PAGE_SIZE, TableTokenPagination } from '../primitives/Table.js';
-import { artifactPreviewKey } from './artifactDisplay.js';
+import { artifactPreviewTarget } from './artifactDisplay.js';
 import { ArtifactEditDialog, useRenameArtifact } from './ArtifactEditDialog.js';
 import { ArtifactsEmptyState } from './ArtifactsEmptyState.js';
 import { ArtifactsTable } from './ArtifactsTable.js';
@@ -113,13 +113,7 @@ function ArtifactsPageBody() {
       const ref = artifactRef(artifact);
       openedRefRef.current = ref;
       setArtifactRef?.(ref);
-      openFilePreview({
-        name: artifact.name,
-        // The list carries no entry file path; the read route picks it and the blob type drives rendering.
-        path: artifact.name,
-        turnId: artifactPreviewKey(artifact),
-        load: () => artifactServer.readArtifactFile({ id }),
-      });
+      openFilePreview(artifactPreviewTarget({ artifact, artifactServer }));
     },
     [artifactServer, openFilePreview, setArtifactRef, track],
   );
