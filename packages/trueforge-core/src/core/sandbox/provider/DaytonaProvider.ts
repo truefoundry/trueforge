@@ -117,6 +117,10 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
+  getDefaultExecTimeoutSeconds(): number {
+    return this.timeoutMs / 1000;
+  }
+
   /** Require a Daytona environment for fresh creates. */
   private requireEnvironment(environment?: DaytonaSandboxEnvironment): DaytonaSandboxEnvironment {
     if (environment === undefined) {

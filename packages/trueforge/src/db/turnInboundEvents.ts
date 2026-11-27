@@ -23,6 +23,14 @@ export function toTurnUserEventMessage(event: TurnUserEvent): TurnUserEventMessa
       };
     case 'user.mcp_auth_continue':
       return { type: event.type };
+    case 'user.code_mode_approval':
+      return {
+        type: event.type,
+        thread_id: event.thread_id,
+        approval_id: event.approval_id,
+        approval: event.approval,
+        ...(event.policy !== undefined ? { policy: event.policy } : {}),
+      };
     default: {
       const _exhaustive: never = event;
       return _exhaustive;

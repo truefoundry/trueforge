@@ -126,6 +126,11 @@ export interface SandboxProvider<TEnvironment = undefined> {
   updateSecret(params: SandboxUpdateSecretParams): Promise<void>;
   deleteSecret(params: SandboxDeleteSecretParams): Promise<void>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
+  /**
+   * Operator-configured exec ceiling in seconds. Lets a caller ask for the default *plus* a
+   * budget (e.g. time for a person to answer an approval) instead of replacing it with a guess.
+   */
+  getDefaultExecTimeoutSeconds?(): number;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;
   /** Directory inside the sandbox where large tool responses are dumped. */

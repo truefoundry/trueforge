@@ -9,6 +9,7 @@ import {
   type AgentParent,
   type ApprovalDecisionMessage,
   type BaseMCPAuthRequiredEvent,
+  type CodeModeApprovalRequiredEvent,
   type MCPInitializeEvent,
   type MCPServerAuthInfo,
   type MCPServerInitInfo,
@@ -25,6 +26,7 @@ import {
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
+  type UserCodeModeApprovalEvent,
   type UserMCPAuthContinueEvent,
   type UserMessage,
   type UserToolApprovalEvent,
@@ -91,7 +93,11 @@ export interface InternalMCPAuthContinueEvent {
 
 export interface InternalApprovalPolicyApplyEvent {
   type: typeof InternalEventType.APPROVAL_POLICY_APPLY;
-  event: UserToolApprovalPolicyEvent;
+  /**
+   * Inbound event being applied: appended to the durable log and marked consumed. A Code Mode
+   * decision lands here because the policy it may carry rides on the decision itself.
+   */
+  event: UserToolApprovalPolicyEvent | UserCodeModeApprovalEvent;
   /** Nested context mutations — not yielded AGENT_CONTEXT_APPEND events. */
   context_appends: ThreadContextAppend[];
   mcp_servers_patches: MCPServerInitInfo[];
@@ -180,6 +186,9 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
+  // Emitted by the orchestrator's approval loop, not by a thread, while a thread is blocked
+  // inside a bridged sandbox call.
+  | CodeModeApprovalRequiredEvent
   | InternalApprovalPolicyApplyEvent
   | InternalPassthroughEvent;
 

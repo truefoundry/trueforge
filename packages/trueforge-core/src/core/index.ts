@@ -142,6 +142,7 @@ export {
 // Event contracts
 export {
   ActionRequiredEventSchema,
+  CodeModeApprovalRequiredEventSchema,
   CompactionTriggerSchema,
   EventIdSchema,
   EventType,
@@ -158,6 +159,8 @@ export {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserCodeModeApprovalEventSchema,
+  UserCodeModeApprovalMessageSchema,
   UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
@@ -166,6 +169,7 @@ export {
 } from './events/schema';
 export type {
   AgentOutputEvent,
+  CodeModeApprovalRequiredEvent,
   CompactionTrigger,
   MCPAuthRequiredEvent,
   MCPServerAuthInfo,
@@ -175,6 +179,8 @@ export type {
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
   ToolApprovalPolicy,
+  UserCodeModeApprovalEvent,
+  UserCodeModeApprovalMessage,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
@@ -267,6 +273,12 @@ export {
 export type { OutboundFetch, OutboundFetchOptions } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
+export { CodeModeApprovalBroker } from './sandbox/codeMode/CodeModeApprovalBroker';
+export type {
+  CodeModeApprovalRequest,
+  CodeModeApprovalResolution,
+  CodeModeApprovalTicket,
+} from './sandbox/codeMode/CodeModeApprovalBroker';
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';

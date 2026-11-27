@@ -82,6 +82,10 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
   }
 
+  getDefaultExecTimeoutSeconds(): number {
+    return this.defaultExecTimeoutSeconds;
+  }
+
   validateAccess(): Promise<void> {
     return Promise.resolve();
   }

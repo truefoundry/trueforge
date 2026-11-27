@@ -42,9 +42,11 @@ export const EventType = {
   TOOL_RESPONSE: 'tool.response',
   TOOL_APPROVAL_REQUIRED: 'tool.approval_required',
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
+  CODE_MODE_APPROVAL_REQUIRED: 'code_mode.approval_required',
   USER_TOOL_APPROVAL: 'user.tool_approval',
   USER_TOOL_RESPONSE: 'user.tool_response',
   USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
+  USER_CODE_MODE_APPROVAL: 'user.code_mode_approval',
   USER_MCP_AUTH_CONTINUE: 'user.mcp_auth_continue',
   USER_MESSAGE: 'user.message',
 } as const;
@@ -151,12 +153,29 @@ export const UserMCPAuthContinueMessageSchema = z
   })
   .openapi('UserMCPAuthContinueInputEvent');
 
+/**
+ * Keyed by `approval_id` rather than a tool call id: one sandbox `exec` tool call can bridge
+ * many gated calls, each decided on its own. `policy` rides on the decision instead of a
+ * separate `user.tool_approval_policy` because the script is blocked, so both have to apply
+ * on the same inline path.
+ */
+export const UserCodeModeApprovalMessageSchema = z
+  .object({
+    type: z.literal(EventType.USER_CODE_MODE_APPROVAL).describe('Client decision for one sandbox tool call.'),
+    thread_id: z.string().min(1, 'thread_id is required').describe('Thread whose script made the call.'),
+    approval_id: z.string().min(1, 'approval_id is required').describe('From code_mode.approval_required.'),
+    approval: ApprovalDecisionSchema,
+    policy: ToolApprovalPolicySchema.optional(),
+  })
+  .openapi('UserCodeModeApprovalInputEvent');
+
 export const TurnUserEventMessageSchema = z
   .discriminatedUnion('type', [
     UserToolApprovalMessageSchema,
     UserToolResponseMessageSchema,
     UserToolApprovalPolicyMessageSchema,
     UserMCPAuthContinueMessageSchema,
+    UserCodeModeApprovalMessageSchema,
   ])
   .openapi('TurnUserEventMessage');
 
@@ -196,12 +215,22 @@ export const UserMCPAuthContinueEventSchema = z
   })
   .openapi('UserMCPAuthContinueEvent');
 
+/** Durable / SSE form of {@link UserCodeModeApprovalMessageSchema}. */
+export const UserCodeModeApprovalEventSchema = z
+  .object({
+    ...UserCodeModeApprovalMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserCodeModeApprovalEvent');
+
 export const TurnUserEventSchema = z
   .discriminatedUnion('type', [
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
     UserMCPAuthContinueEventSchema,
+    UserCodeModeApprovalEventSchema,
   ])
   .openapi('TurnUserEvent');
 
@@ -520,10 +549,27 @@ export const ToolResponseRequiredEventSchema = z
   })
   .openapi('ToolResponseRequiredEvent');
 
+export const CodeModeApprovalRequiredEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.CODE_MODE_APPROVAL_REQUIRED)
+      .describe('A tool call from inside a sandbox script needs human approval.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread whose script made the call.'),
+    approval_id: z.string().describe('Identifies this one pending call.'),
+    tool_call_id: z.string().describe('The sandbox exec tool call the script is running under.'),
+    server_name: z.string().describe('MCP server name.'),
+    name: z.string().describe('Tool name on that server.'),
+    arguments: z.record(z.string(), z.unknown()).describe('Arguments the script passed.'),
+  })
+  .openapi('CodeModeApprovalRequiredEvent');
+
 export const ActionRequiredEventSchema = z
   .discriminatedUnion('type', [
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
+    CodeModeApprovalRequiredEventSchema,
     MCPAuthRequiredEventSchema,
   ])
   .openapi('ActionRequiredEvent');
@@ -542,6 +588,7 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   SandboxCreatedEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseRequiredEventSchema,
+  CodeModeApprovalRequiredEventSchema,
 ]);
 
 export type AgentParent = z.infer<typeof AgentParentSchema>;
@@ -555,6 +602,8 @@ export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
 export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
+export type UserCodeModeApprovalMessage = z.infer<typeof UserCodeModeApprovalMessageSchema>;
+export type UserCodeModeApprovalEvent = z.infer<typeof UserCodeModeApprovalEventSchema>;
 export type TurnUserToolEvent = UserToolApprovalEvent | UserToolResponseEvent | UserToolApprovalPolicyEvent;
 export type TurnUserEventMessage = z.infer<typeof TurnUserEventMessageSchema>;
 export type TurnUserEvent = z.infer<typeof TurnUserEventSchema>;
@@ -581,5 +630,6 @@ export type MCPInitializeEvent = z.infer<typeof MCPInitializeEventSchema>;
 export type SandboxCreatedEvent = z.infer<typeof SandboxCreatedEventSchema>;
 export type ToolApprovalRequiredEvent = z.infer<typeof ToolApprovalRequiredEventSchema>;
 export type ToolResponseRequiredEvent = z.infer<typeof ToolResponseRequiredEventSchema>;
+export type CodeModeApprovalRequiredEvent = z.infer<typeof CodeModeApprovalRequiredEventSchema>;
 export type ActionRequiredEvent = z.infer<typeof ActionRequiredEventSchema>;
 export type AgentOutputEvent = z.infer<typeof AgentOutputEventSchema>;

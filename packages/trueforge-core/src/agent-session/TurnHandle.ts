@@ -864,7 +864,8 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
       }
 
       case HarnessEventType.TOOL_APPROVAL_REQUIRED:
-      case HarnessEventType.TOOL_RESPONSE_REQUIRED: {
+      case HarnessEventType.TOOL_RESPONSE_REQUIRED:
+      case HarnessEventType.CODE_MODE_APPROVAL_REQUIRED: {
         await this.writeStore('append', () =>
           this.store.appendToEvents({
             ...scope,

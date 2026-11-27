@@ -9,6 +9,7 @@ import {
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type TurnUserEvent,
+  type UserCodeModeApprovalEvent,
   type UserMCPAuthContinueEvent,
   type UserMessage,
   type UserToolApprovalEvent,
@@ -17,6 +18,7 @@ import {
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
 import { getOperationMetrics } from '../observability/operationMetrics';
+import type { CodeModeApprovalBroker } from '../sandbox/codeMode/CodeModeApprovalBroker';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
@@ -204,6 +206,8 @@ export interface AgentThreadOrchestratorInput {
    * is patched onto these records. This turn often does not emit `mcp.initialize` again.
    */
   mcpServers: MCPServerInitInfo[];
+  /** Per-turn registry of sandbox calls waiting on a decision. Omitted when Code Mode is off. */
+  codeModeApprovals?: CodeModeApprovalBroker | undefined;
 }
 
 export class AgentThreadOrchestrator {
@@ -212,12 +216,15 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
+  private readonly codeModeApprovals: CodeModeApprovalBroker | undefined;
   // Finished sub-agents removed from `agentThreads`; kept so the current run still includes them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
   private readonly pendingTurnEvents: TurnUserEvent[];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
+  // Tool a remembered Code Mode allow targets, kept from `send` until the drain persists it.
+  private readonly codeModePolicyTargets = new Map<string, ToolApprovalPolicyItem>();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.maxParallelSubAgents = params.maxParallelSubAgents ?? DEFAULT_MAX_PARALLEL_SUB_AGENTS;
@@ -225,6 +232,7 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+    this.codeModeApprovals = params.codeModeApprovals;
     this.pendingTurnEvents = [...params.pendingTurnEvents];
     for (const server of params.mcpServers) {
       this.mcpServerInitInfoById.set(server.id, server);
@@ -280,6 +288,19 @@ export class AgentThreadOrchestrator {
     yield* thread.send(messages);
   }
 
+  private applyPoliciesToToolSets(policies: readonly ToolApprovalPolicyItem[]): void {
+    for (const thread of this.agentThreads.values()) {
+      for (const policy of policies) {
+        for (const toolSet of thread.getToolSets().filter(t => t.supportsApprovals)) {
+          if (toolSet.name !== policy.server_name) {
+            continue;
+          }
+          toolSet.setApprovalPolicy(policy.name, policy.policy);
+        }
+      }
+    }
+  }
+
   // Pure: every `server_name` must match an approval tool set on some thread. Returns one
   // error string per unknown name (empty when all valid). Applies nothing.
   private validateApprovalPolicies(policies: ToolApprovalPolicyItem[]): string[] {
@@ -303,14 +324,16 @@ export class AgentThreadOrchestrator {
   // already-pending approvals the policy now covers.
   // Last write wins for a given (server, tool).
   //
-  // Emits one APPROVAL_POLICY_APPLY per policy event that includes:
+  // Emits one APPROVAL_POLICY_APPLY per inbound event that includes:
   //  - per-thread context appends for approvals the policy covers;
   //  - MCP server patches with merged approval policies;
-  //  - the policy event itself.
-  private *applyApprovalPolicies(
-    event: UserToolApprovalPolicyEvent,
-  ): Generator<InternalApprovalPolicyApplyEvent, void, unknown> {
-    const policies = event.policies;
+  //  - the inbound event itself.
+  private *applyApprovalPolicies(input: {
+    event: UserToolApprovalPolicyEvent | UserCodeModeApprovalEvent;
+    /** Empty for a Code Mode decision carrying no policy: it only needs recording. */
+    policies: ToolApprovalPolicyItem[];
+  }): Generator<InternalApprovalPolicyApplyEvent, void, unknown> {
+    const { event, policies } = input;
     const affectedMcpServers = new Set(policies.map(p => p.server_name));
     const policiesByServer = new Map<string, Record<string, ToolApprovalPolicy>>();
     const context_appends: ThreadContextAppend[] = [];
@@ -362,17 +385,7 @@ export class AgentThreadOrchestrator {
       mcp_servers_patches,
     };
 
-    // Apply the policies to the thread tool sets.
-    for (const thread of this.agentThreads.values()) {
-      for (const policy of policies) {
-        for (const toolSet of thread.getToolSets().filter(t => t.supportsApprovals)) {
-          if (toolSet.name !== policy.server_name) {
-            continue;
-          }
-          toolSet.setApprovalPolicy(policy.name, policy.policy);
-        }
-      }
-    }
+    this.applyPoliciesToToolSets(policies);
     // Apply the context appends to the threads.
     for (const append of context_appends) {
       const thread = this.agentThreads.get(append.thread_id);
@@ -393,7 +406,13 @@ export class AgentThreadOrchestrator {
     const grouped = new Map<string, typeof messages>();
     const validationErrors: string[] = [];
     for (const event of this.pendingTurnEvents) {
-      if (event.type === EventType.USER_TOOL_APPROVAL_POLICY || event.type === EventType.USER_MCP_AUTH_CONTINUE) {
+      // Code Mode decisions are keyed by approval_id, so they never contribute to a thread's
+      // pending tool-call set; validateCodeModeDecisions covers them instead.
+      if (
+        event.type === EventType.USER_TOOL_APPROVAL_POLICY ||
+        event.type === EventType.USER_MCP_AUTH_CONTINUE ||
+        event.type === EventType.USER_CODE_MODE_APPROVAL
+      ) {
         continue;
       }
       const queued = grouped.get(event.thread_id) ?? [];
@@ -432,6 +451,63 @@ export class AgentThreadOrchestrator {
     return validationErrors;
   }
 
+  // Pure: each id must still be waiting on this turn's broker, under the thread it names.
+  // Keyed by approval_id, so it cannot reuse the tool-call-id sets validateDecisionEvents uses.
+  private validateCodeModeDecisions(decisions: UserCodeModeApprovalEvent[]): string[] {
+    const errors: string[] = [];
+    for (const decision of decisions) {
+      const request = this.codeModeApprovals?.requestFor(decision.approval_id);
+      if (request === undefined) {
+        errors.push(`no pending Code Mode approval for approval_id '${decision.approval_id}'`);
+        continue;
+      }
+      if (request.threadId !== decision.thread_id) {
+        errors.push(
+          `approval_id '${decision.approval_id}' belongs to thread '${request.threadId}', not '${decision.thread_id}'`,
+        );
+      }
+    }
+    return errors;
+  }
+
+  /**
+   * Settles one Code Mode decision on the broker rather than through `pendingTurnEvents`. The
+   * script that opened it is blocked inside the current batch, so the mailbox drain it would
+   * wait for cannot run until it unblocks.
+   *
+   * A remembered allow has to reach the live tool sets here, because the dispatcher re-calls
+   * the tool the moment the promise settles, and it settles every other queued call on the
+   * same tool so a granted tool never raises a card it is about to cover. Recording the
+   * decision and its policy onto the snapshot is the drain's job.
+   */
+  private resolveCodeModeDecision(event: UserCodeModeApprovalEvent): void {
+    const broker = this.codeModeApprovals;
+    const request = broker?.requestFor(event.approval_id);
+    if (broker === undefined || request === undefined) {
+      // The turn settled between validation and here, so close() has already denied it.
+      this.logger.info('Code Mode approval is no longer pending', { approval_id: event.approval_id });
+      return;
+    }
+
+    const policy = event.policy;
+    broker.resolve({ approvalId: event.approval_id, resolution: { decision: event.approval, policy } });
+    if (policy === undefined) {
+      return;
+    }
+
+    // The decision names only the approval, so remember the tool it targets: the broker entry
+    // is gone by the time the drain persists the grant.
+    const target: ToolApprovalPolicyItem = { server_name: request.serverName, name: request.toolName, policy };
+    this.codeModePolicyTargets.set(event.approval_id, target);
+    this.applyPoliciesToToolSets([target]);
+    for (const approvalId of broker.pendingIdsForTool({
+      serverName: request.serverName,
+      toolName: request.toolName,
+    })) {
+      broker.resolve({ approvalId, resolution: { decision: { status: 'allow' }, policy: undefined } });
+    }
+  }
+
   public send(input: UserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
   public send(input: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void, unknown>;
   public async *send(
@@ -468,6 +544,7 @@ export class AgentThreadOrchestrator {
 
     const events = input;
     const decisions: (UserToolApprovalEvent | UserToolResponseEvent)[] = [];
+    const codeModeDecisions: UserCodeModeApprovalEvent[] = [];
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_MCP_AUTH_CONTINUE:
@@ -477,6 +554,9 @@ export class AgentThreadOrchestrator {
         case EventType.USER_TOOL_RESPONSE:
           // UserToolApproval | UserToolResponse.
           decisions.push(event);
+          break;
+        case EventType.USER_CODE_MODE_APPROVAL:
+          codeModeDecisions.push(event);
           break;
         default: {
           const _exhaustive: never = event;
@@ -492,15 +572,61 @@ export class AgentThreadOrchestrator {
     );
     const validationErrors = [
       ...decisionErrors.map(error => `invalid decision: ${error}`),
+      ...this.validateCodeModeDecisions(codeModeDecisions).map(error => `invalid Code Mode decision: ${error}`),
       ...policyErrors.map(error => `invalid approval policy: ${error}`),
     ];
     if (validationErrors.length > 0) {
       throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
 
-    if (events.length > 0) {
-      yield events;
-      this.pendingTurnEvents.push(...events);
+    if (events.length === 0) {
+      return;
+    }
+    yield events;
+
+    // Unblocking the script cannot wait for the drain, so it happens here. The event still
+    // joins the queue, which is what records it and marks the inbound row consumed.
+    for (const decision of codeModeDecisions) {
+      this.resolveCodeModeDecision(decision);
+    }
+    this.pendingTurnEvents.push(...events);
+  }
+
+  /**
+   * Carries approval cards out of a batch while every thread in it is blocked. Lives for one
+   * batch only: `mergeAsyncGenerators` finishes when all its sources do, so a source that
+   * outlived the batch would stall it forever.
+   */
+  private async *codeModeApprovalEvents(liveThreads: () => number): AsyncGenerator<AgentThreadEvent> {
+    const broker = this.codeModeApprovals;
+    if (broker === undefined) {
+      return;
+    }
+    while (liveThreads() > 0 && !broker.isClosed()) {
+      for (const card of broker.drain()) {
+        yield card;
+      }
+      if (liveThreads() === 0) {
+        return;
+      }
+      await broker.waitForChange();
+    }
+  }
+
+  /**
+   * Decrements the batch's live-thread count when the thread finishes and wakes the approval
+   * loop, which parks on the broker rather than on any thread generator and would otherwise
+   * never notice the batch ending.
+   */
+  private async *countingDown(
+    generator: AsyncGenerator<AgentThreadEvent>,
+    live: { count: number },
+  ): AsyncGenerator<AgentThreadEvent> {
+    try {
+      yield* generator;
+    } finally {
+      live.count -= 1;
+      this.codeModeApprovals?.nudge();
     }
   }
 
@@ -532,6 +658,7 @@ export class AgentThreadOrchestrator {
         return;
       case EventType.TOOL_APPROVAL_REQUIRED:
       case EventType.TOOL_RESPONSE_REQUIRED:
+      case EventType.CODE_MODE_APPROVAL_REQUIRED:
         yield chunk;
         return;
       case InternalEventType.AGENT_DONE: {
@@ -646,7 +773,7 @@ export class AgentThreadOrchestrator {
         for (const event of this.pendingTurnEvents.splice(0)) {
           switch (event.type) {
             case EventType.USER_TOOL_APPROVAL_POLICY:
-              yield* this.applyApprovalPolicies(event);
+              yield* this.applyApprovalPolicies({ event, policies: event.policies });
               break;
             case EventType.USER_TOOL_APPROVAL:
             case EventType.USER_TOOL_RESPONSE:
@@ -663,6 +790,15 @@ export class AgentThreadOrchestrator {
               for (const thread of waitingThreads) {
                 yield* this.sendToThread(thread.threadId, [event]);
               }
+              break;
+            }
+            case EventType.USER_CODE_MODE_APPROVAL: {
+              // Already settled inline by `send`; the drain is what records it. After a
+              // rebuild there is no script left to unblock and no remembered policy target,
+              // so this only writes the decision to the log.
+              const target = this.codeModePolicyTargets.get(event.approval_id);
+              this.codeModePolicyTargets.delete(event.approval_id);
+              yield* this.applyApprovalPolicies({ event, policies: target === undefined ? [] : [target] });
               break;
             }
           }
@@ -694,11 +830,16 @@ export class AgentThreadOrchestrator {
 
         for (let i = 0; i < runnable.length; i += this.maxParallelSubAgents) {
           const batch = runnable.slice(i, i + this.maxParallelSubAgents);
+          const live = { count: batch.length };
           const generators = batch.map(thread =>
-            thread.parent
-              ? wrapWithSubAgentSpan(rootSpan.trace, thread, signal)
-              : rootSpan.wrapThreadWithContext(thread, signal),
+            this.countingDown(
+              thread.parent
+                ? wrapWithSubAgentSpan(rootSpan.trace, thread, signal)
+                : rootSpan.wrapThreadWithContext(thread, signal),
+              live,
+            ),
           );
+          generators.push(this.codeModeApprovalEvents(() => live.count));
 
           for await (const chunk of mergeAsyncGenerators(generators, this.logger)) {
             switch (chunk.type) {
@@ -737,6 +878,8 @@ export class AgentThreadOrchestrator {
       caughtError = error;
       throw error;
     } finally {
+      // Nothing can answer once execution is over, so deny rather than leave a script polling.
+      this.codeModeApprovals?.close();
       rootSpan.finalize(mainThread, caughtError);
       rootSpan.end();
     }
