@@ -124,7 +124,7 @@ function renderPicker({
         <SlotsProvider>
           <ServerProvider server={mockServer}>
             <ShellModeProvider agentConfig={agentConfig}>
-              <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={false} />
+              <ShellRouteSync routes={routes} activeRemoteId={remoteId} />
               <CaptureLocation />
               <ModeProbe />
               <ExternalTryButton />

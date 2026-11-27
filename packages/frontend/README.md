@@ -16,7 +16,7 @@ Built on:
 [`App.tsx`](src/App.tsx) owns product chrome only:
 
 - auth gate / welcome / logout (`authFetch`, `authSession`)
-- boot: first model → `defaultAgentSpec`, `initialSettingsOpen`
+- boot: first model → `defaultAgentSpec`; with no models, `TrueForgeUI` shows its first-run onboarding (connect a model, then optional MCPs)
 - `<TrueForgeUI server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }} />`
 
 Chat, agent library, and settings catalogs are composed inside the UI SDK plugin —
