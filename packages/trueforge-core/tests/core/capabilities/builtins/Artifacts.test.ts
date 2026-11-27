@@ -37,7 +37,10 @@ function setup(
   const uploadRequests: ArtifactUploadRequest[] = [];
   const createdVersions: CreateVersionInput[] = [];
   const listedPrefixes: string[] = [];
-  const newArtifactId = jest.fn(() => 'art-new');
+  const newArtifactId = jest.fn((_input: { name: string }) => 'art-new');
+  const gatherArtifactDirMetadata = jest.fn((_dir: string) =>
+    run(options.metadata ?? { success: true, exit_code: 0, error: null, files: FILES }),
+  );
   const createArtifactWithVersion = jest.fn((input: CreateArtifactWithVersionInput) => {
     createdVersions.push({ artifact_id: input.id, files_metadata: input.files_metadata });
     return Promise.resolve({ version: 1 });
@@ -66,8 +69,7 @@ function setup(
     artifacts({
       provider,
       sandbox: {
-        gatherArtifactDirMetadata: () =>
-          run(options.metadata ?? { success: true, exit_code: 0, error: null, files: FILES }),
+        gatherArtifactDirMetadata,
         uploadArtifactFiles: ({ request }) => {
           uploadRequests.push(request);
           return run(options.uploaded ?? { success: true, exit_code: 0, files: [] });
@@ -90,7 +92,16 @@ function setup(
       body: JSON.parse(content?.type === 'text' ? content.text : '{}') as Record<string, unknown>,
     };
   };
-  return { call, toolSet, uploadRequests, createdVersions, listedPrefixes, newArtifactId, createArtifactWithVersion };
+  return {
+    call,
+    toolSet,
+    uploadRequests,
+    createdVersions,
+    listedPrefixes,
+    newArtifactId,
+    createArtifactWithVersion,
+    gatherArtifactDirMetadata,
+  };
 }
 
 describe('push_artifact', () => {
@@ -154,8 +165,26 @@ describe('push_artifact', () => {
     expect(createdVersions[0]?.files_metadata.entry_point).toBe('index.html');
   });
 
+  it('fails on a missing name without scanning the directory', async () => {
+    const { call, gatherArtifactDirMetadata } = setup();
+    const { isError, body } = await call({ dir: '/home/trueforge/report', entry_point: 'index.html' });
+    expect(isError).toBe(true);
+    expect(String(body['error_message'])).toContain('name is required');
+    expect(gatherArtifactDirMetadata).not.toHaveBeenCalled();
+  });
+
+  it('fails on an invalid name without scanning the directory', async () => {
+    const { call, newArtifactId, gatherArtifactDirMetadata } = setup();
+    newArtifactId.mockImplementation(() => {
+      throw new Error('Invalid artifact name');
+    });
+    const { isError, body } = await call({ name: '!!', dir: '/home/trueforge/report', entry_point: 'index.html' });
+    expect(isError).toBe(true);
+    expect(String(body['error_message'])).toContain('Invalid artifact name');
+    expect(gatherArtifactDirMetadata).not.toHaveBeenCalled();
+  });
+
   it.each<[string, Parameters<typeof setup>[0], Record<string, unknown>, string]>([
-    ['missing name', {}, {}, 'name is required'],
     ['denied artifact', { accessDenied: 'Artifact not found: nope' }, { artifact_id: 'nope' }, 'Artifact not found'],
     [
       'sandbox metadata error',

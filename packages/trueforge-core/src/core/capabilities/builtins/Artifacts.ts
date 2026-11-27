@@ -92,6 +92,20 @@ class ArtifactTools extends LocalToolMCP {
       }
     }
 
+    let artifactId = input.artifact_id;
+    let newName: string | undefined;
+    if (artifactId === undefined) {
+      if (input.name === undefined) {
+        return failure('name is required when artifact_id is omitted.', undefined);
+      }
+      newName = input.name;
+      try {
+        artifactId = provider.store.newArtifactId({ name: newName });
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error), undefined);
+      }
+    }
+
     let metadata: SandboxMetadata;
     try {
       const gathered = await sandbox.gatherArtifactDirMetadata(input.dir);
@@ -105,15 +119,6 @@ class ArtifactTools extends LocalToolMCP {
         return failure(`Validation failed: ${check.errors.join('; ')}`, metadata);
       }
 
-      let artifactId = input.artifact_id;
-      let newName: string | undefined;
-      if (artifactId === undefined) {
-        if (input.name === undefined) {
-          return failure('name is required when artifact_id is omitted.', metadata);
-        }
-        newName = input.name;
-        artifactId = provider.store.newArtifactId({ name: newName });
-      }
       const pushId = randomUUID();
       const rootPath = `artifacts/${provider.tenantId}/${artifactId}/${pushId}`;
       const keyOf = (relativePath: string) => `${rootPath}/${relativePath}`;
