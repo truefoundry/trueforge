@@ -4,7 +4,7 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { FinishReason } from "./FinishReason.js";
-import { ModelDefinition } from "./ModelDefinition.js";
+import { Model } from "./Model.js";
 import { ModelMessageEventContent } from "./ModelMessageEventContent.js";
 import { ModelMessageUsage } from "./ModelMessageUsage.js";
 import { ToolCall } from "./ToolCall.js";
@@ -17,7 +17,7 @@ export const ModelMessageEvent: core.serialization.ObjectSchema<
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
     id: core.serialization.string(),
-    model: ModelDefinition.optional(),
+    model: Model.optional(),
     name: core.serialization.string().optional(),
     reasoningContent: core.serialization.property("reasoning_content", core.serialization.string().optional()),
     refusal: core.serialization.string().optionalNullable(),
@@ -33,7 +33,7 @@ export declare namespace ModelMessageEvent {
         created_at: string;
         finish_reason?: (FinishReason.Raw | null | undefined) | null;
         id: string;
-        model?: ModelDefinition.Raw | null;
+        model?: Model.Raw | null;
         name?: string | null;
         reasoning_content?: string | null;
         refusal?: (string | null | undefined) | null;

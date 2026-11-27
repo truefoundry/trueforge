@@ -15,7 +15,10 @@ class FixedModel(UncheckedBaseModel):
     """
 
     params: typing.Optional[ModelParams] = None
-    type: typing.Literal["fixed"] = "fixed"
+    type: typing.Optional[typing.Literal["fixed"]] = pydantic.Field(default=None)
+    """
+    Run every turn on the model named in `name`. Omitted by older clients.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

@@ -13,7 +13,10 @@ class AutoModel(UncheckedBaseModel):
     Full names (account/model) of 4 to 10 models the router may choose from.
     """
 
-    type: typing.Literal["auto"] = "auto"
+    type: typing.Literal["auto"] = pydantic.Field(default="auto")
+    """
+    Route each turn to the cheapest candidate model that suits the task.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

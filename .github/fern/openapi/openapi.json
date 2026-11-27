@@ -193,7 +193,7 @@
             "type": "array"
           },
           "model": {
-            "$ref": "#/components/schemas/Model"
+            "$ref": "#/components/schemas/ModelDefinition"
           },
           "response_format": {
             "$ref": "#/components/schemas/ResponseFormat"
@@ -1710,7 +1710,8 @@
             "$ref": "#/components/schemas/ModelParams"
           },
           "type": {
-            "description": "Run every turn on the model named in `name`.",
+            "default": "fixed",
+            "description": "Run every turn on the model named in `name`. Omitted by older clients.",
             "enum": [
               "fixed"
             ],
@@ -1718,7 +1719,6 @@
           }
         },
         "required": [
-          "type",
           "name"
         ],
         "type": "object"
@@ -3137,23 +3137,6 @@
         }
       },
       "Model": {
-        "discriminator": {
-          "mapping": {
-            "auto": "#/components/schemas/AutoModel",
-            "fixed": "#/components/schemas/FixedModel"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/FixedModel"
-          },
-          {
-            "$ref": "#/components/schemas/AutoModel"
-          }
-        ]
-      },
-      "ModelDefinition": {
         "properties": {
           "name": {
             "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
@@ -3168,6 +3151,16 @@
           "name"
         ],
         "type": "object"
+      },
+      "ModelDefinition": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/FixedModel"
+          },
+          {
+            "$ref": "#/components/schemas/AutoModel"
+          }
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -3281,7 +3274,7 @@
             "type": "string"
           },
           "model": {
-            "$ref": "#/components/schemas/ModelDefinition"
+            "$ref": "#/components/schemas/Model"
           },
           "name": {
             "description": "Optional participant name.",
@@ -5554,7 +5547,7 @@
             "type": "string"
           },
           "model": {
-            "$ref": "#/components/schemas/ThreadSwitchModelEventModel"
+            "$ref": "#/components/schemas/Model"
           },
           "thread_id": {
             "description": "Thread the model was selected for.",
@@ -5574,36 +5567,6 @@
           "created_at",
           "thread_id",
           "model"
-        ],
-        "type": "object"
-      },
-      "ThreadSwitchModelEventModel": {
-        "description": "The chosen model and its parameters.",
-        "properties": {
-          "name": {
-            "description": "Name of the chosen model, `provider/model`.",
-            "type": "string"
-          },
-          "params": {
-            "$ref": "#/components/schemas/ThreadSwitchModelEventParams"
-          }
-        },
-        "required": [
-          "name",
-          "params"
-        ],
-        "type": "object"
-      },
-      "ThreadSwitchModelEventParams": {
-        "description": "Model parameters chosen with the model.",
-        "properties": {
-          "reasoning_effort": {
-            "description": "Reasoning effort chosen for the model.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reasoning_effort"
         ],
         "type": "object"
       },

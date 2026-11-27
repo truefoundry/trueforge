@@ -173,8 +173,7 @@ await client.agents.create({
     description: "description",
     manifest: {
         model: {
-            candidateModels: ["candidate_models"],
-            type: "auto"
+            name: "name"
         }
     },
     name: "name"
@@ -307,8 +306,7 @@ Update an existing agent by immutable id.
 await client.agents.update("agent_id", {
     manifest: {
         model: {
-            candidateModels: ["candidate_models"],
-            type: "auto"
+            name: "name"
         }
     }
 });

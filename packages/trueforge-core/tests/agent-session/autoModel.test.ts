@@ -8,7 +8,7 @@ import type { DecisionModelCreateParams } from '../../src/core/decision/IDecisio
 import { AgentHarnessError } from '../../src/core/errors';
 import { newEventId } from '../../src/core/events/schema';
 import type { LLMCreateParamsStreaming } from '../../src/core/llm/ILLM';
-import type { Model } from '../../src/core/llm/model';
+import type { ModelDefinition } from '../../src/core/llm/model';
 import type { IToolSet, ListToolsResponse } from '../../src/core/mcp/IMCPServer';
 import { DEFAULT_ROUTING_QUESTION } from '../../src/core/modelRouting/question';
 import type { ModelRouterDeps, RoutableModel } from '../../src/core/modelRouting/router';
@@ -90,7 +90,7 @@ function routing(category?: (input: DecisionModelCreateParams['input']) => strin
   return { deps, calls };
 }
 
-async function createSession(model: Model, subAgents = false) {
+async function createSession(model: ModelDefinition, subAgents = false) {
   const store = new InMemorySessionStore();
   const sessions = new Sessions({ sessionStore: store });
   const session = await sessions.create({
@@ -207,7 +207,7 @@ function turnInput(turnId: string, content: string) {
 }
 
 describe('auto model selection', () => {
-  const autoSpec: Model = { type: 'auto', candidate_models: routable.map(model => model.name) };
+  const autoSpec: ModelDefinition = { type: 'auto', candidate_models: routable.map(model => model.name) };
 
   it('runs a new auto turn on the routed model defaults at the routed effort', async () => {
     const { store, session } = await createSession(autoSpec);

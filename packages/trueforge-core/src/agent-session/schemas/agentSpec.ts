@@ -5,7 +5,7 @@ import {
   DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
 } from '../../core/capabilities/builtins/LargeToolResponse';
-import { ModelSchema } from '../../core/llm/model';
+import { ModelDefinitionSchema } from '../../core/llm/model';
 import { ResponseFormatSchema } from '../../core/llm/responseFormat';
 import {
   DEFAULT_DISABLE_TOOLS,
@@ -254,7 +254,7 @@ const InitialUserMessageSchema = z
 
 export const AgentSpecSchema = z
   .object({
-    model: ModelSchema,
+    model: ModelDefinitionSchema,
     instructions: z
       .string()
       .optional()

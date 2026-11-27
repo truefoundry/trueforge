@@ -11,7 +11,7 @@ export interface ModelMessageEvent {
     finishReason?: TrueForge.FinishReason | null;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    model?: TrueForge.ModelDefinition;
+    model?: TrueForge.Model;
     /** Optional participant name. */
     name?: string;
     reasoningContent?: string;

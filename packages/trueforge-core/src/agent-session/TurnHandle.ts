@@ -852,7 +852,7 @@ export class TurnHandle<TTransaction = never, TTurnCustom extends object = Recor
               {
                 ...scope,
                 thread_id: event.thread_id,
-                model: { name: event.model.name, effort: event.model.params.reasoning_effort },
+                model: { name: event.model.name, effort: event.model.params?.reasoning_effort ?? null },
               },
               transaction,
             );

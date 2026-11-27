@@ -255,8 +255,6 @@ export * from "./ThreadState.js";
 export * from "./ThreadStateDone.js";
 export * from "./ThreadStateError.js";
 export * from "./ThreadSwitchModelEvent.js";
-export * from "./ThreadSwitchModelEventModel.js";
-export * from "./ThreadSwitchModelEventParams.js";
 export * from "./Timezone.js";
 export * from "./TogetherAiModelProvider.js";
 export * from "./TokenPagination.js";

@@ -3,5 +3,6 @@
 export interface AutoModel {
     /** Full names (account/model) of 4 to 10 models the router may choose from. */
     candidateModels: string[];
+    /** Route each turn to the cheapest candidate model that suits the task. */
     type: "auto";
 }

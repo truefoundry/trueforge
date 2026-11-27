@@ -3,12 +3,18 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AutoModel } from "./AutoModel.js";
-import { FixedModel } from "./FixedModel.js";
+import { ModelParams } from "./ModelParams.js";
 
-export const Model: core.serialization.Schema<serializers.Model.Raw, TrueForge.Model> =
-    core.serialization.undiscriminatedUnion([AutoModel, FixedModel]);
+export const Model: core.serialization.ObjectSchema<serializers.Model.Raw, TrueForge.Model> = core.serialization.object(
+    {
+        name: core.serialization.string(),
+        params: ModelParams.optional(),
+    },
+);
 
 export declare namespace Model {
-    export type Raw = AutoModel.Raw | FixedModel.Raw;
+    export interface Raw {
+        name: string;
+        params?: ModelParams.Raw | null;
+    }
 }

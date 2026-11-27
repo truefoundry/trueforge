@@ -17,6 +17,7 @@ import type {
   AgentChatServer,
   CreateSessionRequest,
   ListResult,
+  Model,
   Session,
   Turn,
   TurnInboundEventItem,
@@ -75,10 +76,16 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
   };
 }
 
+// The API omits `type` on a fixed model sent by an older client.
+function toUiModel(model: TrueForgeApi.ModelDefinition): Model {
+  return model.type === 'auto' ? model : { ...model, type: 'fixed' };
+}
+
 export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
-  const { mcpServers, skills, ...rest } = spec;
+  const { mcpServers, skills, model, ...rest } = spec;
   return {
     ...rest,
+    model: toUiModel(model),
     ...(mcpServers && mcpServers.length > 0 ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
     ...(skills ? { skills: skills.map(toUiSkill) } : {}),
   };

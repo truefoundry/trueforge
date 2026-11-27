@@ -12,10 +12,7 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    agent: {
-                        spec: { model: { candidate_models: ["candidate_models"], type: "auto" } },
-                        type: "inline",
-                    },
+                    agent: { spec: { model: { name: "name" } }, type: "inline" },
                     created_at: "created_at",
                     created_by_subject: {
                         subject_display_name: "subject_display_name",
@@ -48,8 +45,7 @@ describe("SessionsClient", () => {
                     agent: {
                         spec: {
                             model: {
-                                candidateModels: ["candidate_models"],
-                                type: "auto",
+                                name: "name",
                             },
                         },
                         type: "inline",
@@ -116,7 +112,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = { agent: { name: "name" } };
         const rawResponseBody = {
             data: {
-                agent: { spec: { model: { candidate_models: ["candidate_models"], type: "auto" } }, type: "inline" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by_subject: {
                     subject_display_name: "subject_display_name",
@@ -152,8 +148,7 @@ describe("SessionsClient", () => {
                 agent: {
                     spec: {
                         model: {
-                            candidateModels: ["candidate_models"],
-                            type: "auto",
+                            name: "name",
                         },
                     },
                     type: "inline",
@@ -268,7 +263,7 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                agent: { spec: { model: { candidate_models: ["candidate_models"], type: "auto" } }, type: "inline" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by_subject: {
                     subject_display_name: "subject_display_name",
@@ -299,8 +294,7 @@ describe("SessionsClient", () => {
                 agent: {
                     spec: {
                         model: {
-                            candidateModels: ["candidate_models"],
-                            type: "auto",
+                            name: "name",
                         },
                     },
                     type: "inline",
@@ -410,7 +404,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
-                agent: { spec: { model: { candidate_models: ["candidate_models"], type: "auto" } }, type: "inline" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by_subject: {
                     subject_display_name: "subject_display_name",
@@ -442,8 +436,7 @@ describe("SessionsClient", () => {
                 agent: {
                     spec: {
                         model: {
-                            candidateModels: ["candidate_models"],
-                            type: "auto",
+                            name: "name",
                         },
                     },
                     type: "inline",

@@ -7,7 +7,7 @@ export interface ThreadSwitchModelEvent {
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    model: TrueForge.ThreadSwitchModelEventModel;
+    model: TrueForge.Model;
     /** Thread the model was selected for. */
     threadId: string;
     type: "thread.switch_model";

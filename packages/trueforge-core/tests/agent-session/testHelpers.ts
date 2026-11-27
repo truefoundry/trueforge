@@ -23,7 +23,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import type { Model, ModelParams } from '../../src/core/llm/model';
+import type { ModelDefinition, ModelParams } from '../../src/core/llm/model';
 import type { ModelRouterDeps } from '../../src/core/modelRouting/router';
 import type { ModelSnapshot } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
@@ -43,7 +43,7 @@ export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
-    model?: Model;
+    model?: ModelDefinition;
     config?: {
       iteration_limit?: number;
       sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };

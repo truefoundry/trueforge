@@ -19,7 +19,7 @@ export const ModelParamsSchema = z
   .openapi('ModelParams');
 
 /** A model FQN and the call parameters used with it. */
-export const ModelDefinitionSchema = z
+export const ModelSchema = z
   .object({
     name: z
       .string()
@@ -27,12 +27,15 @@ export const ModelDefinitionSchema = z
       .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('ModelDefinition');
+  .openapi('Model');
 
 export const FixedModelSchema = z
   .object({
-    type: z.literal('fixed').describe('Run every turn on the model named in `name`.'),
-    ...ModelDefinitionSchema.shape,
+    type: z
+      .literal('fixed')
+      .default('fixed')
+      .describe('Run every turn on the model named in `name`. Omitted by older clients.'),
+    ...ModelSchema.shape,
   })
   .strict()
   .openapi('FixedModel');
@@ -79,15 +82,15 @@ export const AutoModelSchema = z
   .strict()
   .openapi('AutoModel');
 
-export const ModelSchema = z.discriminatedUnion('type', [FixedModelSchema, AutoModelSchema]).openapi('Model');
+export const ModelDefinitionSchema = z.union([FixedModelSchema, AutoModelSchema]).openapi('ModelDefinition');
 
 export type ModelParams = z.infer<typeof ModelParamsSchema>;
-export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>;
+export type Model = z.infer<typeof ModelSchema>;
 export type FixedModel = z.infer<typeof FixedModelSchema>;
 export type AutoModel = z.infer<typeof AutoModelSchema>;
-export type Model = z.infer<typeof ModelSchema>;
+export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>;
 
 /** Every model FQN the spec may run a turn on: the fixed model, or all auto candidates. */
-export function modelNames(model: Model): readonly string[] {
+export function modelNames(model: ModelDefinition): readonly string[] {
   return model.type === 'fixed' ? [model.name] : model.candidate_models;
 }

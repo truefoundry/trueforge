@@ -53,7 +53,7 @@ import {
   type LLMUserMessage,
   type RawAssistantMessage,
 } from '../llm/LLMTypes';
-import { ModelDefinitionSchema, type ModelDefinition } from '../llm/model';
+import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
 import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
@@ -247,9 +247,9 @@ function toContextAssistantMessage(
   return forContext;
 }
 
-function toEventModel(model: AgentModel): ModelDefinition {
+function toEventModel(model: AgentModel): Model {
   const params = model.params;
-  return ModelDefinitionSchema.parse({
+  return ModelSchema.parse({
     name: model.name,
     ...(params && Object.keys(params).length > 0 ? { params } : {}),
   });
@@ -268,7 +268,7 @@ function buildModelMessageEvent({
   finishReason: FinishReason | null;
   usage: ModelMessageUsage | undefined;
   id: string;
-  model: ModelDefinition;
+  model: Model;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
   // `reasoning_content` stays on the event for UI replay (exact streamed concat).

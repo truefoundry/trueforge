@@ -6,5 +6,6 @@ export interface FixedModel {
     /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
     name: string;
     params?: TrueForge.ModelParams;
-    type: "fixed";
+    /** Run every turn on the model named in `name`. Omitted by older clients. */
+    type?: "fixed";
 }

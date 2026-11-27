@@ -53,8 +53,12 @@ describe('AgentSpecSchema model', () => {
     expect(AgentSpecSchema.safeParse({ model }).success).toBe(false);
   });
 
-  it('rejects a model without a type, and auto-only fields on a fixed model', () => {
-    expect(AgentSpecSchema.safeParse({ model: { name: 'provider/model' } }).success).toBe(false);
+  it('reads a model without a type as fixed, as older clients send it', () => {
+    const model = { name: 'provider/model', params: { temperature: 0.2 } };
+    expect(AgentSpecSchema.parse({ model }).model).toEqual({ type: 'fixed', ...model });
+  });
+
+  it('rejects auto-only fields on a fixed model', () => {
     expect(
       AgentSpecSchema.safeParse({ model: { type: 'fixed', name: 'a/b', candidate_models: ['a/b'] } }).success,
     ).toBe(false);

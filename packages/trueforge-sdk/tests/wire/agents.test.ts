@@ -19,7 +19,7 @@ describe("AgentsClient", () => {
                     },
                     description: "description",
                     id: "id",
-                    manifest: { model: { candidate_models: ["candidate_models"], type: "auto" } },
+                    manifest: { model: { name: "name" } },
                     name: "name",
                 },
             ],
@@ -46,8 +46,7 @@ describe("AgentsClient", () => {
                     id: "id",
                     manifest: {
                         model: {
-                            candidateModels: ["candidate_models"],
-                            type: "auto",
+                            name: "name",
                         },
                     },
                     name: "name",
@@ -96,11 +95,7 @@ describe("AgentsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            description: "description",
-            manifest: { model: { candidate_models: ["candidate_models"], type: "auto" } },
-            name: "name",
-        };
+        const rawRequestBody = { description: "description", manifest: { model: { name: "name" } }, name: "name" };
         const rawResponseBody = {
             data: {
                 created_by_subject: {
@@ -114,7 +109,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { candidate_models: ["candidate_models"], type: "auto" },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -135,8 +130,7 @@ describe("AgentsClient", () => {
             description: "description",
             manifest: {
                 model: {
-                    candidateModels: ["candidate_models"],
-                    type: "auto",
+                    name: "name",
                 },
             },
             name: "name",
@@ -164,8 +158,7 @@ describe("AgentsClient", () => {
                         },
                     ],
                     model: {
-                        candidateModels: ["candidate_models"],
-                        type: "auto",
+                        name: "name",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -184,11 +177,7 @@ describe("AgentsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            description: "x",
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-            name: "xy",
-        };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -205,8 +194,7 @@ describe("AgentsClient", () => {
                 description: "x",
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
                 name: "xy",
@@ -217,11 +205,7 @@ describe("AgentsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            description: "x",
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-            name: "xy",
-        };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -238,8 +222,7 @@ describe("AgentsClient", () => {
                 description: "x",
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
                 name: "xy",
@@ -250,11 +233,7 @@ describe("AgentsClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            description: "x",
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-            name: "xy",
-        };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -271,8 +250,7 @@ describe("AgentsClient", () => {
                 description: "x",
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
                 name: "xy",
@@ -297,7 +275,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { candidate_models: ["candidate_models"], type: "auto" },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -337,8 +315,7 @@ describe("AgentsClient", () => {
                         },
                     ],
                     model: {
-                        candidateModels: ["candidate_models"],
-                        type: "auto",
+                        name: "name",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -376,7 +353,7 @@ describe("AgentsClient", () => {
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { candidate_models: ["candidate_models"], type: "auto" } } };
+        const rawRequestBody = { manifest: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
                 created_by_subject: {
@@ -390,7 +367,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { candidate_models: ["candidate_models"], type: "auto" },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -410,8 +387,7 @@ describe("AgentsClient", () => {
         const response = await client.agents.update("agent_id", {
             manifest: {
                 model: {
-                    candidateModels: ["candidate_models"],
-                    type: "auto",
+                    name: "name",
                 },
             },
         });
@@ -438,8 +414,7 @@ describe("AgentsClient", () => {
                         },
                     ],
                     model: {
-                        candidateModels: ["candidate_models"],
-                        type: "auto",
+                        name: "name",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -458,9 +433,7 @@ describe("AgentsClient", () => {
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-        };
+        const rawRequestBody = { manifest: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -476,8 +449,7 @@ describe("AgentsClient", () => {
             return await client.agents.update("agent_id", {
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
             });
@@ -487,9 +459,7 @@ describe("AgentsClient", () => {
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-        };
+        const rawRequestBody = { manifest: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -505,8 +475,7 @@ describe("AgentsClient", () => {
             return await client.agents.update("agent_id", {
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
             });
@@ -516,9 +485,7 @@ describe("AgentsClient", () => {
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            manifest: { model: { candidate_models: ["candidate_models", "candidate_models"], type: "auto" } },
-        };
+        const rawRequestBody = { manifest: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -534,8 +501,7 @@ describe("AgentsClient", () => {
             return await client.agents.update("agent_id", {
                 manifest: {
                     model: {
-                        candidateModels: ["candidate_models", "candidate_models"],
-                        type: "auto",
+                        name: "x",
                     },
                 },
             });

@@ -8,8 +8,7 @@ import type * as TrueForge from "../../../../index.js";
  *         description: "description",
  *         manifest: {
  *             model: {
- *                 candidateModels: ["candidate_models"],
- *                 type: "auto"
+ *                 name: "name"
  *             }
  *         },
  *         name: "name"

@@ -2,24 +2,7 @@
 
 import typing
 
-import pydantic
-from ..core.pydantic_utilities import IS_PYDANTIC_V2
-from ..core.unchecked_base_model import UncheckedBaseModel
-from .model_params import ModelParams
+from .auto_model import AutoModel
+from .fixed_model import FixedModel
 
-
-class ModelDefinition(UncheckedBaseModel):
-    name: str = pydantic.Field()
-    """
-    Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.
-    """
-
-    params: typing.Optional[ModelParams] = None
-
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            smart_union = True
-            extra = pydantic.Extra.allow
+ModelDefinition = typing.Union[FixedModel, AutoModel]

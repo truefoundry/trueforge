@@ -182,7 +182,7 @@ export interface ThreadSwitchModelEvent {
   type: typeof EVENT_TYPE.THREAD_SWITCH_MODEL;
   id: string;
   threadId: string;
-  model: { name: string; params: { reasoningEffort: string } };
+  model: { name: string; params?: { reasoningEffort?: string } };
   createdAt: string;
 }
 
