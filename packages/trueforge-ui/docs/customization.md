@@ -80,6 +80,9 @@ Public override surface (primitives stay theme/CSS — not slots):
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,
   `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`,
   `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`
+- **First-run onboarding:** `Onboarding`, `OnboardingFrame`,
+  `OnboardingStepper`, `OnboardingStepFooter`, `OnboardingOptionLabel`,
+  `OnboardingConnectorRow`
 
 ## URL routing (`withRouter`)
 

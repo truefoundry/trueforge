@@ -111,7 +111,6 @@ function SettingsCatalogProvider({
 function Harness({
   agentConfig,
   initialRemoteId,
-  initialSettingsOpen = false,
   settingsEnabled = true,
   capabilitiesFail = false,
   includeCatalog = true,
@@ -123,7 +122,6 @@ function Harness({
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
-  initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
   capabilitiesFail?: boolean;
   includeCatalog?: boolean;
@@ -153,10 +151,10 @@ function Harness({
       getSession={getSession}
       permissions={permissions}
     >
-      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+      <ShellModeProvider agentConfig={agentConfig}>
         <CaptureShell />
         <CaptureLocation />
-        <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={initialSettingsOpen} />
+        <ShellRouteSync routes={routes} activeRemoteId={remoteId} />
       </ShellModeProvider>
     </SettingsCatalogProvider>
   );
@@ -166,7 +164,6 @@ function renderSync(opts: {
   initialEntries?: string[];
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
-  initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
   capabilitiesFail?: boolean;
   includeCatalog?: boolean;
@@ -189,7 +186,6 @@ function renderSync(opts: {
       <Harness
         agentConfig={opts.agentConfig}
         initialRemoteId={opts.initialRemoteId}
-        initialSettingsOpen={opts.initialSettingsOpen}
         settingsEnabled={opts.settingsEnabled}
         capabilitiesFail={opts.capabilitiesFail}
         includeCatalog={opts.includeCatalog}
@@ -573,22 +569,6 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/sessions/new-session');
   });
 
-  it('opens settings on boot when initialSettingsOpen is set and pushes the URL', async () => {
-    renderSync({ initialEntries: ['/'], initialSettingsOpen: true });
-    await waitFor(() => {
-      expect(shell.settingsOpen).toBe(true);
-      expect(pathname).toBe('/settings');
-    });
-  });
-
-  // Boot replaces into /settings, so Back would leave the app instead of closing it.
-  it('returns to the chat place when settings opened on boot is closed', async () => {
-    renderSync({ initialEntries: ['/'], initialSettingsOpen: true });
-    await waitFor(() => expect(pathname).toBe('/settings'));
-    act(() => shell.setSettingsOpen(false));
-    expect(pathname).toBe('/');
-  });
-
   it('returns to the chat place when a /settings deep link is closed', async () => {
     renderSync({ initialEntries: ['/settings'] });
     await waitFor(() => expect(shell.settingsOpen).toBe(true));
@@ -615,8 +595,8 @@ describe('ShellRouteSync', () => {
     });
   });
 
-  it('ignores initialSettingsOpen when Settings chrome has no catalog', async () => {
-    renderSync({ initialEntries: ['/'], initialSettingsOpen: true, includeCatalog: false });
+  it('unregisters /settings when Settings chrome has no catalog', async () => {
+    renderSync({ initialEntries: ['/settings'], includeCatalog: false });
     await waitFor(() => {
       expect(shell.settingsOpen).toBe(false);
       expect(pathname).toBe('/');

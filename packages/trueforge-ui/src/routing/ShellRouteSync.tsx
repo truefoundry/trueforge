@@ -43,11 +43,9 @@ function isSessionsPlace(place: RoutePlace): boolean {
 export function ShellRouteSync({
   routes,
   activeRemoteId,
-  initialSettingsOpen,
 }: {
   routes: ResolvedRoutes;
   activeRemoteId: string | undefined;
-  initialSettingsOpen: boolean;
 }) {
   const shell = useShellMode();
   const server = useOptionalServer();
@@ -311,8 +309,8 @@ export function ShellRouteSync({
     [shell, activeRemoteId, goToRoot, openAgent, openSession],
   );
 
-  // Boot: URL wins, except an explicit `initialSettingsOpen` overlay. Boot is the
-  // sole authority for the first commit and sets the final URL + `prevPlaceRef`.
+  // Boot: the URL wins. Boot is the sole authority for the first commit and sets the
+  // final URL + `prevPlaceRef`.
   useEffect(() => {
     if (bootedRef.current) return;
     const configuredUrlPlace = matchLocation({
@@ -343,7 +341,6 @@ export function ShellRouteSync({
           : null;
     bootHistoryAgentRef.current = historyAgentSearch;
     appliedUrlPlaceRef.current = urlPlace;
-    const settingsOnBoot = settingsChromeEnabled && (initialSettingsOpen || urlPlace.type === 'settings');
 
     if (urlPlace.type === 'settings') {
       if (settingsChromeEnabled) shell.setSettingsOpen(true);
@@ -360,7 +357,6 @@ export function ShellRouteSync({
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
-      if (settingsOnBoot) shell.setSettingsOpen(true);
     }
     if (urlPlace.type !== 'agent' && historyAgentSearch != null) {
       applyHistoryAgentSearch(historyAgentSearch);
@@ -368,14 +364,13 @@ export function ShellRouteSync({
       applyHistoryAgentSearch(null);
     }
 
-    const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
-    bootPlaceRef.current = placesEqual(place, desiredPlace) ? null : desiredPlace;
-    const desiredPath = buildPath(desiredPlace, effectiveRoutes);
+    bootPlaceRef.current = placesEqual(place, urlPlace) ? null : urlPlace;
+    const desiredPath = buildPath(urlPlace, effectiveRoutes);
     const desiredSearch = updateHistoryAgentSearch(
-      sanitizeSearchForPlace(desiredPlace, location.search),
+      sanitizeSearchForPlace(urlPlace, location.search),
       historyAgentSearch,
     );
-    prevPlaceRef.current = desiredPlace;
+    prevPlaceRef.current = urlPlace;
     if (desiredPath != null && (desiredPath !== location.pathname || desiredSearch !== location.search)) {
       selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
       navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
