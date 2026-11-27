@@ -319,7 +319,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   // Cwd-relative (no FS jail). exec() pwd-joins GIT_CONFIG / PATH / PYTHONPATH.
-  //   uploads, skills, tool-results, skill_downloader.py, .git-credentials, .tfg/artifacts
+  //   uploads, skills, tool-results, artifacts, skill_downloader.py, artifact_transfer_v1.py, .git-credentials
   //   mcp-client/mcp_client.py  (no /usr/local/bin symlink)
   getToolResultDumpDir(): string {
     return 'tool-results';
@@ -341,7 +341,11 @@ export class TFYSandboxProvider implements SandboxProvider {
     return 'skill_downloader.py';
   }
 
-  getArtifactTransferDir(): string {
-    return '.tfg/artifacts';
+  getArtifactTransferPath(): string {
+    return 'artifact_transfer_v1.py';
+  }
+
+  getArtifactsDir(): string {
+    return 'artifacts';
   }
 }

@@ -617,9 +617,10 @@ export class SessionHandle<
       ...builtinsFromSpec({
         spec: input.spec,
         isChild,
-        sandboxAvailable: Boolean(input.sandbox),
+        sandbox: input.sandbox,
         tracing: input.tracing,
         webSearchProvider: input.resolver.webSearchProvider,
+        artifactsBackend: input.resolver.artifactsBackend,
         logger: input.resolver.logger,
       }),
       ...(extraCapabilities ?? []),
@@ -687,9 +688,10 @@ export class SessionHandle<
         ...builtinsFromSpec({
           spec: input.spec,
           isChild: true,
-          sandboxAvailable: Boolean(input.sandbox),
+          sandbox: input.sandbox,
           tracing: input.tracing,
           webSearchProvider: input.resolver.webSearchProvider,
+          artifactsBackend: input.resolver.artifactsBackend,
           logger: input.resolver.logger,
         }),
         ...(extraCapabilities ?? []),

@@ -1,9 +1,5 @@
-import type { ArtifactValidateResult } from '@truefoundry/trueforge-core/core';
-
-export interface ArtifactPushLimits {
-  max_files: number;
-  max_total_bytes: number;
-}
+import type { ArtifactDirMetadata } from '../sandbox/artifactTransfer';
+import type { ArtifactPushLimits } from './ArtifactsBackend';
 
 interface ArtifactPushFile {
   // Relative to the pushed directory; also the object key suffix.
@@ -21,18 +17,18 @@ function isSafeRelativePath(path: string): boolean {
   );
 }
 
-/** Checks the sandbox's validate result against the push limits; `entry_point` is relative to the pushed dir. */
+/** Checks the pushed dir's metadata against the push limits; `entry_point` is relative to the pushed dir. */
 export function checkArtifactPush(input: {
-  validated: ArtifactValidateResult;
+  metadata: ArtifactDirMetadata;
   entry_point: string;
   limits: ArtifactPushLimits;
 }): ArtifactPushCheckResult {
-  const { validated, limits } = input;
-  if (!validated.success || validated.error !== null) {
-    return { ok: false, errors: [validated.error ?? 'validation failed'] };
+  const { metadata, limits } = input;
+  if (!metadata.success || metadata.error !== null) {
+    return { ok: false, errors: [metadata.error ?? 'reading the directory failed'] };
   }
   const errors: string[] = [];
-  const files = validated.files;
+  const files = metadata.files;
   if (files.length === 0) {
     errors.push('directory has no files');
   }

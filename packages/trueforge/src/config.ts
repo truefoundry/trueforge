@@ -223,22 +223,30 @@ export function parseS3Config(raw: string | undefined): S3Config | undefined {
   }
 }
 
-const ArtifactsFeatureSchema = z.object({
+const ArtifactsConfigSchema = z.object({
   tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
+  /** Max files in one artifact version. */
+  max_files: z.number().int().positive().default(25),
+  /** Max total bytes in one artifact version. */
+  max_total_bytes: z
+    .number()
+    .int()
+    .positive()
+    .default(25 * 1024 * 1024),
 });
 
-export type ArtifactsFeature = z.infer<typeof ArtifactsFeatureSchema>;
+export type ArtifactsConfig = z.infer<typeof ArtifactsConfigSchema>;
 
 /** Parses `ARTIFACTS` JSON. Empty / unset → undefined (artifacts off everywhere). */
-export function parseArtifactsFeature(raw: string | undefined): ArtifactsFeature | undefined {
+export function parseArtifactsConfig(raw: string | undefined): ArtifactsConfig | undefined {
   if (raw === undefined || raw.trim() === '') {
     return undefined;
   }
   try {
-    return ArtifactsFeatureSchema.parse(JSON.parse(raw));
+    return ArtifactsConfigSchema.parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries and optional "max_files", "max_total_bytes" (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
       { cause: error },
     );
   }
@@ -866,19 +874,11 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
-   * S3 bucket settings (`bucket`, `region`, `prefix`, `endpoint`, `presign_ttl_seconds`). Credentials come
-   * from the standard AWS chain. Env: `S3_CONFIG`.
+   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`) and per-version limits
+   * `max_files` (default 25) and `max_total_bytes` (default 25 MB). A tenant that is on gets
+   * `push_artifact` when S3 is configured. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
-  S3_CONFIG: S3Config | undefined;
-  /**
-   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`).
-   * A tenant that is on gets `push_artifact` by default. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
-   */
-  ARTIFACTS: ArtifactsFeature | undefined;
-  /** Max files in one artifact version. Env: `ARTIFACT_MAX_FILES`. Default 25. */
-  ARTIFACT_MAX_FILES: number;
-  /** Max total bytes in one artifact version. Env: `ARTIFACT_MAX_TOTAL_BYTES`. Default 25 MB. */
-  ARTIFACT_MAX_TOTAL_BYTES: number;
+  ARTIFACTS: ArtifactsConfig | undefined;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
@@ -1100,6 +1100,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   DATABASE_SSL: boolean | PostgresSslConfig;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
+  /**
+   * S3 bucket settings (`bucket`, `region`, `prefix`, `endpoint`, `presign_ttl_seconds`). Credentials come
+   * from the standard AWS chain. Env: `S3_CONFIG`.
+   */
+  S3_CONFIG: S3Config | undefined;
   /**
    * Postgres `statement_timeout` for app and migrations (same pool).
    * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
@@ -1334,18 +1339,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
     defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
-  S3_CONFIG: parseS3Config(getEnv('S3_CONFIG', { required: false })),
-  ARTIFACTS: parseArtifactsFeature(getEnv('ARTIFACTS', { required: false })),
-  ARTIFACT_MAX_FILES: parsePositiveInt({
-    envKey: 'ARTIFACT_MAX_FILES',
-    raw: getEnv('ARTIFACT_MAX_FILES'),
-    defaultValue: 25,
-  }),
-  ARTIFACT_MAX_TOTAL_BYTES: parsePositiveInt({
-    envKey: 'ARTIFACT_MAX_TOTAL_BYTES',
-    raw: getEnv('ARTIFACT_MAX_TOTAL_BYTES'),
-    defaultValue: 25 * 1024 * 1024,
-  }),
+  ARTIFACTS: parseArtifactsConfig(getEnv('ARTIFACTS', { required: false })),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
     raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
@@ -1525,6 +1519,7 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('DATABASE_POOL_MAX'),
         defaultValue: 10,
       }),
+      S3_CONFIG: parseS3Config(getEnv('S3_CONFIG', { required: false })),
       POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
         envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
         raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),

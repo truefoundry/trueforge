@@ -3,11 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  artifactTransferScriptPath,
-  artifactUploadRequestPath,
-  buildArtifactUploadRequestFile,
-} from '../../../src/core/sandbox/artifactTransfer';
+import { artifactUploadRequestPath, buildArtifactUploadRequestFile } from '../../../src/core/sandbox/artifactTransfer';
 import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
 import { Sandbox } from '../../../src/core/sandbox/Sandbox';
 import { sandboxScripts } from '../../../src/core/sandbox/sandboxScripts.gen';
@@ -16,13 +12,15 @@ import { makeSilentLogger } from '../harnessMocks';
 
 describe('artifact_transfer_v1.py', () => {
   let root: string;
-  let transferDir: string;
+  let scriptPath: string;
+  let artifactsDir: string;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'artifact-transfer-'));
-    transferDir = join(root, '.tfg', 'artifacts');
-    mkdirSync(join(transferDir, 'uploads'), { recursive: true });
-    writeFileSync(artifactTransferScriptPath(transferDir), sandboxScripts.artifactTransfer);
+    scriptPath = join(root, 'artifact_transfer_v1.py');
+    artifactsDir = join(root, 'artifacts');
+    mkdirSync(join(artifactsDir, 'uploads'), { recursive: true });
+    writeFileSync(scriptPath, sandboxScripts.artifactTransfer);
   });
 
   afterEach(() => {
@@ -30,7 +28,7 @@ describe('artifact_transfer_v1.py', () => {
   });
 
   function run(mode: string, arg: string): { status: number | null; output: Record<string, unknown> | undefined } {
-    const result = spawnSync('python3', [artifactTransferScriptPath(transferDir), mode, arg], { encoding: 'utf-8' });
+    const result = spawnSync('python3', [scriptPath, mode, arg], { encoding: 'utf-8' });
     return {
       status: result.status,
       output: result.stdout === '' ? undefined : (JSON.parse(result.stdout) as Record<string, unknown>),
@@ -45,11 +43,10 @@ describe('artifact_transfer_v1.py', () => {
     return report;
   }
 
-  it('validate returns size and sha256 for every file under the dir', () => {
-    const { status, output } = run('validate', makeReport());
+  it('metadata returns size and sha256 for every file under the dir', () => {
+    const { status, output } = run('metadata', makeReport());
     expect(status).toBe(0);
     expect(output).toEqual({
-      mode: 'validate',
       success: true,
       exit_code: 0,
       error: null,
@@ -64,11 +61,11 @@ describe('artifact_transfer_v1.py', () => {
     });
   });
 
-  it('validate skips file and dir symlinks', () => {
+  it('metadata skips file and dir symlinks', () => {
     const report = makeReport();
     symlinkSync('/etc/passwd', join(report, 'passwd.txt'));
     symlinkSync('/etc', join(report, 'etc'));
-    const { status, output } = run('validate', report);
+    const { status, output } = run('metadata', report);
     expect(status).toBe(0);
     expect(output).toMatchObject({ success: true, error: null });
     expect((output?.['files'] as { relative_path: string }[]).map(f => f.relative_path)).toEqual([
@@ -77,14 +74,14 @@ describe('artifact_transfer_v1.py', () => {
     ]);
   });
 
-  it('validate rejects a missing dir', () => {
-    const { output } = run('validate', join(root, 'nope'));
+  it('metadata rejects a missing dir', () => {
+    const { output } = run('metadata', join(root, 'nope'));
     expect(output).toMatchObject({ success: false, exit_code: 1, error: expect.stringContaining('not a directory') });
   });
 
   it('upload deletes its request file and reports per-file status', () => {
     const report = makeReport();
-    const requestPath = artifactUploadRequestPath({ transferDir, requestId: 'r1' });
+    const requestPath = artifactUploadRequestPath({ artifactsDir, requestId: 'r1' });
     writeFileSync(
       requestPath,
       buildArtifactUploadRequestFile({
@@ -100,7 +97,6 @@ describe('artifact_transfer_v1.py', () => {
     expect(status).toBe(1);
     expect(existsSync(requestPath)).toBe(false);
     expect(output).toEqual({
-      mode: 'upload',
       success: false,
       exit_code: 1,
       files: [
@@ -117,7 +113,7 @@ describe('artifact_transfer_v1.py', () => {
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     const port = typeof address === 'object' && address !== null ? address.port : 0;
-    const requestPath = artifactUploadRequestPath({ transferDir, requestId: 'r1' });
+    const requestPath = artifactUploadRequestPath({ artifactsDir, requestId: 'r1' });
     writeFileSync(
       requestPath,
       buildArtifactUploadRequestFile({
@@ -127,7 +123,7 @@ describe('artifact_transfer_v1.py', () => {
       }),
     );
     try {
-      const child = spawn('python3', [artifactTransferScriptPath(transferDir), 'upload', requestPath]);
+      const child = spawn('python3', [scriptPath, 'upload', requestPath]);
       let stdout = '';
       child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
       const status = await new Promise<number | null>(resolve => child.on('close', resolve));
@@ -140,9 +136,9 @@ describe('artifact_transfer_v1.py', () => {
     }
   });
 
-  it('removes request files older than 5 minutes and keeps recent or unreadable ones', () => {
+  it('upload removes request files older than the URL lifetime and keeps recent or unreadable ones', () => {
     const write = (name: string, content: string): string => {
-      const path = join(transferDir, 'uploads', name);
+      const path = join(artifactsDir, 'uploads', name);
       writeFileSync(path, content);
       return path;
     };
@@ -150,28 +146,30 @@ describe('artifact_transfer_v1.py', () => {
     const recent = write('recent.json', JSON.stringify({ created_at: new Date().toISOString() }));
     const partial = write('partial.json', '{"files": [');
 
-    expect(run('validate', makeReport()).status).toBe(0);
+    const requestPath = artifactUploadRequestPath({ artifactsDir, requestId: 'r1' });
+    writeFileSync(requestPath, buildArtifactUploadRequestFile({ concurrency: 2, base_path: makeReport(), files: [] }));
+    expect(run('upload', requestPath).status).toBe(2);
     expect(existsSync(stale)).toBe(false);
     expect(existsSync(recent)).toBe(true);
     expect(existsSync(partial)).toBe(true);
   });
 
   it('exits 2 on a malformed request', () => {
-    expect(run('validate', 'relative/dir').status).toBe(2);
+    expect(run('metadata', 'relative/dir').status).toBe(2);
   });
 
   it('upload exits 2 on an empty file list', () => {
-    const requestPath = artifactUploadRequestPath({ transferDir, requestId: 'r1' });
+    const requestPath = artifactUploadRequestPath({ artifactsDir, requestId: 'r1' });
     writeFileSync(requestPath, buildArtifactUploadRequestFile({ concurrency: 2, base_path: makeReport(), files: [] }));
     expect(run('upload', requestPath)).toEqual({ status: 2, output: undefined });
   });
 });
 
 describe('Sandbox artifact transfer', () => {
-  const TRANSFER_DIR = '/prov/.tfg/artifacts';
-  const SCRIPT = `${TRANSFER_DIR}/artifact_transfer_v1.py`;
-  const VALIDATE_OUTPUT = { mode: 'validate', success: true, exit_code: 0, error: null, files: [] };
-  const UPLOAD_OUTPUT = { mode: 'upload', success: true, exit_code: 0, files: [] };
+  const ARTIFACTS_DIR = '/prov/artifacts';
+  const SCRIPT = '/prov/artifact_transfer_v1.py';
+  const METADATA_OUTPUT = { success: true, exit_code: 0, error: null, files: [] };
+  const UPLOAD_OUTPUT = { success: true, exit_code: 0, files: [] };
 
   function makeSandbox(): { sandbox: Sandbox; execs: SandboxExecParams[]; uploads: string[] } {
     const execs: SandboxExecParams[] = [];
@@ -186,8 +184,8 @@ describe('Sandbox artifact transfer', () => {
       deleteSecret: unsupported,
       exec: (params): Promise<ExecResult> => {
         execs.push(params);
-        const output = params.command.includes(' validate ')
-          ? VALIDATE_OUTPUT
+        const output = params.command.includes(' metadata ')
+          ? METADATA_OUTPUT
           : params.command.includes(' upload ')
             ? UPLOAD_OUTPUT
             : undefined;
@@ -200,7 +198,8 @@ describe('Sandbox artifact transfer', () => {
       getFileUploadsDir: () => '/prov/uploads',
       getSkillsDir: () => '/prov/skills',
       getSkillDownloaderPath: () => '/prov/skill_downloader.py',
-      getArtifactTransferDir: () => TRANSFER_DIR,
+      getArtifactTransferPath: () => SCRIPT,
+      getArtifactsDir: () => ARTIFACTS_DIR,
       downloadFile: jest.fn(),
       uploadFile: params => {
         uploads.push(params.remotePath);
@@ -219,16 +218,16 @@ describe('Sandbox artifact transfer', () => {
     return { sandbox, execs, uploads };
   }
 
-  it('validate copies the script and runs it on the dir in one exec', async () => {
+  it('metadata copies the script and runs it on the dir in one exec', async () => {
     const { sandbox, execs, uploads } = makeSandbox();
-    const run = await sandbox.validateArtifactDir("/home/trueforge/it's");
+    const run = await sandbox.gatherArtifactDirMetadata("/home/trueforge/it's");
 
-    expect(run.result).toEqual(VALIDATE_OUTPUT);
+    expect(run.result).toEqual(METADATA_OUTPUT);
     expect(run.sandboxCreated).toBe(true);
     expect(uploads).toEqual([SCRIPT]);
     const command = execs.at(-1)?.command;
-    expect(command).toContain(`umask 077 && mkdir -p '${TRANSFER_DIR}/uploads'`);
-    expect(command).toContain(`python3 '${SCRIPT}' validate '/home/trueforge/it'\\''s'`);
+    expect(command).toContain(`umask 077 && mkdir -p '${ARTIFACTS_DIR}/uploads'`);
+    expect(command).toContain(`python3 '${SCRIPT}' metadata '/home/trueforge/it'\\''s'`);
   });
 
   it('upload copies the script and request, then runs and deletes the request in one exec', async () => {
@@ -238,7 +237,7 @@ describe('Sandbox artifact transfer', () => {
       request: { concurrency: 4, base_path: '/home/trueforge/report', files: [] },
     });
 
-    const requestPath = `${TRANSFER_DIR}/uploads/uploadFile_p1.json`;
+    const requestPath = `${ARTIFACTS_DIR}/uploads/uploadFile_p1.json`;
     expect(run.result).toEqual(UPLOAD_OUTPUT);
     expect(uploads).toEqual([SCRIPT, requestPath]);
     const last = execs.at(-1);

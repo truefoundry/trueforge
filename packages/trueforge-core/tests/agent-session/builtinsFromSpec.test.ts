@@ -1,5 +1,7 @@
 import { builtinsFromSpec } from '../../src/agent-session/builtinsFromSpec';
 import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
+import type { ArtifactsBackend } from '../../src/core/artifacts/ArtifactsBackend';
+import { ARTIFACTS_SERVER_ID } from '../../src/core/capabilities/builtins/Artifacts';
 import {
   GET_OPENUI_INSTRUCTIONS_TOOL_NAME,
   OPENUI_SERVER_NAME,
@@ -13,19 +15,22 @@ import {
 } from '../../src/core/capabilities/builtins/WebSearch';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { WebSearchProviders, type IWebSearchProvider } from '../../src/core/web-search/WebSearchProvider';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, makeStubPublicSandbox } from '../core/harnessMocks';
 
 function runBuiltins(input: {
   spec: ReturnType<typeof AgentSpecSchema.parse>;
   isChild?: boolean;
   webSearchProvider?: Parameters<typeof builtinsFromSpec>[0]['webSearchProvider'];
+  sandbox?: Parameters<typeof builtinsFromSpec>[0]['sandbox'];
+  artifactsBackend?: ArtifactsBackend;
 }): ReturnType<typeof builtinsFromSpec> {
   return builtinsFromSpec({
     spec: input.spec,
     isChild: input.isChild ?? false,
-    sandboxAvailable: false,
+    sandbox: input.sandbox,
     tracing: NOOP_AGENT_TRACING,
     webSearchProvider: input.webSearchProvider,
+    artifactsBackend: input.artifactsBackend,
     logger: makeSilentLogger(),
   });
 }
@@ -147,5 +152,32 @@ describe('builtinsFromSpec web_search', () => {
     expect(listed.result.tools.map(t => t.name)).toEqual([WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME]);
     expect(listed.result.tools[0]?.description).toContain('ranked hits');
     expect(listed.result.tools[1]?.description).toContain('markdown/text');
+  });
+});
+
+describe('builtinsFromSpec artifacts', () => {
+  const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
+  const backend: ArtifactsBackend = {
+    tenantId: 't1',
+    store: {
+      checkPushAccess: () => Promise.resolve(undefined),
+      createArtifact: () => Promise.resolve({ id: 'a1' }),
+      createVersion: () => Promise.resolve({ version: 1 }),
+    },
+    objectStore: {
+      presignPut: () => Promise.resolve({ url: 'https://s3.test/a', headers: {} }),
+      verify: () => Promise.resolve(true),
+    },
+    limits: { max_files: 1, max_total_bytes: 1 },
+  };
+  const hasArtifacts = (capabilities: ReturnType<typeof builtinsFromSpec>) =>
+    capabilities.some(cap => cap.systemToolSets?.some(ts => ts.name === ARTIFACTS_SERVER_ID));
+
+  it('mounts push_artifact only on a root thread with a sandbox and a backend', () => {
+    const sandbox = makeStubPublicSandbox();
+    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsBackend: backend }))).toBe(true);
+    expect(hasArtifacts(runBuiltins({ spec, sandbox, artifactsBackend: backend, isChild: true }))).toBe(false);
+    expect(hasArtifacts(runBuiltins({ spec, artifactsBackend: backend }))).toBe(false);
+    expect(hasArtifacts(runBuiltins({ spec, sandbox }))).toBe(false);
   });
 });

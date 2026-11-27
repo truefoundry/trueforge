@@ -97,7 +97,6 @@ import type { Transaction } from 'kysely';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
-import { createS3ArtifactObjectStore } from './artifacts/S3ArtifactObjectStore';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
 import type { RequestContext } from './auth/identity';
@@ -142,11 +141,13 @@ import {
   buildResolveAgentStore,
   buildResolveMcpServerStore,
   buildResolveModelProviderStore,
+  buildResolveObjectStore,
   buildResolveSkillStore,
   buildResolveTurnSkillsStore,
   createRequestStoreResolvers,
   type ResolveMcpServerStore,
   type ResolveModelProviderStore,
+  type ResolveObjectStore,
   type ResolveTurnSkillsStore,
 } from './resolvers';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
@@ -176,6 +177,8 @@ interface ServerPersistence<TTransaction> {
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
   resolveMcpServerStore: ResolveMcpServerStore<TTransaction>;
   resolveModelProviderStore: ResolveModelProviderStore<TTransaction>;
+  /** Object store for a tenant's artifacts; always undefined in standalone. */
+  resolveObjectStore: ResolveObjectStore;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog (caller JWT). */
   resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
   /** Turn skill mounts: registry (API key) or closed-set `x-tfg-skills`. */
@@ -360,6 +363,7 @@ async function createStandalonePersistence(options: {
       logger,
     }),
     resolveModelProviderStore: () => modelProviderStore,
+    resolveObjectStore: () => undefined,
     resolveSkillStore: () => skillStore,
     resolveTurnSkillsStore: buildResolveTurnSkillsStore({
       persistenceStore: skillStore,
@@ -534,6 +538,7 @@ async function createDistributedPersistence(options: {
     resolveAgentStore,
     resolveMcpServerStore,
     resolveModelProviderStore,
+    resolveObjectStore: buildResolveObjectStore({ s3Config: configuration.S3_CONFIG }),
     resolveSkillStore,
     resolveTurnSkillsStore,
     sandboxEnvironmentStore,
@@ -662,17 +667,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     activeTurns,
     agentStore,
     artifactStore,
-    artifacts:
-      configuration.ARTIFACTS === undefined || configuration.S3_CONFIG === undefined
-        ? undefined
-        : {
-            artifactStore,
-            transfer: createS3ArtifactObjectStore(configuration.S3_CONFIG),
-            limits: {
-              max_files: configuration.ARTIFACT_MAX_FILES,
-              max_total_bytes: configuration.ARTIFACT_MAX_TOTAL_BYTES,
-            },
-          },
     authenticator,
     authorizer,
     decisionModel,
@@ -686,6 +680,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore: persistence.resolveAgentStore,
     resolveMcpServerStore,
     resolveModelProviderStore,
+    resolveObjectStore: persistence.resolveObjectStore,
     resolveSkillStore,
     resolveTurnExecutionStores,
     resolveTurnSkillsStore,

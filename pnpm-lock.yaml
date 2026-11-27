@@ -173,10 +173,10 @@ importers:
         specifier: 0.0.77
         version: 0.0.77
       '@aws-sdk/client-s3':
-        specifier: ^3.1176.0
+        specifier: 3.1176.0
         version: 3.1176.0
       '@aws-sdk/s3-request-presigner':
-        specifier: ^3.1176.0
+        specifier: 3.1176.0
         version: 3.1176.0
       '@daytona/sdk':
         specifier: ^0.218.0

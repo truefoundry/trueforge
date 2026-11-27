@@ -3,7 +3,7 @@ import type { ServerConfiguration } from '../../../src/config';
 import {
   buildRedisStandaloneUrl,
   getPublicUiBasePath,
-  parseArtifactsFeature,
+  parseArtifactsConfig,
   parseS3Config,
   parseTrueFoundryModelRouting,
 } from '../../../src/config';
@@ -237,20 +237,32 @@ describe('parseS3Config', () => {
   });
 });
 
-describe('parseArtifactsFeature', () => {
+describe('parseArtifactsConfig', () => {
   it('returns undefined when unset', () => {
-    expect(parseArtifactsFeature(undefined)).toBeUndefined();
-    expect(parseArtifactsFeature('  ')).toBeUndefined();
+    expect(parseArtifactsConfig(undefined)).toBeUndefined();
+    expect(parseArtifactsConfig('  ')).toBeUndefined();
   });
 
-  it('reads the per-tenant flag', () => {
-    expect(parseArtifactsFeature(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }))).toEqual({
+  it('reads the per-tenant flag with default limits', () => {
+    expect(parseArtifactsConfig(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }))).toEqual({
       tenants: { internal: { enabled: 'on' }, other: { enabled: 'off' } },
+      max_files: 25,
+      max_total_bytes: 26_214_400,
     });
   });
 
-  it('rejects a bad flag value', () => {
-    expect(() => parseArtifactsFeature(JSON.stringify({ tenants: { a: { enabled: 'yes' } } }))).toThrow('ARTIFACTS');
+  it('reads the limits', () => {
+    expect(parseArtifactsConfig(JSON.stringify({ tenants: {}, max_files: 3, max_total_bytes: 100 }))).toMatchObject({
+      max_files: 3,
+      max_total_bytes: 100,
+    });
+  });
+
+  it.each([
+    ['a bad flag value', { tenants: { a: { enabled: 'yes' } } }],
+    ['a non-positive limit', { tenants: {}, max_files: 0 }],
+  ])('rejects %s', (_name, value) => {
+    expect(() => parseArtifactsConfig(JSON.stringify(value))).toThrow('ARTIFACTS');
   });
 });
 

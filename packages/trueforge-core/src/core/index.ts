@@ -267,7 +267,6 @@ export {
 export type { OutboundFetch, OutboundFetchOptions } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
-export type { ArtifactValidateResult } from './sandbox/artifactTransfer';
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
@@ -329,6 +328,15 @@ export type {
 
 // Memory
 export type { MemoryFact, ScopedMemory } from './memory/ScopedMemory';
+
+// Artifacts
+export type {
+  ArtifactObject,
+  ArtifactPushLimits,
+  ArtifactsBackend,
+  IObjectStore,
+  ScopedArtifactStore,
+} from './artifacts/ArtifactsBackend';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

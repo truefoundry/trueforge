@@ -1,3 +1,4 @@
+import type { IObjectStore } from '@truefoundry/trueforge-core/core';
 import type { Kysely, Transaction } from 'kysely';
 import type { Logger } from 'winston';
 import type { ResolveTurnExecutionStoresInput, TurnExecutionStores } from './apis/turns';
@@ -8,7 +9,7 @@ import {
   type ResolveTurnSkillsStoreInput,
 } from './app';
 import { resolveRequestContext, type RequestContext } from './auth/identity';
-import configuration from './config';
+import configuration, { artifactsEnabledForTenant, type S3Config } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import { EmptyCapabilitiesStore } from './db/capabilitiesStore';
 import type { IConfigurationStore } from './db/configurationStore';
@@ -23,6 +24,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { MemoryProviderCache, TenantMemoryDeps } from './memory/providers';
+import { createS3ObjectStore } from './objectStore/S3ObjectStore';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './runtime/perServerMcpHeaders';
 import { headerValue } from './truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
@@ -78,6 +80,9 @@ export type ResolveTurnSkillsStore<TTransaction> = (input: {
 
 /** Per-request agent store decorator over DB persistence, else the persistence store. */
 export type ResolveAgentStore<TTransaction> = (rc: RequestContext) => IAgentStore<TTransaction>;
+
+/** Object store for a tenant's artifacts; undefined when artifacts are off for the tenant. */
+export type ResolveObjectStore = (tenant_id: string) => IObjectStore | undefined;
 
 /**
  * Per-request model-provider store over a shared ServiceFoundry client, else the persistence store.
@@ -164,6 +169,16 @@ export function buildResolveSkillStore<TTransaction>(options: {
       });
   }
   return () => persistenceStore;
+}
+
+/** S3 object store shared by tenants with artifacts on; undefined for all when S3 is not configured. */
+export function buildResolveObjectStore(options: { s3Config: S3Config | undefined }): ResolveObjectStore {
+  const { s3Config } = options;
+  if (s3Config === undefined) {
+    return () => undefined;
+  }
+  const objectStore = createS3ObjectStore(s3Config);
+  return tenant_id => (artifactsEnabledForTenant(tenant_id) ? objectStore : undefined);
 }
 
 /**

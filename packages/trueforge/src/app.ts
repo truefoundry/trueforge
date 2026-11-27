@@ -29,7 +29,6 @@ import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter, type ResolveTurnExecutionStoresInput, type TurnExecutionStores } from './apis/turns';
 import { createUsersRouter } from './apis/users';
-import type { ArtifactPushStores } from './artifacts/pushArtifact';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { areCatalogSettingsAvailable, resolveRequestContext, type RequestContext } from './auth/identity';
@@ -72,6 +71,7 @@ import { createTrueForgeMcpRouter } from './mcp/server/trueforge/route';
 import { compileMcpTools, type CompiledMcpTool } from './mcp/server/trueforge/server';
 import type { MemoryProviderCache } from './memory/providers';
 import { PACKAGE_VERSION } from './packageVersion';
+import type { ResolveObjectStore } from './resolvers';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
@@ -321,6 +321,8 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
+  /** Object store for a tenant's artifacts; undefined when artifacts are off for the tenant. */
+  resolveObjectStore: ResolveObjectStore;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
   /**
@@ -342,8 +344,6 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   artifactStore: IArtifactStore;
-  /** `push_artifact` stores; undefined when artifacts are off (`ARTIFACTS` unset). */
-  artifacts: ArtifactPushStores | undefined;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
@@ -662,7 +662,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     createTurnsRouter({
       accessControlStore: deps.accessControlStore,
       activeTurns: deps.activeTurns,
-      artifacts: deps.artifacts,
+      artifactStore: deps.artifactStore,
       authorizer: deps.authorizer,
       decisionModel: deps.decisionModel,
       eventSubscriptions: deps.eventSubscriptions,
@@ -670,6 +670,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
       resolveAgentStore: deps.resolveAgentStore,
+      resolveObjectStore: deps.resolveObjectStore,
       resolveRequestContext,
       resolveTurnExecutionStores: deps.resolveTurnExecutionStores,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,

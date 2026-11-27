@@ -17,16 +17,15 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import {
   ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
-  artifactTransferScriptPath,
+  ArtifactDirMetadataSchema,
   artifactUploadRequestPath,
   ArtifactUploadResultSchema,
-  ArtifactValidateResultSchema,
+  buildArtifactMetadataCommand,
   buildArtifactUploadCommand,
   buildArtifactUploadRequestFile,
-  buildArtifactValidateCommand,
+  type ArtifactDirMetadata,
   type ArtifactUploadRequest,
   type ArtifactUploadResult,
-  type ArtifactValidateResult,
 } from './artifactTransfer';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
@@ -91,6 +90,11 @@ function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, st
     GIT_CONFIG_KEY_0: 'credential.helper',
     GIT_CONFIG_VALUE_0: `store --file ${credentialsPath}`,
   };
+}
+
+interface ArtifactTransferPaths {
+  scriptPath: string;
+  artifactsDir: string;
 }
 
 export interface ArtifactTransferRun<T> {
@@ -710,10 +714,10 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   }
 
   /** Measures every regular file under `dir` (size + sha256); symlinks and special files are skipped. */
-  async validateArtifactDir(dir: string): Promise<ArtifactTransferRun<ArtifactValidateResult>> {
+  async gatherArtifactDirMetadata(dir: string): Promise<ArtifactTransferRun<ArtifactDirMetadata>> {
     return this.runArtifactTransferScript({
-      schema: ArtifactValidateResultSchema,
-      command: transferDir => buildArtifactValidateCommand({ transferDir, dir }),
+      schema: ArtifactDirMetadataSchema,
+      command: paths => buildArtifactMetadataCommand({ ...paths, dir }),
       requestFile: undefined,
       timeoutSeconds: undefined,
     });
@@ -729,14 +733,14 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   }): Promise<ArtifactTransferRun<ArtifactUploadResult>> {
     return this.runArtifactTransferScript({
       schema: ArtifactUploadResultSchema,
-      requestFile: transferDir => ({
-        remotePath: artifactUploadRequestPath({ transferDir, requestId: input.requestId }),
+      requestFile: ({ artifactsDir }) => ({
+        remotePath: artifactUploadRequestPath({ artifactsDir, requestId: input.requestId }),
         content: buildArtifactUploadRequestFile(input.request),
       }),
-      command: transferDir =>
+      command: ({ scriptPath, artifactsDir }) =>
         buildArtifactUploadCommand({
-          transferDir,
-          requestPath: artifactUploadRequestPath({ transferDir, requestId: input.requestId }),
+          scriptPath,
+          requestPath: artifactUploadRequestPath({ artifactsDir, requestId: input.requestId }),
         }),
       timeoutSeconds: ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
     });
@@ -744,31 +748,34 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
 
   private async runArtifactTransferScript<T>(input: {
     schema: z.ZodType<T>;
-    requestFile: ((transferDir: string) => { remotePath: string; content: Buffer }) | undefined;
-    command: (transferDir: string) => string;
+    requestFile: ((paths: ArtifactTransferPaths) => { remotePath: string; content: Buffer }) | undefined;
+    command: (paths: ArtifactTransferPaths) => string;
     timeoutSeconds: number | undefined;
   }): Promise<ArtifactTransferRun<T>> {
     const { sandboxInfo, sandboxCreated } = await this.ensureReadySandbox();
     const sandboxId = this.providerSandboxId(sandboxInfo.sandbox_id);
-    const transferDir = this.provider.getArtifactTransferDir(sandboxId);
+    const paths: ArtifactTransferPaths = {
+      scriptPath: this.provider.getArtifactTransferPath(sandboxId),
+      artifactsDir: this.provider.getArtifactsDir(sandboxId),
+    };
     await this.provider.uploadFile({
       sandboxId,
-      remotePath: artifactTransferScriptPath(transferDir),
+      remotePath: paths.scriptPath,
       content: Buffer.from(sandboxScripts.artifactTransfer, 'utf-8'),
     });
-    const requestFile = input.requestFile?.(transferDir);
+    const requestFile = input.requestFile?.(paths);
     if (requestFile !== undefined) {
       await this.provider.uploadFile({ sandboxId, ...requestFile });
     }
     const run = await this.provider.exec({
       sandboxId,
-      command: input.command(transferDir),
+      command: input.command(paths),
       timeoutSeconds: input.timeoutSeconds,
     });
     if (!run.success) {
       throw new Error(run.error);
     }
-    // Exit 1 still prints a result (validation or a transfer failed); anything else is a script error.
+    // Exit 1 still prints a result (reading the dir or a transfer failed); anything else is a script error.
     if (run.response.exitCode !== 0 && run.response.exitCode !== 1) {
       throw new Error(`artifact transfer failed (exit code ${String(run.response.exitCode)}): ${run.response.result}`);
     }
@@ -808,9 +815,9 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
     const skillsDir = this.provider.getSkillsDir(sandboxId);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
-    const artifactTransferDir = this.provider.getArtifactTransferDir(sandboxId);
+    const artifactsDir = this.provider.getArtifactsDir(sandboxId);
 
-    this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
+    this.logger.info('Uploading MCP client script and preparing sandbox directories');
 
     this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
     const install = this.mcpClientInstall;
@@ -819,7 +826,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       shellEscape(fileUploadsDir),
       shellEscape(toolResultDumpDir),
       shellEscape(skillsDir),
-      shellEscape(artifactTransferDir),
+      shellEscape(artifactsDir),
     ];
     if (install !== undefined) {
       const { pythonPath, binDir } = mcpClientLayout(install.remotePath);

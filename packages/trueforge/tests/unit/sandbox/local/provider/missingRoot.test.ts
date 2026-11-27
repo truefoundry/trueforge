@@ -82,7 +82,8 @@ describeUnix('LocalSandboxProvider missing root', () => {
       expect(provider.getFileUploadsDir()).toBe('uploads');
       expect(provider.getSkillsDir()).toBe('skills');
       expect(provider.getSkillDownloaderPath()).toBe('skill_downloader.py');
-      expect(provider.getArtifactTransferDir()).toBe('.tfg/artifacts');
+      expect(provider.getArtifactTransferPath()).toBe('artifact_transfer_v1.py');
+      expect(provider.getArtifactsDir()).toBe('artifacts');
       const install = provider.createCodeModeTransport().getClientInstall({
         sandboxId: join(sandboxRootPathParent, 'x'),
       });

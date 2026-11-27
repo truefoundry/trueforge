@@ -1,10 +1,9 @@
 import { HeadObjectCommand, NotFound, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { ArtifactObject, IObjectStore } from '@truefoundry/trueforge-core/core';
 import type { S3Config } from '../config';
-import type { ArtifactObject, ArtifactUploadTransfer } from './pushArtifact';
 
-/** S3 store for artifacts. */
-export class S3ArtifactObjectStore implements ArtifactUploadTransfer {
+export class S3ObjectStore implements IObjectStore {
   readonly #client: S3Client;
   readonly #bucket: string;
   readonly #prefix: string;
@@ -52,8 +51,8 @@ export class S3ArtifactObjectStore implements ArtifactUploadTransfer {
   }
 }
 
-export function createS3ArtifactObjectStore(config: S3Config): S3ArtifactObjectStore {
-  return new S3ArtifactObjectStore({
+export function createS3ObjectStore(config: S3Config): S3ObjectStore {
+  return new S3ObjectStore({
     client: new S3Client({
       ...(config.region !== undefined ? { region: config.region } : {}),
       ...(config.endpoint !== undefined ? { endpoint: config.endpoint, forcePathStyle: true } : {}),

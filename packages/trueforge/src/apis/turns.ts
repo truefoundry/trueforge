@@ -5,7 +5,6 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type {
   ISessionStore,
   Sessions,
-  Subject,
   Turn,
   TurnRecord,
   TurnStreamingEvent,
@@ -33,9 +32,8 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import type {
   AgentCapability,
-  AgentTracing,
+  ArtifactsBackend,
   DecisionModel,
-  HarnessSandbox,
   IWebSearchProvider,
   McpConnection,
   ModelRouterDeps,
@@ -71,7 +69,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import { pushArtifactCapability, type ArtifactPushStores } from '../artifacts/pushArtifact';
+import { resolveTurnArtifactsBackend } from '../artifacts/turnArtifacts';
 import { applyAssumeUserToContext, ASSUME_USER_HEADER } from '../auth/assumeUser';
 import type { Authorizer } from '../auth/authorizer';
 import {
@@ -81,13 +79,13 @@ import {
   type ResolveRequestContext,
 } from '../auth/identity';
 import configuration, {
-  artifactsEnabledForTenant,
   enabledTenantModelRouting,
   trueFoundryModelRouting,
   type TrueFoundryModelRouting,
 } from '../config';
 import type { IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IArtifactStore } from '../db/artifactStore';
 import type { ICapabilitiesStore } from '../db/capabilitiesStore';
 import { getAutoModelRoutingForTenant, type IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
@@ -102,6 +100,7 @@ import { currentLogContext, runWithLogContext, updateLogContext } from '../logge
 import { TRUEFORGE_SESSION_HEADER, X_TFG_TRUEFORGE_MCP } from '../mcp/server/trueforge/headers';
 import type { TenantMemoryDeps } from '../memory/providers';
 import { resolveSessionMemory } from '../memory/sessionMemory';
+import type { ResolveObjectStore } from '../resolvers';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -250,8 +249,10 @@ export interface TurnsRouterDeps<TTransaction = never> {
   sandboxProviderStore: ISandboxProviderStore;
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
-  /** Stores for `push_artifact`; undefined when artifacts are off (`ARTIFACTS` unset). */
-  artifacts?: ArtifactPushStores | undefined;
+  /** `push_artifact` records; omitted where turns never push artifacts. */
+  artifactStore?: Pick<IArtifactStore, 'getArtifact' | 'createArtifact' | 'createVersion'> | undefined;
+  /** Object store for a tenant's artifacts; omitted where turns never push artifacts. */
+  resolveObjectStore?: ResolveObjectStore | undefined;
 }
 
 /**
@@ -261,7 +262,13 @@ export interface TurnsRouterDeps<TTransaction = never> {
  */
 export type BeginTurnExecutionDeps<TTransaction> = Pick<
   TurnsRouterDeps<TTransaction>,
-  'activeTurns' | 'artifacts' | 'decisionModel' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  | 'activeTurns'
+  | 'artifactStore'
+  | 'decisionModel'
+  | 'eventSubscriptions'
+  | 'logger'
+  | 'resolveObjectStore'
+  | 'sandboxEnvironmentStore'
 > & {
   agentStore: IAgentStore;
   capabilitiesStore: ICapabilitiesStore;
@@ -359,10 +366,11 @@ async function executionDepsForCaller<TTransaction>(input: {
   const stores = await input.deps.resolveTurnExecutionStores(input);
   return {
     activeTurns: input.deps.activeTurns,
-    artifacts: input.deps.artifacts,
+    artifactStore: input.deps.artifactStore,
     decisionModel: input.deps.decisionModel,
     eventSubscriptions: input.deps.eventSubscriptions,
     logger: input.deps.logger,
+    resolveObjectStore: input.deps.resolveObjectStore,
     sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
     sessionStore: input.deps.sessionStore,
     redis: input.deps.redis,
@@ -434,8 +442,8 @@ function createTurnResolver(deps: {
   turnMetadata: TurnMetadata;
   capabilitiesStore: ICapabilitiesStore;
   trueforgeMcp: McpConnection | undefined;
-  /** Push target for this turn; undefined when artifacts are off for the tenant. */
-  artifacts: { stores: ArtifactPushStores; subject: Subject; agent_id: string | null } | undefined;
+  /** `push_artifact` backend; undefined when artifacts are off for the tenant. */
+  artifactsBackend: ArtifactsBackend | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -454,12 +462,10 @@ function createTurnResolver(deps: {
     turnMetadata,
     capabilitiesStore,
     trueforgeMcp,
-    artifacts,
+    artifactsBackend,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  // Resolved before the agent definition, so root capabilities can use it.
-  let turnSandbox: { sandbox: HarnessSandbox; tracing: AgentTracing } | undefined;
 
   return new TurnResourceResolver({
     modelRouting,
@@ -536,26 +542,22 @@ function createTurnResolver(deps: {
         tracing,
       };
       // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
-      let sandbox: HarnessSandbox;
       if (provider.envSupported) {
         const environment = await resolveSandboxEnvironment({
           tenant_id,
           name: spec.config.sandbox.environment_name,
           sandboxEnvironmentStore,
         });
-        sandbox = buildTurnSandbox({
+        return buildTurnSandbox({
           provider,
           ...(environment !== undefined ? { environment } : {}),
           ...turnSandboxBase,
         });
-      } else {
-        sandbox = buildTurnSandbox({
-          provider,
-          ...turnSandboxBase,
-        });
       }
-      turnSandbox = { sandbox, tracing };
-      return sandbox;
+      return buildTurnSandbox({
+        provider,
+        ...turnSandboxBase,
+      });
     },
     agent: async agentId => {
       const record = await agentStore.getAgent({ tenant_id, id: agentId });
@@ -565,25 +567,12 @@ function createTurnResolver(deps: {
       return record.manifest;
     },
     webSearchProvider,
+    artifactsBackend,
     logger,
     // Client-side tools and memory belong only to the root thread.
     rootCapabilities: () => [
       ...capabilitiesStore.list(),
       ...(memoryCapability === undefined ? [] : [memoryCapability]),
-      ...(artifacts === undefined || turnSandbox === undefined
-        ? []
-        : [
-            pushArtifactCapability({
-              ...artifacts.stores,
-              sandbox: turnSandbox.sandbox,
-              tenant_id,
-              session_id: sessionId,
-              agent_id: artifacts.agent_id,
-              subject: artifacts.subject,
-              tracing: turnSandbox.tracing,
-              logger,
-            }),
-          ]),
     ],
   });
 }
@@ -863,16 +852,20 @@ async function prepareTurnExecution<TTransaction>(input: {
     turnMetadata,
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
-    artifacts:
-      input.deps.artifacts === undefined ||
-      input.deps.requestContext === undefined ||
-      !artifactsEnabledForTenant(input.session.tenant_id)
+    artifactsBackend:
+      input.deps.artifactStore === undefined ||
+      input.deps.resolveObjectStore === undefined ||
+      input.deps.requestContext === undefined
         ? undefined
-        : {
-            stores: input.deps.artifacts,
-            subject: createdBySubjectFromRequestContext(input.deps.requestContext),
+        : resolveTurnArtifactsBackend({
+            tenant_id: input.session.tenant_id,
+            session_id: input.session.session_id,
             agent_id: sessionAgent.type === 'reference' ? sessionAgent.id : null,
-          },
+            subject: createdBySubjectFromRequestContext(input.deps.requestContext),
+            artifactStore: input.deps.artifactStore,
+            resolveObjectStore: input.deps.resolveObjectStore,
+            artifactsConfig: configuration.ARTIFACTS,
+          }),
   });
   let executionTimer: NodeJS.Timeout | undefined;
   const executionTimeout: TurnExecutionTimeout = {
