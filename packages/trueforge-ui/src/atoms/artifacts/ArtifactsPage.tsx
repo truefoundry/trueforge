@@ -23,7 +23,6 @@ import { Skeleton } from '../primitives/Skeleton.js';
 import { DEFAULT_TABLE_PAGE_SIZE, TableTokenPagination } from '../primitives/Table.js';
 import { artifactPreviewKey } from './artifactDisplay.js';
 import { ArtifactDeleteDialog, ArtifactEditDialog, artifactMutations } from './ArtifactEditDialog.js';
-import { ArtifactScopeFilter, type ArtifactScope } from './ArtifactScopeFilter.js';
 import { ArtifactsEmptyState } from './ArtifactsEmptyState.js';
 import { ArtifactsTable } from './ArtifactsTable.js';
 
@@ -60,11 +59,10 @@ function ArtifactsPageBody() {
 
   const [searchInput, setSearchInput] = useState('');
   const [name, setName] = useState('');
-  const [scope, setScope] = useState<ArtifactScope>('all');
   const [editing, setEditing] = useState<Artifact | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Artifact | null>(null);
   const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
-  const pageScope = JSON.stringify([pageSize, name, scope]);
+  const pageScope = JSON.stringify([pageSize, name]);
   const [pageCursor, setPageCursor] = useState<{ scope: string; token: string | undefined }>({
     scope: pageScope,
     token: undefined,
@@ -87,9 +85,8 @@ function ArtifactsPageBody() {
       limit: pageSize,
       ...(pageToken === undefined ? {} : { pageToken }),
       ...(name === '' ? {} : { name }),
-      scope,
     }),
-    [name, pageSize, pageToken, scope],
+    [name, pageSize, pageToken],
   );
   const listQuery = useQuery(
     {
@@ -191,11 +188,8 @@ function ArtifactsPageBody() {
       <PageHeader
         title="Artifacts"
         end={
-          <div className="flex items-center gap-2">
-            <div className="w-64">
-              <SearchInput query={searchInput} setQuery={setSearchInput} placeholder="Search artifacts by name" />
-            </div>
-            <ArtifactScopeFilter scope={scope} onChange={setScope} />
+          <div className="w-64">
+            <SearchInput query={searchInput} setQuery={setSearchInput} placeholder="Search artifacts by name" />
           </div>
         }
       />
@@ -216,7 +210,7 @@ function ArtifactsPageBody() {
               ))}
             </div>
           ) : artifacts.length === 0 ? (
-            <ArtifactsEmptyState title={name} scope={scope} />
+            <ArtifactsEmptyState title={name} />
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
               <ArtifactsTable

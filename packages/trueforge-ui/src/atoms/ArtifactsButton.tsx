@@ -8,6 +8,8 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isArtifactsChromeEnabled } from '../server/serverChrome.js';
 import {
   auiButtonClass,
+  shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarRailButtonClassName,
@@ -38,11 +40,15 @@ export function ArtifactsButton({ className, compact = false }: ArtifactsButtonP
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          'font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          'font-normal shadow-none',
           compact
             ? cn(sidebarRailButtonClassName, 'text-inherit')
-            : cn(sidebarButtonRadiusClassName, 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text'),
-          open && shellRailSelectedClassName,
+            : cn(
+                sidebarButtonRadiusClassName,
+                'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
+                shellHoverClassName,
+              ),
+          open && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {
@@ -51,12 +57,7 @@ export function ArtifactsButton({ className, compact = false }: ArtifactsButtonP
       }}
     >
       <Icon name="gallery-horizontal-end" size={compact ? 16 : undefined} />
-      {compact ? null : (
-        <>
-          <span className="truncate">Artifacts</span>
-          <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
-        </>
-      )}
+      {compact ? null : <span className="truncate">Artifacts</span>}
     </button>
   );
 

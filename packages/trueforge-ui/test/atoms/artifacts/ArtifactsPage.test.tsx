@@ -88,6 +88,12 @@ describe('ArtifactsPage', () => {
     expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
   });
 
+  it('offers no owner filter, since the list API has no scope param yet', async () => {
+    renderWith(createMockArtifactServer({ listArtifacts: async () => ({ data: sample }) }));
+    await screen.findByText('Q4 brief');
+    expect(screen.queryByRole('button', { name: 'Filter artifacts' })).not.toBeInTheDocument();
+  });
+
   it('sends the debounced search text as name', async () => {
     const listArtifacts = vi.fn(async () => ({ data: sample }));
     renderWith(createMockArtifactServer({ listArtifacts }));

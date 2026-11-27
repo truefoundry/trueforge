@@ -1,9 +1,8 @@
 'use client';
 
 import { EmptyScreen, EmptyScreenQueryHighlight } from '../EmptyScreen.js';
-import type { ArtifactScope } from './ArtifactScopeFilter.js';
 
-export function ArtifactsEmptyState({ title, scope }: { title: string; scope: ArtifactScope }) {
+export function ArtifactsEmptyState({ title }: { title: string }) {
   if (title !== '') {
     return (
       <EmptyScreen
@@ -17,14 +16,11 @@ export function ArtifactsEmptyState({ title, scope }: { title: string; scope: Ar
       />
     );
   }
-  if (scope === 'all') {
-    return (
-      <EmptyScreen
-        title="No artifacts yet"
-        description="Files your agents publish will show up here."
-        className="min-h-full"
-      />
-    );
-  }
-  return <EmptyScreen title="No artifacts in this view" description="Try another filter." className="min-h-full" />;
+  return (
+    <EmptyScreen
+      title="No artifacts yet"
+      description="Files your agents publish will show up here."
+      className="min-h-full"
+    />
+  );
 }

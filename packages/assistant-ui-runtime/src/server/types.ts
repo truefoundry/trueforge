@@ -1399,11 +1399,6 @@ export interface Artifact {
 export interface ListArtifactsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
   /** Case-insensitive substring match on name. */
   name?: string;
-  /**
-   * Not on the list API yet. The page still sends it; the adapter does not forward it
-   * until the backend confirms `created_by_me` / `shared_with_me`.
-   */
-  scope?: 'all' | 'created_by_me' | 'shared_with_me';
 }
 
 export interface ArtifactServer<TArtifact extends Artifact = Artifact> {

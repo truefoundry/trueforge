@@ -23,7 +23,6 @@ function toUiArtifact(artifact: TrueForgeApi.Artifact): Artifact {
 export function createArtifactServer(client: TrueForge): ArtifactServer {
   return {
     async listArtifacts(request: ListArtifactsParams = {}) {
-      // `scope` stays on the page until the backend confirms it. The list route has no such param.
       const page = await client.artifacts.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),

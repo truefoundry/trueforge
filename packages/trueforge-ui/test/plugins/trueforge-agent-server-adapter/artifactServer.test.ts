@@ -35,7 +35,7 @@ describe('createArtifactServer', () => {
     }));
     const server = createArtifactServer(mockClient({ list }));
 
-    const page = await server.listArtifacts({ limit: 10, pageToken: 'p1', name: 'brief', scope: 'created_by_me' });
+    const page = await server.listArtifacts({ limit: 10, pageToken: 'p1', name: 'brief' });
 
     expect(list).toHaveBeenCalledWith({ limit: 10, pageToken: 'p1', name: 'brief' });
     expect(page.nextPageToken).toBe('next-1');
