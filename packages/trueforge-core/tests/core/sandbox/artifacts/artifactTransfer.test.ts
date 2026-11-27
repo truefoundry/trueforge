@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES,
   artifactUploadRequestPath,
   buildArtifactUploadRequestFile,
 } from '../../../../src/core/sandbox/artifacts/artifactTransfer';
@@ -174,7 +175,11 @@ describe('Sandbox artifact transfer', () => {
   const METADATA_OUTPUT = { success: true, exit_code: 0, error: null, files: [] };
   const UPLOAD_OUTPUT = { success: true, exit_code: 0, files: [] };
 
-  function makeSandbox(): { sandbox: Sandbox; execs: SandboxExecParams[]; uploads: string[] } {
+  function makeSandbox(metadataResult = JSON.stringify(METADATA_OUTPUT)): {
+    sandbox: Sandbox;
+    execs: SandboxExecParams[];
+    uploads: string[];
+  } {
     const execs: SandboxExecParams[] = [];
     const uploads: string[] = [];
     const unsupported = () => Promise.reject(new Error('unsupported'));
@@ -187,12 +192,11 @@ describe('Sandbox artifact transfer', () => {
       deleteSecret: unsupported,
       exec: (params): Promise<ExecResult> => {
         execs.push(params);
-        const output = params.command.includes(' metadata ')
-          ? METADATA_OUTPUT
+        const result = params.command.includes(' metadata ')
+          ? metadataResult
           : params.command.includes(' upload ')
-            ? UPLOAD_OUTPUT
-            : undefined;
-        const result = output === undefined ? '' : JSON.stringify(output);
+            ? JSON.stringify(UPLOAD_OUTPUT)
+            : '';
         return Promise.resolve({ success: true, response: { exitCode: 0, result } });
       },
       getAdditionalInstructions: () => undefined,
@@ -232,6 +236,19 @@ describe('Sandbox artifact transfer', () => {
     expect(command).toContain(`umask 077 && mkdir -p '${ARTIFACTS_DIR}/uploads'`);
     expect(command).toContain(`python3 '${SCRIPT}' metadata '/home/trueforge/it'\\''s'`);
     expect(execs.at(-1)?.timeoutSeconds).toBe(120);
+    expect(execs.at(-1)?.maxOutputBytes).toBe(ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES);
+  });
+
+  it('rejects output over the cap before parsing it', async () => {
+    const parse = jest.spyOn(JSON, 'parse');
+    const oversized = 'x'.repeat(ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES + 1);
+    const { sandbox } = makeSandbox(oversized);
+
+    await expect(sandbox.gatherArtifactDirMetadata('/home/trueforge/report')).rejects.toThrow(
+      `artifact transfer output exceeds ${String(ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES)} bytes`,
+    );
+    expect(parse).not.toHaveBeenCalledWith(oversized);
+    parse.mockRestore();
   });
 
   it('upload copies the script and request, then runs and deletes the request in one exec', async () => {

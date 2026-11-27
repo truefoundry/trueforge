@@ -7,6 +7,8 @@ const UPLOAD_REQUESTS_DIR_NAME = 'uploads';
 export const ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS = 300;
 // Hashes every file before size limits apply, so allow for a large dir.
 export const ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS = 120;
+// The sandbox controls this output; ~3000 metadata entries fit, far above any push limit.
+export const ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 export interface ArtifactUploadRequest {
   concurrency: number;

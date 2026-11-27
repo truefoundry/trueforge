@@ -17,6 +17,7 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import {
   ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS,
+  ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES,
   ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
   ArtifactDirMetadataSchema,
   artifactUploadRequestPath,
@@ -772,9 +773,14 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       sandboxId,
       command: input.command(paths),
       timeoutSeconds: input.timeoutSeconds,
+      maxOutputBytes: ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES,
     });
     if (!run.success) {
       throw new Error(run.error);
+    }
+    // Some providers buffer the whole output, so check again before parsing.
+    if (Buffer.byteLength(run.response.result, 'utf-8') > ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES) {
+      throw new Error(`artifact transfer output exceeds ${String(ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES)} bytes`);
     }
     // Exit 1 still prints a result (reading the dir or a transfer failed); anything else is a script error.
     if (run.response.exitCode !== 0 && run.response.exitCode !== 1) {

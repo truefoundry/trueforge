@@ -9,7 +9,7 @@ Usage:
   artifact_transfer_v1.py metadata <dir>
       -> {"success", "exit_code", "error", "files": [{relative_path, size_bytes, sha256_b64}]}
       (regular files only; symlinks and special files are skipped)
-  artifact_transfer_v1.py upload <request_file_name.json>
+  artifact_transfer_v1.py upload <file_name>
       request: {"concurrency", "base_path", "files": [{relative_path, url, headers}], "created_at"}
       -> {"success", "exit_code", "files": [{path, status, error}]}   (never URLs)
 
@@ -180,7 +180,7 @@ MODES = {"metadata": _gather_metadata, "upload": _upload}
 
 def main() -> int:
     if len(sys.argv) != 3 or sys.argv[1] not in MODES:
-        print("usage: artifact_transfer_v1.py metadata <dir> | upload <request_file_name.json>", file=sys.stderr)
+        print("usage: artifact_transfer_v1.py metadata <dir> | upload <file_name>", file=sys.stderr)
         return 2
     mode, arg = sys.argv[1], sys.argv[2]
     try:
