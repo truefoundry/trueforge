@@ -6,4 +6,5 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-The agent spec `model` is now a `type`-keyed union: `{ type: "fixed", name, params? }` or `{ type: "auto", candidate_models }` (4 to 10 models that can route every category). A migration rewrites saved agents and inline session specs: named models become fixed, and Auto copies `candidate_models` from the tenant configuration.
+The agent spec `model` is now `{ type: "fixed", name, params? }` or `{ type: "auto", candidate_models }` (4 to 10 models).
+A migration rewrites saved agents and inline sessions; `auto` copies the tenant's candidate models.
