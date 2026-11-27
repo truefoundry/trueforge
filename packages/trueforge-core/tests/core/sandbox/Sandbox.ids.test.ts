@@ -20,6 +20,7 @@ function makeProvider(
     updateSecret: unsupportedOrgSecret,
     deleteSecret: unsupportedOrgSecret,
     getAdditionalInstructions: () => undefined,
+    getDefaultExecTimeoutSeconds: () => 60,
     getToolResultDumpDir: sandboxId => `${sandboxId}/tool-results`,
     getGitCredentialsPath: sandboxId => `${sandboxId}/.git-credentials`,
     getFileUploadsDir: sandboxId => `${sandboxId}/uploads`,
@@ -39,6 +40,7 @@ function makeSandbox(provider: SandboxProvider, existingSandboxId?: string): San
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    defaultExecTimeoutSeconds: 60,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });
