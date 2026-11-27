@@ -101,10 +101,13 @@ export function ConnectMcpStep({ onBack, onSkip, onDone }: ConnectMcpStepProps) 
   const authorize = useCallback(
     async (connectorId: string) => {
       setWorkingId(connectorId);
-      await handleAuthorize(connectorId, () => {
+      try {
+        // handleAuthorize resolves once the popup is open. A popup the user abandons never reports back
+        // (its opener link can be severed by the provider), so only the setup request blocks the buttons.
+        await handleAuthorize(connectorId, () => void refreshConfigured());
+      } finally {
         setWorkingId(null);
-        void refreshConfigured();
-      });
+      }
     },
     [handleAuthorize, refreshConfigured],
   );
@@ -119,10 +122,7 @@ export function ConnectMcpStep({ onBack, onSkip, onDone }: ConnectMcpStepProps) 
       setEntryAwaitingKey(null);
       await refreshConfigured();
       // An OAuth server is only usable after the user grants access, so continue straight into it.
-      if (entry.auth.type === 'dcr') {
-        await authorize(connector.id);
-        return;
-      }
+      if (entry.auth.type === 'dcr') await authorize(connector.id);
     } catch (err) {
       const message = getErrorMessage(err, 'Request failed');
       if (apiKey === undefined) setError(message);

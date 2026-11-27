@@ -113,6 +113,19 @@ describe('ConnectMcpStep', () => {
     );
   });
 
+  it('keeps Connect usable after the OAuth popup opens, even if it never reports back', async () => {
+    renderStep();
+    await screen.findByText('Notion');
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Notion' }));
+
+    // The mocked handleAuthorize resolves once the popup is open and never calls its callback,
+    // which is what an abandoned popup looks like to this step.
+    await waitFor(() => expect(oauthMock.handleAuthorize).toHaveBeenCalledWith('notion', expect.any(Function)));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Connect Notion' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: 'Connect Exa' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Connect Docs' })).toBeEnabled();
+  });
+
   it('asks for an API key before creating a header-auth connector', async () => {
     const { createConnector } = renderStep();
     await screen.findByText('Exa');
