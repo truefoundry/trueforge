@@ -25,13 +25,16 @@ export function resolveTurnArtifactsProvider(input: {
   /** The session's registry agent; null for inline-spec sessions. */
   agent_id: string | null;
   subject: Subject;
-  artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifactWithVersion' | 'createVersion'>;
-  resolveObjectStore: ResolveObjectStore;
+  artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifactWithVersion' | 'createVersion'> | undefined;
+  resolveObjectStore: ResolveObjectStore | undefined;
   artifactsConfig: ArtifactsConfig | undefined;
 }): IArtifactsProvider | undefined {
-  const { tenant_id, session_id, agent_id, subject, artifactStore, artifactsConfig } = input;
-  const objectStore = input.resolveObjectStore(tenant_id);
-  if (objectStore === undefined || artifactsConfig === undefined) {
+  const { tenant_id, session_id, agent_id, subject, artifactStore, resolveObjectStore, artifactsConfig } = input;
+  if (artifactStore === undefined || resolveObjectStore === undefined || artifactsConfig === undefined) {
+    return undefined;
+  }
+  const objectStore = resolveObjectStore(tenant_id);
+  if (objectStore === undefined) {
     return undefined;
   }
   const createdBy = { created_by_subject: subject, created_by_session_id: session_id, created_by_agent_id: agent_id };

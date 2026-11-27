@@ -28,7 +28,13 @@ function artifactRecord(overrides: Partial<ArtifactRecord> = {}): ArtifactRecord
   };
 }
 
-function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore | undefined } = {}) {
+function setup(
+  options: {
+    existing?: ArtifactRecord;
+    objectStore?: IObjectStore | undefined;
+    overrides?: Partial<Parameters<typeof resolveTurnArtifactsProvider>[0]>;
+  } = {},
+) {
   const version: ArtifactVersionRecord = {
     artifact_id: 'art-new',
     version: 1,
@@ -52,6 +58,7 @@ function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore 
     },
     resolveObjectStore: () => ('objectStore' in options ? options.objectStore : OBJECT_STORE),
     artifactsConfig: ARTIFACTS_CONFIG,
+    ...options.overrides,
   });
   return { provider, createArtifactWithVersion, createVersion };
 }
@@ -59,6 +66,14 @@ function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore 
 describe('resolveTurnArtifactsProvider', () => {
   it('is undefined when the tenant has no object store', () => {
     expect(setup({ objectStore: undefined }).provider).toBeUndefined();
+  });
+
+  it.each([
+    ['artifact store', { artifactStore: undefined }],
+    ['object store resolver', { resolveObjectStore: undefined }],
+    ['artifacts config', { artifactsConfig: undefined }],
+  ])('is undefined without an %s', (_name, overrides) => {
+    expect(setup({ overrides }).provider).toBeUndefined();
   });
 
   it('uses the configured limits', () => {

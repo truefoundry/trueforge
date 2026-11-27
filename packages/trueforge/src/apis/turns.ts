@@ -853,8 +853,6 @@ async function prepareTurnExecution<TTransaction>(input: {
     capabilitiesStore: input.deps.capabilitiesStore,
     trueforgeMcp,
     artifactsProvider:
-      input.deps.artifactStore === undefined ||
-      input.deps.resolveObjectStore === undefined ||
       input.deps.requestContext === undefined
         ? undefined
         : resolveTurnArtifactsProvider({
