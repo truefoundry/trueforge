@@ -184,7 +184,7 @@ describe('AgentSessionTimelineContainer', () => {
     expect(container.querySelector('[data-slot="agent-session-metrics-sticky"]')).toHaveClass(
       'sticky',
       'top-0',
-      'bg-primary-bg',
+      'bg-card-bg',
     );
     expect(container.querySelector('[data-slot="aui_thread-viewport"]')).toHaveClass('overflow-visible');
     fireEvent.click(screen.getByRole('button', { name: 'timeline turns=1' }));

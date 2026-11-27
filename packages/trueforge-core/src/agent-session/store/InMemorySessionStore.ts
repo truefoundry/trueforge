@@ -42,6 +42,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadModelInput,
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnContextAppend,
@@ -112,7 +113,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     thread_id: thread.thread_id,
     parent: thread.parent ?? null,
     agent_info: thread.agent_info ?? null,
-    model: thread.model,
+    model: null,
     capability_state: null,
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
@@ -148,9 +149,8 @@ function buildSnapshotFromDelta(input: {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
     ? deepCopy(input.previousSnapshot.threads)
     : {};
-  for (const [threadId, thread] of Object.entries(threads)) {
+  for (const thread of Object.values(threads)) {
     thread.pending_mcp_auth = false;
-    thread.model = threadId === MAIN_THREAD_ID ? input.main_thread_model : thread.model;
   }
 
   assertCreateTurnThreadDelta({
@@ -161,10 +161,15 @@ function buildSnapshotFromDelta(input: {
   });
 
   for (const nt of input.new_threads) {
-    threads[nt.thread_id] = newThreadSnapshot({
-      ...nt,
-      model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
-    });
+    threads[nt.thread_id] = newThreadSnapshot(nt);
+  }
+
+  if (input.main_thread_model !== null) {
+    const main = threads[MAIN_THREAD_ID];
+    if (main === undefined) {
+      throw new SessionStoreInvariantError('main_thread_model set without a main thread');
+    }
+    main.model = deepCopy(input.main_thread_model);
   }
 
   applyContextAppends(threads, input.new_context_appends);
@@ -657,6 +662,17 @@ export class InMemorySessionStore<
     for (const thread of threads) {
       thread.pending_mcp_auth = input.pending_mcp_auth;
     }
+    turn.updated_at = new Date();
+  }
+
+  async patchThreadModel(input: PatchThreadModelInput): Promise<void> {
+    this.requireOwnedTurn(input);
+    const turn = this.requireNonTerminalTurn(input);
+    const thread = turn.snapshot.threads[input.thread_id];
+    if (!thread) {
+      throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
+    }
+    thread.model = deepCopy(input.model);
     turn.updated_at = new Date();
   }
 

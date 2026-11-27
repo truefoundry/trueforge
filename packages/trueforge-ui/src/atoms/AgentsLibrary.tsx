@@ -419,9 +419,9 @@ export function AgentLibraryRow({
 
   const tryButton = (
     <PermissionGuard allowed={canUseAgent}>
-      <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
-        <Icon name="play" className="size-3.5" />
-        Try
+      <Button.Secondary type="button" aria-label={`Chat with agent ${agent.name}`} size="large" onClick={onTry}>
+        <Icon name="message-square-more" className="size-3.5" />
+        Chat
       </Button.Secondary>
     </PermissionGuard>
   );
@@ -473,11 +473,11 @@ export function AgentLibraryRow({
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
-      {/* Fixed width so truncate works; 24rem = 1.5× the prior min-w-64 name column. */}
-      <TableCell className="w-72 max-w-72">{nameContent}</TableCell>
+      {/* Fixed width so truncate works; 11.7rem = 65% of prior w-72. */}
+      <TableCell className="w-[11.7rem] max-w-[11.7rem]">{nameContent}</TableCell>
       <TableCell>{configurationSummary}</TableCell>
       {scheduleSummary !== undefined ? (
-        <TableCell>
+        <TableCell className="w-[9.1rem] max-w-[9.1rem]">
           <AgentSchedulesContent
             scheduleSummary={scheduleSummary}
             agentName={agent.name}
@@ -501,7 +501,7 @@ export function AgentLibraryRow({
         </>
       ) : null}
       <TableCell className="w-px">
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-1">
           {tryButton}
           {overflowMenu}
         </div>
@@ -570,6 +570,13 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
   const canOpenAgentSchedules = showSchedulesColumn && canOpenAgentDetails;
+  // Empty registry CTA — only when not filtering and composer can open New Agent.
+  const buildNowAction =
+    canMutate && query.trim() === '' ? (
+      <Button.Primary type="button" onClick={() => shell.openAgentBuilder()}>
+        Build Now
+      </Button.Primary>
+    ) : null;
 
   useEffect(() => {
     if (!open) {
@@ -788,13 +795,13 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
-        <div
-          className={cn('min-h-0 flex-1 overflow-y-auto p-4', error ? 'flex flex-col' : undefined)}
-          aria-label="Agents"
-        >
+        <div className={cn('min-h-0 flex-1 overflow-auto', error ? 'flex flex-col' : undefined)} aria-label="Agents">
           {isInitialLoading ? (
-            <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
+            <div
+              className={cn('flex flex-col gap-2 py-1', isMobile && 'px-4')}
+              role="status"
+              aria-label="Loading agents"
+            >
               {Array.from({ length: 6 }, (_, i) => (
                 <Skeleton key={i} className={cn('w-full rounded-md', isMobile ? 'h-32' : 'h-14')} />
               ))}
@@ -803,7 +810,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
             <div role="alert" className="flex flex-1 flex-col items-center justify-center">
               <EmptyScreen title="Couldn't load agents" description={error} className="h-auto min-h-0 flex-none py-0" />
             </div>
-          ) : agents.length === 0 && !hasPageNav ? (
+          ) : agents.length === 0 ? (
             <EmptyScreen
               title="No Agents Found"
               description={
@@ -815,68 +822,39 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
                   'Build one in a chat, then save it as an agent.'
                 )
               }
+              className="flex-1"
+              {...(buildNowAction != null ? { action: buildNowAction } : {})}
             />
-          ) : agents.length === 0 ? (
-            <div className="flex min-h-full flex-col">
-              <EmptyScreen
-                title="No Agents Found"
-                description={
-                  query.trim() ? (
-                    <>
-                      No search results found for <EmptyScreenQueryHighlight>{query.trim()}</EmptyScreenQueryHighlight>
-                    </>
-                  ) : (
-                    'Build one in a chat, then save it as an agent.'
-                  )
-                }
-                className="flex-1"
-              />
-              <div className="overflow-hidden rounded-lg border border-border">
-                <TableTokenPagination
-                  pageSize={pageSize}
-                  rowCount={0}
-                  canPrev={canPrev}
-                  canNext={canNext}
-                  onPrev={goPrev}
-                  onNext={goNext}
-                  pageSizeOptions={AGENTS_PAGE_SIZE_OPTIONS}
-                  onPageSizeChange={setPageSize}
-                />
-              </div>
-            </div>
           ) : isMobile ? (
-            <div className="flex flex-col gap-3">
-              <ul aria-label="Agents" className="flex flex-col gap-3">
-                {agents.map(agent => renderAgent(agent, 'card'))}
-              </ul>
-              <div className="overflow-hidden rounded-lg border border-border">{pagination}</div>
-            </div>
+            <ul aria-label="Agents" className="flex flex-col gap-3 px-4 py-4">
+              {agents.map(agent => renderAgent(agent, 'card'))}
+            </ul>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <Table className="bg-card-bg">
-                <TableHeader className="bg-card-bg">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-72 min-w-72">Agent</TableHead>
-                    <TableHead>Configuration</TableHead>
-                    {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
-                    {showMetricsColumns ? (
-                      <>
-                        <TableHead>{agentLibraryUsageLabels.sessions}</TableHead>
-                        <TableHead>{agentLibraryUsageLabels.spend}</TableHead>
-                        <TableHead className="w-28">{agentLibraryUsageLabels.daily}</TableHead>
-                      </>
-                    ) : null}
-                    <TableHead className="w-px">
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>{agents.map(agent => renderAgent(agent, 'row'))}</TableBody>
-              </Table>
-              {pagination}
-            </div>
+            <Table className="bg-card-bg">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[11.7rem] min-w-[11.7rem]">Agent</TableHead>
+                  <TableHead>Configuration</TableHead>
+                  {showSchedulesColumn ? <TableHead className="w-[9.1rem] max-w-[9.1rem]">Schedules</TableHead> : null}
+                  {showMetricsColumns ? (
+                    <>
+                      <TableHead>{agentLibraryUsageLabels.sessions}</TableHead>
+                      <TableHead>{agentLibraryUsageLabels.spend}</TableHead>
+                      <TableHead className="w-28">{agentLibraryUsageLabels.daily}</TableHead>
+                    </>
+                  ) : null}
+                  <TableHead className="w-px">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>{agents.map(agent => renderAgent(agent, 'row'))}</TableBody>
+            </Table>
           )}
         </div>
+        {!isInitialLoading && !error && (agents.length > 0 || hasPageNav) ? (
+          <div className="shrink-0 border-t border-border">{pagination}</div>
+        ) : null}
       </div>
     </div>
   );

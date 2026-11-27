@@ -38,6 +38,7 @@ export const EventType = {
   SANDBOX_CREATED: 'sandbox.created',
   THREAD_CREATED: 'thread.created',
   THREAD_DONE: 'thread.done',
+  THREAD_SWITCH_MODEL: 'thread.switch_model',
   TOOL_RESPONSE: 'tool.response',
   TOOL_APPROVAL_REQUIRED: 'tool.approval_required',
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
@@ -307,13 +308,37 @@ export const ThreadCreatedEventSchema = z
     type: z.literal(EventType.THREAD_CREATED).describe('A dynamic subagent thread was created.'),
     id: EventIdSchema,
     agent_info: AgentInfoSchema,
-    model: ModelSnapshotSchema.optional().describe('Model and effort the new thread runs on.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema,
     thread_id: z.string().describe('Id of the new thread.'),
     title: z.string().describe('Human-readable thread title.'),
   })
   .openapi('ThreadCreatedEvent');
+
+export const ThreadSwitchModelEventParamsSchema = z
+  .object({
+    reasoning_effort: z.string().describe('Reasoning effort chosen for the model.'),
+  })
+  .openapi('ThreadSwitchModelEventParams');
+
+export const ThreadSwitchModelEventModelSchema = z
+  .object({
+    name: z.string().describe('Name of the chosen model, `provider/model`.'),
+    params: ThreadSwitchModelEventParamsSchema.describe('Model parameters chosen with the model.'),
+  })
+  .openapi('ThreadSwitchModelEventModel');
+
+export const ThreadSwitchModelEventSchema = z
+  .object({
+    type: z
+      .literal(EventType.THREAD_SWITCH_MODEL)
+      .describe('Model routing chose the model a thread runs on, before its first model call.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().describe('Thread the model was selected for.'),
+    model: ThreadSwitchModelEventModelSchema.describe('The chosen model and its parameters.'),
+  })
+  .openapi('ThreadSwitchModelEvent');
 
 export const ThreadStateDoneSchema = z
   .object({
@@ -508,6 +533,7 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   ModelMessageEventSchema,
   ToolResponseEventSchema,
   ThreadCreatedEventSchema,
+  ThreadSwitchModelEventSchema,
   ThreadDoneEventSchema,
   ThreadContextCompactionStartedEventSchema,
   ThreadContextCompactionFinishedEventSchema,
@@ -539,6 +565,7 @@ export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;
 export type ModelMessageDeltaEvent = z.infer<typeof ModelMessageDeltaEventSchema>;
 export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
+export type ThreadSwitchModelEvent = z.infer<typeof ThreadSwitchModelEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;

@@ -9,11 +9,13 @@ import {
   type TerminalTurnState,
   type TurnState,
 } from '../../src/agent-session/schemas/turn';
+import type { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
+import type { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { createInitialTurnMetricsCheckpoint } from '../../src/agent-session/turnMetrics';
 import { TRUEFORGE_MCP_ID, TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
-import { newEventId } from '../../src/core/events/schema';
+import { newEventId, type TurnUserEvent } from '../../src/core/events/schema';
 import type { ILLM } from '../../src/core/llm/ILLM';
 import type {
   CompletionUsage,
@@ -41,7 +43,7 @@ export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
-    model?: { name: string; params?: { temperature?: number } };
+    model?: { name: string; params?: { temperature?: number; reasoning_effort?: string } };
     config?: {
       iteration_limit?: number;
       sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
@@ -74,6 +76,22 @@ export function makeAgentSpec(
       },
     },
   });
+}
+
+/** Drives the same accept → persist → enqueue seam as POST /events. */
+export async function sendWithInbox(
+  turn: TurnHandle<undefined>,
+  store: InMemorySessionStore,
+  events: TurnUserEvent[],
+): Promise<void> {
+  for await (const batch of turn.send(events)) {
+    await store.insertTurnInboundEvents({
+      session_id: turn.session_id,
+      turn_id: turn.id,
+      active_executor_id: turn.record.active_executor_id,
+      events: batch,
+    });
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
@@ -153,7 +171,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
-    routeModel: base.routeModel,
+    autoModelRouterAvailable: base.autoModelRouterAvailable,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {
@@ -168,6 +186,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
         extraCapabilities: [...(resolved.extraCapabilities ?? []), ...(options.extraCapabilities ?? [])],
       };
     },
+    resolveModel: input => base.resolveModel(input),
     close: async () => {
       if (options.close) {
         await options.close();
@@ -203,7 +222,6 @@ export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEven
 }
 
 const defaultRootThread: NewThreadInit = {
-  model: null,
   thread_id: MAIN_THREAD_ID,
   parent: null,
   agent_info: null,
@@ -221,8 +239,8 @@ export function makeCreateTurnInput(input: {
     completion?: TurnContextAppend['completion'];
   })[];
   capability_states?: CreateTurnInput['capability_states'];
-  main_thread_model?: ModelSnapshot;
   update_session_title_if_not_exist?: string;
+  main_thread_model?: ModelSnapshot | null;
 }): CreateTurnInput {
   const turn = makeRunningTurnRecord({
     sessionId: input.sessionId,
@@ -242,8 +260,8 @@ export function makeCreateTurnInput(input: {
       completion: append.completion ?? null,
     })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
-    main_thread_model: input.main_thread_model ?? null,
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
+    main_thread_model: input.main_thread_model ?? null,
   };
 }
 

@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiButtonClass, shellHoverClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Skeleton } from './primitives/Skeleton.js';
 
@@ -16,7 +16,8 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          '!justify-start h-8 px-2.5 text-sm font-normal text-sidebar-text shadow-none',
+          shellHoverClassName,
           className,
         ),
       })}
@@ -68,17 +69,23 @@ export type ThreadListShellProps = {
   header?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Overrides the default page-header strip (min-h-14 + bottom rule). */
+  headerClassName?: string;
+  /** Overrides the default list body padding (`p-2`). */
+  bodyClassName?: string;
 };
 
-export function ThreadListShell({ header, children, className }: ThreadListShellProps) {
+export function ThreadListShell({ header, children, className, headerClassName, bodyClassName }: ThreadListShellProps) {
   return (
     <div className={cn('font-sans-flex flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
       {/* min-h-14 matches PageHeader / rail brand so the top strip lines up across columns. */}
       {header != null ? (
-        <div className="flex min-h-14 shrink-0 items-center border-b border-border px-2">{header}</div>
+        <div className={cn('flex min-h-14 shrink-0 items-center border-b border-border px-2', headerClassName)}>
+          {header}
+        </div>
       ) : null}
       {/* History section owns overflow scroll so infinite-load IO can root on it. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">{children}</div>
+      <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden p-2', bodyClassName)}>{children}</div>
     </div>
   );
 }

@@ -262,6 +262,8 @@ export function useDraftAgentSpec({
         return;
       }
       const next = mergeAgentSpec(agentSpecRef.current, update);
+      // Several effects can patch the spec in one flush; each must build on the last, not the rendered spec.
+      agentSpecRef.current = next;
       setAgentSpec(next);
       // Wait until the session's stored spec is loaded. Syncing earlier overwrites
       // a resumed session with the in-memory New Chat seed.

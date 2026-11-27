@@ -77,7 +77,27 @@ describe('NamedAgentHeaderLabel', () => {
         </RuntimeHarness>
       </ShellModeProvider>,
     );
-    expect(screen.getByRole('heading', { name: 'support' })).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { name: 'support' });
+    expect(heading).toBeInTheDocument();
+    expect(heading.querySelector('svg')).not.toBeNull();
+  });
+
+  it('shows an agent icon before the name in Try Agent mode', () => {
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+        <RuntimeHarness messages={[]}>
+          <SelectNamed />
+          <NamedAgentHeaderLabel />
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'select' }).click();
+    });
+
+    const heading = screen.getByRole('heading', { name: /reviewer/ });
+    expect(heading.querySelector('svg')).not.toBeNull();
   });
 
   it('shows New Chat for unnamed draft chats', () => {

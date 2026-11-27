@@ -150,7 +150,7 @@ const SkillSettings = () => {
         className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg"
         aria-hidden
       >
-        <Icon name="lightbulb" className="size-4.5 text-text-primary" />
+        <Icon name="scroll-text" className="size-4.5 text-text-primary" />
       </span>
 
       <div className="min-w-0 flex-1">

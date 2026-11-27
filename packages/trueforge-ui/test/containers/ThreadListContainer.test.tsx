@@ -261,6 +261,7 @@ describe('ThreadListContainer', () => {
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Chat History' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search chat history' })).toBeInTheDocument();
     expect(container.querySelector('[data-slot="aui_thread-list-viewport"]')).toHaveClass('aui-scrollbar-hidden');
   });
 
@@ -353,6 +354,63 @@ describe('ThreadListContainer', () => {
 
     await waitFor(() => expect(screen.getByRole('status', { name: 'Active agent' })).toHaveTextContent('named-agent'));
     expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+  });
+
+  it('opens builder history rows in Agent Builder and normal rows as chat', async () => {
+    function ActiveMode() {
+      const shell = useShellMode();
+      const label =
+        shell.mode.status !== 'active'
+          ? 'idle'
+          : shell.mode.isCreateAgent
+            ? `builder:${shell.pendingSessionId ?? ''}`
+            : `chat:${shell.pendingSessionId ?? ''}`;
+      return <output aria-label="Active mode">{label}</output>;
+    }
+
+    render(
+      <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+            <ThreadListRuntimeHarness
+              threadList={{
+                threads: [
+                  {
+                    status: 'regular',
+                    id: 'builder-1',
+                    remoteId: 'session-builder-1',
+                    title: 'Builder chat',
+                    custom: { isMutable: true, metadata: { 'tfg.is_create_agent': 'true' } },
+                  },
+                  {
+                    status: 'regular',
+                    id: 'chat-1',
+                    remoteId: 'session-chat-1',
+                    title: 'Normal chat',
+                    custom: { isMutable: true },
+                  },
+                ],
+              }}
+            >
+              <CompactLayoutProvider>
+                <ActiveMode />
+                <ThreadListContainer variant="recent-history" />
+              </CompactLayoutProvider>
+            </ThreadListRuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Builder chat' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Active mode' })).toHaveTextContent('builder:session-builder-1'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Normal chat' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Active mode' })).toHaveTextContent('chat:session-chat-1'),
+    );
   });
 
   it('exposes delete only for remote sessions and delegates deletion to the runtime', async () => {

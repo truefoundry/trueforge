@@ -38,12 +38,12 @@ import {
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
-import type { ModelSnapshot } from '@truefoundry/trueforge-core/core';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
+  ModelSnapshot,
   SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
@@ -76,7 +76,6 @@ export interface NewThreadRegistration {
   thread_id: string;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  model: ModelSnapshot | null;
 }
 
 export interface TurnKeys {
@@ -126,9 +125,9 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
-  main_thread_model: ModelSnapshot | null;
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
+  main_thread_model: ModelSnapshot | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -686,6 +685,8 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         append_id: number;
       }[] = [];
 
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
+
       for (const parent of prevThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         const completion = appendCompletionByThread.get(parent.thread_id);
@@ -693,7 +694,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           ...parent.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
           pending_mcp_auth: false,
-          model: parent.thread_id === MAIN_THREAD_ID ? input.main_thread_model : parent.checkpoint.model,
+          model: specModel(parent.thread_id) ?? parent.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -758,7 +759,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,

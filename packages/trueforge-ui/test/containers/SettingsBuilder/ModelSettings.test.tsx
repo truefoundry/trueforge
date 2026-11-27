@@ -163,16 +163,22 @@ describe('ModelSettings removal', () => {
 });
 
 describe('ModelSettings Auto mode switch', () => {
-  const autoOn = { webSearch: { enabled: true }, memory: { enabled: true }, autoModelRouting: { enabled: true } };
+  const autoOn = {
+    webSearch: { enabled: true },
+    memory: { enabled: true },
+    autoModelRouting: { enabled: true, candidateModels: [] },
+  };
 
   function renderAutoSettings({
     auto,
     manageProviders = true,
     configuration,
+    modelNames = [],
   }: {
     auto: AgentBuilderCapabilitiesResponse['data']['auto'];
     manageProviders?: boolean;
     configuration: ConfigurationServer;
+    modelNames?: string[];
   }) {
     const listModelProviders = vi.fn(async () => [builtInProvider]);
     const getCapabilities = vi.fn(async () => ({
@@ -195,6 +201,7 @@ describe('ModelSettings Auto mode switch', () => {
       }),
       configuration,
       getCapabilities,
+      getModels: async () => modelNames.map(name => ({ id: name, name, provider: { name: 'acct' }, properties: {} })),
     });
     render(
       <ServerProvider server={server}>
@@ -205,13 +212,16 @@ describe('ModelSettings Auto mode switch', () => {
   }
 
   it('saves only the Auto mode switch and refreshes capabilities so the picker updates', async () => {
-    const updateConfiguration = vi.fn(async () => ({ ...autoOn, autoModelRouting: { enabled: false } }));
+    const updateConfiguration = vi.fn(async () => ({
+      ...autoOn,
+      autoModelRouting: { enabled: false, candidateModels: [] },
+    }));
     const { getCapabilities } = renderAutoSettings({
       auto: { status: 'enabled' },
       configuration: { getConfiguration: async () => autoOn, updateConfiguration },
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
     const callsBeforeSave = getCapabilities.mock.calls.length;
@@ -219,9 +229,57 @@ describe('ModelSettings Auto mode switch', () => {
 
     await waitFor(() => expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { enabled: false } }));
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false'),
+      expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false'),
     );
     expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave);
+  });
+
+  it('flips the switch and hides the model list at once, before the save finishes', async () => {
+    let finishSave: (value: typeof autoOn) => void = () => undefined;
+    const updateConfiguration = vi.fn(
+      () =>
+        new Promise<typeof autoOn>(resolve => {
+          finishSave = resolve;
+        }),
+    );
+    renderAutoSettings({
+      auto: { status: 'enabled' },
+      modelNames: ['acct/haiku', 'acct/sonnet'],
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
+    await screen.findByRole('combobox', { name: 'Select models' });
+    expect(screen.getByText(/Each task is matched to a tier/)).toBeInTheDocument();
+    expect(screen.queryByText(/Intelligently picks a suitable model/)).toBeNull();
+    toggle.click();
+
+    // The save has not returned, yet the card already shows the new state, and the switch isn't dimmed.
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false'),
+    );
+    expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveClass('disabled:opacity-100');
+
+    finishSave({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } });
+    await waitFor(() => expect(screen.getByText(/Intelligently picks a suitable model/)).toBeInTheDocument());
+    expect(screen.queryByText(/Each task is matched to a tier/)).toBeNull();
+  });
+
+  it('puts the switch back when the save fails', async () => {
+    const updateConfiguration = vi.fn(() => Promise.reject(new Error('Save failed')));
+    renderAutoSettings({
+      auto: { status: 'enabled' },
+      modelNames: ['acct/haiku', 'acct/sonnet'],
+      configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+    });
+
+    const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
+    toggle.click();
+
+    expect(await screen.findByText('Save failed')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('combobox', { name: 'Select models' })).toBeInTheDocument();
   });
 
   it('shows a skeleton in place of the switch while the setting loads', async () => {
@@ -238,10 +296,10 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     expect(await screen.findByTestId('auto-mode-setting-skeleton')).toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Auto Model Routing' })).toBeNull();
 
     resolveConfiguration(autoOn);
-    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Auto Model Routing' })).toBeInTheDocument();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 
@@ -252,7 +310,7 @@ describe('ModelSettings Auto mode switch', () => {
       configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
     });
 
-    await screen.findByRole('switch', { name: 'Allow Auto mode' });
+    await screen.findByRole('switch', { name: 'Auto Model Routing' });
     expect(screen.queryByRole('button', { name: /Add Custom Provider/ })).toBeNull();
     expect(listModelProviders).not.toHaveBeenCalled();
   });
@@ -261,12 +319,226 @@ describe('ModelSettings Auto mode switch', () => {
     renderAutoSettings({
       auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
       configuration: {
-        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false } }),
+        getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } }),
         updateConfiguration: vi.fn(),
       },
     });
 
-    expect(await screen.findByRole('switch', { name: 'Allow Auto mode' })).toHaveAttribute('aria-checked', 'false');
+    expect(await screen.findByRole('switch', { name: 'Auto Model Routing' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  describe('model candidate list', () => {
+    const modelNames = ['acct/haiku', 'acct/sonnet'];
+    const fiveModels = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini', 'acct/grok'];
+    const withModels = (candidateModels: string[]) => ({
+      ...autoOn,
+      autoModelRouting: { enabled: true, candidateModels },
+    });
+    const openPicker = async () => {
+      fireEvent.click(await screen.findByRole('combobox', { name: 'Select models' }));
+      return screen.findByRole('listbox', { name: 'Models Auto can choose from' });
+    };
+    const option = (name: string) => screen.getByRole('option', { name });
+
+    it('offers the admin models in a dropdown with none selected when nothing is allowed yet', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      expect(screen.queryByRole('listbox')).toBeNull();
+      await openPicker();
+      expect(option('acct/haiku')).toHaveAttribute('aria-selected', 'false');
+      expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'false');
+      expect(screen.getByText(/0 of 10 selected\. With none selected, Auto stays unavailable\./)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
+    });
+
+    it('puts the picker in the same card as the Auto switch, with no heading of its own', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      const toggle = await screen.findByRole('switch', { name: 'Auto Model Routing' });
+      const picker = await screen.findByRole('combobox', { name: 'Select models' });
+
+      const card = toggle.closest('.rounded-xl');
+      expect(card).not.toBeNull();
+      expect(card).toContainElement(picker);
+      expect(screen.queryByRole('heading', { name: 'Models Auto can choose from' })).toBeNull();
+    });
+
+    it('narrows the dropdown with search', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search models' }), { target: { value: 'son' } });
+      expect(screen.queryByRole('option', { name: 'acct/haiku' })).toBeNull();
+      expect(option('acct/sonnet')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search models' }), { target: { value: 'nothing' } });
+      expect(screen.getByText('No models match your search.')).toBeInTheDocument();
+    });
+
+    it('saves the chosen full model names and refreshes capabilities', async () => {
+      const chosen = ['acct/sonnet', 'acct/opus', 'acct/gemini', 'acct/grok'];
+      const updateConfiguration = vi.fn(async () => withModels(chosen));
+      const { getCapabilities } = renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+      });
+
+      await openPicker();
+      for (const name of chosen) fireEvent.click(option(name));
+      expect(option('acct/sonnet')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
+      await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
+      const callsBeforeSave = getCapabilities.mock.calls.length;
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+
+      await waitFor(() =>
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: chosen } }),
+      );
+      await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(callsBeforeSave));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Update' })).toBeNull());
+      expect(screen.getByRole('button', { name: 'Remove acct/sonnet' })).toBeInTheDocument();
+    });
+
+    it('holds Update back until at least four models are chosen', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      for (const name of fiveModels.slice(0, 3)) fireEvent.click(option(name));
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Pick at least 4 to update\./)).toBeInTheDocument();
+
+      fireEvent.click(option('acct/gemini'));
+      expect(screen.getByRole('button', { name: 'Update' })).toBeEnabled();
+      expect(screen.queryByText(/Pick at least 4 to update\./)).toBeNull();
+    });
+
+    it('stops at ten models and frees a slot when one is removed', async () => {
+      const many = Array.from({ length: 12 }, (_, index) => `acct/model-${String(index).padStart(2, '0')}`);
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: many,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      for (const name of many.slice(0, 10)) {
+        fireEvent.click(option(name));
+      }
+
+      expect(option('acct/model-10')).toBeDisabled();
+      expect(option('acct/model-11')).toBeDisabled();
+      expect(option('acct/model-00')).toBeEnabled();
+      expect(screen.getByText(/10 of 10 selected\./)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove acct/model-00' }));
+      expect(option('acct/model-10')).toBeEnabled();
+    });
+
+    it('does not let the saved list be emptied', async () => {
+      const updateConfiguration = vi.fn(async () => autoOn);
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => withModels(['acct/haiku']), updateConfiguration },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Remove acct/haiku' }));
+
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Pick at least 4 to update\./)).toBeInTheDocument();
+    });
+
+    it('flags a saved model the admin cannot see and holds Update until it is removed', async () => {
+      const saved = ['acct/haiku', 'acct/hidden'];
+      const next = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
+      const updateConfiguration = vi.fn(async () => withModels(next));
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => withModels(saved), updateConfiguration },
+      });
+
+      const hiddenChip = (await screen.findByRole('button', { name: 'Remove acct/hidden' })).parentElement;
+      expect(hiddenChip).not.toBeNull();
+      expect(within(hiddenChip as HTMLElement).getByText('Not visible to you')).toBeInTheDocument();
+      const haikuChip = screen.getByRole('button', { name: 'Remove acct/haiku' }).parentElement;
+      expect(within(haikuChip as HTMLElement).queryByText('Not visible to you')).toBeNull();
+
+      await openPicker();
+      for (const name of ['acct/sonnet', 'acct/opus', 'acct/gemini']) fireEvent.click(option(name));
+      // Five picks, but the server would refuse the one the admin cannot use.
+      expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+      expect(screen.getByText(/Remove the models marked "Not visible to you" to update\./)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove acct/hidden' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+
+      await waitFor(() =>
+        expect(updateConfiguration).toHaveBeenCalledWith({ autoModelRouting: { candidateModels: next } }),
+      );
+    });
+
+    it('closes the dropdown on Escape', async () => {
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration: vi.fn() },
+      });
+
+      await openPicker();
+      fireEvent.keyDown(screen.getByRole('searchbox', { name: 'Search models' }), { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    it('closes the dropdown on an outside click, and Update still works while it is open', async () => {
+      const chosen = ['acct/haiku', 'acct/sonnet', 'acct/opus', 'acct/gemini'];
+      const updateConfiguration = vi.fn(async () => withModels(chosen));
+      renderAutoSettings({
+        auto: { status: 'enabled' },
+        modelNames: fiveModels,
+        configuration: { getConfiguration: async () => autoOn, updateConfiguration },
+      });
+
+      await openPicker();
+      for (const name of chosen) fireEvent.click(option(name));
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+      await waitFor(() => expect(updateConfiguration).toHaveBeenCalled());
+
+      await openPicker();
+      fireEvent.click(document.body);
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    it('hides the list while the tenant has Auto turned off', async () => {
+      renderAutoSettings({
+        auto: { status: 'disabled', reason: 'Auto mode is turned off for this tenant.' },
+        modelNames,
+        configuration: {
+          getConfiguration: async () => ({ ...autoOn, autoModelRouting: { enabled: false, candidateModels: [] } }),
+          updateConfiguration: vi.fn(),
+        },
+      });
+
+      await screen.findByRole('switch', { name: 'Auto Model Routing' });
+      expect(screen.queryByRole('combobox', { name: 'Select models' })).toBeNull();
+    });
   });
 
   it('shows no switch when the server does not set up Auto mode', async () => {
@@ -276,7 +548,7 @@ describe('ModelSettings Auto mode switch', () => {
     });
 
     await screen.findByText('gpt-4-1');
-    expect(screen.queryByRole('switch', { name: 'Allow Auto mode' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Auto Model Routing' })).toBeNull();
     expect(screen.queryByTestId('auto-mode-setting-skeleton')).toBeNull();
   });
 });

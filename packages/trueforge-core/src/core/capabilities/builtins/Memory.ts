@@ -12,7 +12,7 @@ import { NOOP_AGENT_TRACING } from '../../tracing/NoopAgentTracing';
 import type { AgentCapability } from '../AgentCapability';
 import type {
   AgentContextProcessorAppendContext,
-  AgentThreadExecutionContext,
+  AgentThreadContext,
   PreSendContextProcessor,
 } from '../AgentContextProcessor';
 
@@ -86,7 +86,7 @@ class SessionStartMemoryLoader implements PreSendContextProcessor {
 
   // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
   async *processPreSend(
-    execution: Readonly<AgentThreadExecutionContext>,
+    execution: Readonly<AgentThreadContext>,
   ): AsyncGenerator<AgentContextProcessorAppendContext, void, unknown> {
     if (this.#pendingSessionStartMemory === undefined) {
       return;

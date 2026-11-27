@@ -20,6 +20,10 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const syncedTitle = threadTitle?.trim() ?? '';
   const displayName = state.allowThreadTitle && syncedTitle.length > 0 ? syncedTitle : state.name;
   const showBackToAgents = shell?.isLibraryEnabled === true && shell.historyAgentFilter?.intent === 'try-agent';
+  // Try Agent (and Edit) carry a bound agent identity — show the design’s agent file icon before the name.
+  const showAgentIcon =
+    shell?.mode.status === 'active' &&
+    (shell.mode.isMutable === false || (shell.mode.isMutable && shell.mode.agentId != null));
 
   return (
     <h1 className={cn('flex min-w-0 items-center gap-1.5', pageHeaderTitleClassName, className)}>
@@ -37,6 +41,7 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
           <Icon name="arrow-left" />
         </button>
       ) : null}
+      {showAgentIcon ? <Icon name="agent-2" className="text-text-secondary size-4 shrink-0" aria-hidden /> : null}
       <span className="truncate" title={displayName}>
         {displayName}
       </span>

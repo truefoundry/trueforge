@@ -34,6 +34,7 @@ import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRe
 import configuration, { trueFoundryModelRouting } from '../config';
 import type { AccessGrantRecord, IAccessControlStore } from '../db/accessControlStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IArtifactStore } from '../db/artifactStore';
 import type { IConfigurationStore } from '../db/configurationStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IMemoryProviderStore } from '../db/memoryProviderStore';
@@ -51,6 +52,7 @@ import {
   deleteSessionRoute,
   getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
+  listSessionArtifactsRoute,
   listSessionEventsRoute,
   listSessionGrantsRoute,
   listSessionsRoute,
@@ -69,6 +71,7 @@ import {
 import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
+import { toWireArtifact } from './artifacts';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -99,6 +102,7 @@ export function toWireSession(record: SessionRecord): Session {
 export interface SessionsRouterDeps<TTransaction = never> {
   accessControlStore: IAccessControlStore<TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
+  artifactStore: IArtifactStore;
   authorizer: Authorizer;
   logger: Logger;
   /**
@@ -758,6 +762,35 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     }
   };
 
+  const listSessionArtifactsHandler: RouteHandler<typeof listSessionArtifactsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.sessionStore.getSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!record) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const allowed = await canReadSession({
+      session_id: sessionId,
+      accessControlStore: deps.accessControlStore,
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: record.agent.type === 'reference' ? record.agent.id : undefined,
+      created_by_subject_id: record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const artifacts = await deps.artifactStore.listSessionArtifacts({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    return c.json({ data: artifacts.map(toWireArtifact) }, 200);
+  };
+
   const listSessionGrantsHandler: RouteHandler<typeof listSessionGrantsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
@@ -827,6 +860,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(listSessionArtifactsRoute, listSessionArtifactsHandler);
   router.openapi(listSessionGrantsRoute, listSessionGrantsHandler);
   router.openapi(updateSessionGrantsRoute, updateSessionGrantsHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));

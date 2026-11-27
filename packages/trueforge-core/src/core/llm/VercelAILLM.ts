@@ -8,6 +8,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import type { OpenAICompatibleProviderOptions } from '@ai-sdk/openai-compatible';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { JSONObject } from '@ai-sdk/provider';
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import type { ProviderOptions, ReasoningPart } from '@ai-sdk/provider-utils';
 import type {
   AssistantContent,
@@ -1110,6 +1111,28 @@ export function describeStreamError(raw: unknown): string {
   return describeUnknownError(raw);
 }
 
+/**
+ * Replaces the adapter's wording for a stream that closed with no finish reason. Its own text
+ * ("Response stream ended without a finish reason") reads as a harness bug rather than what it is:
+ * the provider hung up mid-answer.
+ */
+export const INTERRUPTED_RESPONSE_MESSAGE =
+  'Response interrupted: the model provider closed the stream before the response finished. Retry the request.';
+
+/**
+ * Adapters raise `InvalidResponseDataError` for malformed deltas too, so the error type alone does
+ * not identify the missing finish reason; match the adapter's wording for that one case.
+ */
+const MISSING_FINISH_REASON_PATTERN = /stream ended without a finish reason/i;
+
+/** Same as `describeStreamError`, for errors that arrived as a stream `error` part. */
+export function describeStreamPartError(raw: unknown): string {
+  if (InvalidResponseDataError.isInstance(raw) && MISSING_FINISH_REASON_PATTERN.test(raw.message)) {
+    return INTERRUPTED_RESPONSE_MESSAGE;
+  }
+  return describeStreamError(raw);
+}
+
 export function toStreamError(raw: unknown): Error {
   if (raw instanceof ModelProviderError) {
     return raw;
@@ -1455,7 +1478,7 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
-        const message = describeStreamError(raw);
+        const message = describeStreamPartError(raw);
         // Preserve the original stream error as cause; toast/turn use .message only.
         const cause = raw instanceof Error ? raw : new Error(message);
         throw new Error(message, { cause });

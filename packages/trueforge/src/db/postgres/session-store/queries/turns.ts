@@ -39,12 +39,12 @@ import {
   foldTurnMetricsCheckpoint,
   resolveStoredTurnMetricsCheckpoint,
 } from '@truefoundry/trueforge-core/agent-session/turnMetrics';
-import type { ModelSnapshot } from '@truefoundry/trueforge-core/core';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
+  ModelSnapshot,
   SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
@@ -77,7 +77,6 @@ export interface NewThreadRegistration {
   thread_id: string;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  model: ModelSnapshot | null;
 }
 
 export interface TurnKeys {
@@ -122,9 +121,9 @@ export interface CreateTurnInput {
     thread_id: string;
     capability_state: CapabilityState | null;
   }[];
-  main_thread_model: ModelSnapshot | null;
   last_activity_timestamp_ms: number;
   update_session_title_if_not_exist: string | null;
+  main_thread_model: ModelSnapshot | null;
   mcp_servers: Record<string, MCPServerInitInfo> | null;
   sandbox_info: SandboxInfo | null;
 }
@@ -699,6 +698,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
       const turnThreadRows: TurnThreadInsertRow[] = [];
+      const specModel = (threadId: string) => (threadId === MAIN_THREAD_ID ? input.main_thread_model : null);
 
       for (const pt of prevThreadRows) {
         const newIds = newIdsByThread.get(pt.thread_id) ?? [];
@@ -710,7 +710,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
           // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
-          model: pt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : pt.checkpoint.model,
+          model: specModel(pt.thread_id) ?? pt.checkpoint.model,
         };
         turnThreadRows.push({
           session_id: input.session_id,
@@ -731,7 +731,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           parent: nt.parent,
           completion: null,
           pending_mcp_auth: false,
-          model: nt.thread_id === MAIN_THREAD_ID ? input.main_thread_model : nt.model,
+          model: specModel(nt.thread_id),
         };
         turnThreadRows.push({
           session_id: input.session_id,

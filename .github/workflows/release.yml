@@ -165,7 +165,7 @@ jobs:
             git status --porcelain
             exit 1
           fi
-          git commit -m "Version Packages for ${TFY_CHART_VERSION}"
+          git commit -m "Version Packages for truefoundry release v${TFY_CHART_VERSION}"
           git push origin "HEAD:${RELEASE_BRANCH}"
           SHA="$(git rev-parse HEAD)"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
@@ -261,6 +261,9 @@ jobs:
     needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
+    # create-github-releases talks to api.github.com with GITHUB_TOKEN; the org
+    # IP allowlist rejects ubuntu-latest unless this job joins the egress tag.
+    environment: trueforge-internal
     timeout-minutes: 20
     permissions:
       contents: write
@@ -282,7 +285,16 @@ jobs:
           # pnpm's OIDC exchange for npm trusted publishing.
           package-manager-cache: false
 
+      # Join after install so allowed lifecycle scripts never run on the egress tag.
       - run: pnpm install --frozen-lockfile
+
+      - name: Join the tailnet for GitHub egress
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_RELEASE_CLIENT_ID }}
+          audience: ${{ secrets.TS_CI_RELEASE_AUDIENCE }}
+          tags: tag:ci-github-egress
+          hostname: gh-trueforge-publish-${{ github.run_id }}
 
       - name: Publish packages
         id: publish
@@ -291,6 +303,7 @@ jobs:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
           create-github-releases: true
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Attest source repo + commit on every publish. Trusted publishing
           # already uses OIDC (`id-token: write`); this flag is what changesets
           # / pnpm honor (they do not accept `--provenance`).
@@ -472,6 +485,7 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
+      enable_sign: true
 
   build-image-private:
     name: Build and push hardened server image
@@ -500,6 +514,7 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
+      enable_sign: true
       # Pull-only credential for the devtest account that helm-charts mirrors the
       # hardened bases into; the image itself still goes to Artifactory.
       enable_private_ecr_pull: true
