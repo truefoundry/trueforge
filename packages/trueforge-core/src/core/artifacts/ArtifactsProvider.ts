@@ -23,8 +23,8 @@ interface ArtifactFilesMetadata {
   root_path: string;
 }
 
-/** Artifact records, already bound by the host to the session's tenant, user and agent. */
-export interface ScopedArtifactStore {
+/** Artifact operations for push_artifact, bound by the host to the session's tenant, user and agent. */
+export interface ScopedArtifacts {
   /** Error message when the artifact is missing or the user may not push to it; undefined when allowed. */
   checkPushAccess(input: { artifact_id: string }): Promise<string | undefined>;
   /** Validates the name and mints an id for a new artifact; nothing is stored. Throws on an invalid name. */
@@ -45,7 +45,7 @@ export interface ScopedArtifactStore {
 /** What `push_artifact` needs from the host for one turn. */
 export interface IArtifactsProvider {
   tenantId: string;
-  store: ScopedArtifactStore;
+  artifacts: ScopedArtifacts;
   objectStore: IObjectStore;
   limits: ArtifactPushLimits;
 }

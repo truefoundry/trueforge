@@ -1,4 +1,4 @@
-import type { IArtifactsProvider, ScopedArtifactStore } from '../../../../src/core/artifacts/ArtifactsProvider';
+import type { IArtifactsProvider, ScopedArtifacts } from '../../../../src/core/artifacts/ArtifactsProvider';
 import { artifacts, PUSH_ARTIFACT_TOOL_NAME } from '../../../../src/core/capabilities/builtins/Artifacts';
 import type {
   ArtifactDirMetadata,
@@ -15,8 +15,8 @@ const FILES = [
   { relative_path: 'img/chart.png', size_bytes: 3, sha256_b64: 'bbb=' },
 ];
 
-type CreateVersionInput = Parameters<ScopedArtifactStore['createVersion']>[0];
-type CreateArtifactWithVersionInput = Parameters<ScopedArtifactStore['createArtifactWithVersion']>[0];
+type CreateVersionInput = Parameters<ScopedArtifacts['createVersion']>[0];
+type CreateArtifactWithVersionInput = Parameters<ScopedArtifacts['createArtifactWithVersion']>[0];
 type StoredObjects = Awaited<ReturnType<IArtifactsProvider['objectStore']['listObjects']>>;
 
 const storedFiles = (prefix: string): StoredObjects =>
@@ -47,7 +47,7 @@ function setup(
   });
   const provider: IArtifactsProvider = {
     tenantId: 't1',
-    store: {
+    artifacts: {
       checkPushAccess: () => Promise.resolve(options.accessDenied),
       newArtifactId,
       createArtifactWithVersion,

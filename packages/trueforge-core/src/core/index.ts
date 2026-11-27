@@ -335,7 +335,7 @@ export type {
   ArtifactPushLimits,
   IArtifactsProvider,
   IObjectStore,
-  ScopedArtifactStore,
+  ScopedArtifacts,
 } from './artifacts/ArtifactsProvider';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources

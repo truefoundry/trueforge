@@ -86,7 +86,7 @@ class ArtifactTools extends LocalToolMCP {
   private async push(input: PushArtifactInput): Promise<CallToolResponse> {
     const { provider, sandbox, logger } = this.#options;
     if (input.artifact_id !== undefined) {
-      const denied = await provider.store.checkPushAccess({ artifact_id: input.artifact_id });
+      const denied = await provider.artifacts.checkPushAccess({ artifact_id: input.artifact_id });
       if (denied !== undefined) {
         return failure(denied, undefined);
       }
@@ -100,7 +100,7 @@ class ArtifactTools extends LocalToolMCP {
       }
       newName = input.name;
       try {
-        artifactId = provider.store.newArtifactId({ name: newName });
+        artifactId = provider.artifacts.newArtifactId({ name: newName });
       } catch (error) {
         return failure(error instanceof Error ? error.message : String(error), undefined);
       }
@@ -160,8 +160,8 @@ class ArtifactTools extends LocalToolMCP {
       const files_metadata = { entry_point: input.entry_point, total_bytes: check.total_bytes, root_path: rootPath };
       const version =
         newName === undefined
-          ? await provider.store.createVersion({ artifact_id: artifactId, files_metadata })
-          : await provider.store.createArtifactWithVersion({ id: artifactId, name: newName, files_metadata });
+          ? await provider.artifacts.createVersion({ artifact_id: artifactId, files_metadata })
+          : await provider.artifacts.createArtifactWithVersion({ id: artifactId, name: newName, files_metadata });
       if (version === undefined) {
         return failure(`Artifact not found: ${artifactId}`, metadata);
       }

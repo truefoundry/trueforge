@@ -90,19 +90,19 @@ describe('resolveTurnArtifactsProvider', () => {
     ["the user's own artifact", artifactRecord(), undefined],
   ])('checks push access to %s', async (_name, existing, expected) => {
     const { provider } = setup(existing === undefined ? {} : { existing });
-    await expect(provider?.store.checkPushAccess({ artifact_id: 'art-1' })).resolves.toBe(expected);
+    await expect(provider?.artifacts.checkPushAccess({ artifact_id: 'art-1' })).resolves.toBe(expected);
   });
 
   it('creates artifacts and versions bound to the session', async () => {
     const { provider, createArtifactWithVersion, createVersion } = setup();
     const files_metadata = FILES_METADATA;
-    const id = provider?.store.newArtifactId({ name: 'Q3 report' }) ?? '';
+    const id = provider?.artifacts.newArtifactId({ name: 'Q3 report' }) ?? '';
 
     expect(id).toMatch(/^[0-9a-z]{26}$/);
     await expect(
-      provider?.store.createArtifactWithVersion({ id, name: '  Q3   report ', files_metadata }),
+      provider?.artifacts.createArtifactWithVersion({ id, name: '  Q3   report ', files_metadata }),
     ).resolves.toMatchObject({ version: 1 });
-    await provider?.store.createVersion({ artifact_id: id, files_metadata });
+    await provider?.artifacts.createVersion({ artifact_id: id, files_metadata });
 
     const createdBy = { created_by_subject: SUBJECT, created_by_session_id: 's1', created_by_agent_id: 'agent-1' };
     expect(createArtifactWithVersion).toHaveBeenCalledWith({
@@ -117,9 +117,9 @@ describe('resolveTurnArtifactsProvider', () => {
 
   it('rejects an invalid artifact name', async () => {
     const { provider, createArtifactWithVersion } = setup();
-    expect(() => provider?.store.newArtifactId({ name: 'a/b' })).toThrow('Invalid artifact name');
+    expect(() => provider?.artifacts.newArtifactId({ name: 'a/b' })).toThrow('Invalid artifact name');
     await expect(
-      provider?.store.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
+      provider?.artifacts.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
     ).rejects.toThrow('Invalid artifact name');
     expect(createArtifactWithVersion).not.toHaveBeenCalled();
   });

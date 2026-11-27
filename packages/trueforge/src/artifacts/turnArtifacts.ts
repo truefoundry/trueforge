@@ -42,7 +42,7 @@ export function resolveTurnArtifactsProvider(input: {
     tenantId: tenant_id,
     objectStore,
     limits: { max_files: artifactsConfig.max_files, max_total_bytes: artifactsConfig.max_total_bytes },
-    store: {
+    artifacts: {
       checkPushAccess: async ({ artifact_id }) => {
         const artifact = await artifactStore.getArtifact({ tenant_id, id: artifact_id });
         if (artifact === undefined) {

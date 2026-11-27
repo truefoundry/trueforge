@@ -159,7 +159,7 @@ describe('builtinsFromSpec artifacts', () => {
   const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
   const provider: IArtifactsProvider = {
     tenantId: 't1',
-    store: {
+    artifacts: {
       checkPushAccess: () => Promise.resolve(undefined),
       newArtifactId: () => 'a1',
       createArtifactWithVersion: () => Promise.resolve({ version: 1 }),
