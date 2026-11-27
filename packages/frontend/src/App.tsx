@@ -64,7 +64,7 @@ const authAwareFetch = SENTRY_DSN ? withSentryRootSpan(createAuthAwareFetch()) :
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
 
-/** Host brand: primary CTA fill is a gradient (see `index.css`); keep solid token for accents. */
+/** Host brand: solid indigo-500 in light; gradient fill in dark (see `index.css`). */
 const appTheme: ThemeConfig = {
   className: 'harness-primary-gradient',
   tokens: {

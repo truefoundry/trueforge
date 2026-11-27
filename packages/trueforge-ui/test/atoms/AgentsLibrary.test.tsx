@@ -1063,7 +1063,7 @@ describe('AgentsLibraryButton', () => {
     expect(screen.getByLabelText('Total spend $4.50')).toBeInTheDocument();
     expect(screen.getByText('$0.38 per session')).toBeInTheDocument();
     const sparkline = screen.getByRole('img', { name: 'Daily spend over 14 days for metrics-agent' });
-    expect(sparkline).toHaveClass('text-success-bg');
+    expect(sparkline).toHaveClass('text-indigo-500');
     fireEvent.mouseMove(sparkline, { clientX: 0, clientY: 8 });
     const utcDay = new Intl.DateTimeFormat(undefined, {
       month: 'short',

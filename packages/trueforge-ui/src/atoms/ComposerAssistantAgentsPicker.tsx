@@ -6,6 +6,7 @@ import { Icon } from '../icons/Icon.js';
 import type { AgentLibraryEntry } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
+import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { DropdownMenu, DropdownMenuItem } from './primitives/DropdownMenu.js';
 import { DropdownSubmenu } from './primitives/DropdownSubmenu.js';
 
@@ -46,6 +47,8 @@ export function ComposerAssistantAgentsPicker({
   const icon = selectionIcon(selection);
   const assistantSelected = selection.kind === 'assistant';
   const selectedAgentId = selection.kind === 'agent' ? selection.agentId : undefined;
+  // Warm the empty Agents cache while the picker is on screen so the submenu skips Loading…
+  useSearchAgentsList({ enabled: !disabled, query: '' });
 
   return (
     <div className={cn('flex w-full min-w-0 items-center', className)}>
@@ -58,7 +61,7 @@ export function ComposerAssistantAgentsPicker({
           if (!next) setAgentsOpen(false);
         }}
         closeOnClick={false}
-        className="min-w-[11rem]"
+        className="min-w-[11rem] shadow-lg"
         trigger={
           <button
             type="button"
@@ -90,10 +93,7 @@ export function ComposerAssistantAgentsPicker({
           <span className="min-w-0 flex-1 truncate text-left">Assistant</span>
           <Icon
             name="check"
-            className={cn(
-              'text-primary-button-hover ml-auto size-3.5 shrink-0',
-              assistantSelected ? 'opacity-100' : 'opacity-0',
-            )}
+            className={cn('text-indigo-400 ml-auto size-3.5 shrink-0', assistantSelected ? 'opacity-100' : 'opacity-0')}
           />
         </DropdownMenuItem>
 

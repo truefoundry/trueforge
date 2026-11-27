@@ -190,6 +190,49 @@ describe('AgentHistoryFilterButton', () => {
     expect(screen.getByRole('menu', { name: /Filter agents/i }).querySelector('.min-h-48')).not.toBeNull();
   });
 
+  it('pins the selected agent to the top after remount when it is not on the first page', async () => {
+    const searchAgents = vi.fn(async () => ({
+      data: [
+        { name: 'Alpha', agentId: 'alpha' },
+        { name: 'Beta', agentId: 'beta' },
+      ],
+    }));
+    const server = mockServer({ searchAgents });
+
+    function SetFilterThenRemount() {
+      const shell = useShellMode();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              shell.setHistoryAgentFilter({
+                agentId: 'zeta',
+                agentName: 'Zeta',
+                intent: 'history',
+              })
+            }
+          >
+            Set filter
+          </button>
+          <AgentHistoryFilterButton />
+        </>
+      );
+    }
+
+    render(<SetFilterThenRemount />, {
+      wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set filter' }));
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Zeta/i })).toBeInTheDocument());
+    const items = screen.getAllByRole('menuitem').map(item => item.textContent ?? '');
+    const agentItems = items.filter(text => text !== 'All chats');
+    expect(agentItems[0]).toMatch(/Zeta/);
+  });
+
   it('opens a bottom sheet on mobile', async () => {
     const matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: query === '(max-width: 767px)',

@@ -840,7 +840,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.listSessionsAgentId).toBeUndefined();
   });
 
-  it('filters history to an immutable agent selected from the library', () => {
+  it('keeps sidebar history unfiltered when an immutable agent is selected from the library', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
@@ -858,7 +858,7 @@ describe('ShellModeProvider', () => {
       agentName: 'Agent Name',
       intent: 'try-agent',
     });
-    expect(result.current.listSessionsAgentId).toBe('agent-id');
+    expect(result.current.listSessionsAgentId).toBeUndefined();
   });
 
   it('does not use an agent name as the history agent id', () => {

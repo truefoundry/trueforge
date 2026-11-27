@@ -139,7 +139,7 @@ function AgentLibrarySparkline({
         width={width}
         height={height}
         viewBox={`0 0 ${String(width)} ${String(height)}`}
-        className="cursor-crosshair overflow-visible text-success-bg"
+        className="cursor-crosshair overflow-visible text-indigo-500"
         aria-label={`Daily spend over 14 days for ${agentName}`}
         role="img"
         onMouseMove={onMouseMove}
@@ -203,7 +203,7 @@ export function AgentSessionsCell({
     );
   }
   return (
-    <span className="text-text-primary text-sm font-medium" aria-label={`${String(usage.totalSessions)} sessions`}>
+    <span className="text-text-primary text-sm" aria-label={`${String(usage.totalSessions)} sessions`}>
       {usage.totalSessions}
     </span>
   );
@@ -238,7 +238,7 @@ export function AgentSpendCell({
   return (
     <Tooltip content={spendTooltipContent(hasTotal)} className="max-w-xs whitespace-normal text-left">
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-text-primary text-sm font-medium">
+        <span className="text-text-primary text-sm">
           <span aria-label={`Your spend ${yourSpend}`}>{yourSpend}</span>
           <span aria-hidden className="text-text-secondary">
             {' / '}

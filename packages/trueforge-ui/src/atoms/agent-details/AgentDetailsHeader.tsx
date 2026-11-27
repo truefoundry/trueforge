@@ -71,13 +71,13 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
           <PermissionGuard allowed={canUse}>
             <Button.Primary
               type="button"
-              aria-label="Try agent"
+              aria-label="Chat with agent"
               size="large"
               disabled={detail == null}
               onClick={handleTry}
             >
               <Icon name="play" className="size-3.5" />
-              Try
+              Chat
             </Button.Primary>
           </PermissionGuard>
           {detail != null ? (

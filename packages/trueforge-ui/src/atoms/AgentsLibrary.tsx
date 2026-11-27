@@ -217,7 +217,7 @@ function AgentConfigurationSummary({
     <div className={cn('flex min-w-0 flex-col gap-0.5', className)}>
       {modelLabel != null ? (
         <Tooltip content={modelTitle}>
-          <span className="truncate text-sm font-medium text-text-primary" aria-label={modelTitle}>
+          <span className="truncate text-sm text-text-primary" aria-label={modelTitle}>
             {modelLabel}
           </span>
         </Tooltip>
