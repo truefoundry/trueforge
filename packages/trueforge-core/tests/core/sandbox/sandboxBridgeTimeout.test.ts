@@ -46,7 +46,7 @@ function makeSandbox(options: {
   return {
     sandbox: new Sandbox({
       provider,
-      blockDestructiveToolsInCodeMode: true,
+      codeModeApprovalsEnabled: false,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
       logger: makeSilentLogger(),

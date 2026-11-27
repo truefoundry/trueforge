@@ -36,7 +36,7 @@ function makeSandbox(provider: SandboxProvider, existingSandboxId?: string): San
   return new Sandbox({
     provider,
     existingSandboxId,
-    blockDestructiveToolsInCodeMode: true,
+    codeModeApprovalsEnabled: false,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
     logger: makeSilentLogger(),

@@ -12,12 +12,11 @@ import base64
 import asyncio
 import logging
 import argparse
-from pathlib import Path
 from typing import Any, TypedDict
 
 from pydantic import BaseModel, ValidationError
 
-from mcp.types import CallToolResult, TextContent, Tool
+from mcp.types import CallToolResult, TextContent
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +40,9 @@ if _tracestate := os.environ.get("TFY_TRACESTATE"):
     _nats_trace_headers["tracestate"] = _tracestate
 
 
-class _ToolsCache(BaseModel):
-    fetched_at: float
-    tools: list[Tool]
-
-
 class _BridgeReply(BaseModel):
     """NATS bridge reply envelope. `result` is left untyped — operation-specific callers
-    (Tool / CallToolResult) validate the payload; this model only validates the envelope."""
+    (CallToolResult) validate the payload; this model only validates the envelope."""
 
     ok: bool
     result: Any = None
@@ -60,14 +54,13 @@ class _ServerConfig(TypedDict):
     allowed_tools: list[str]
 
 
-_TOOLS_CACHE_TTL_SECONDS = 600
-
-_inflight_list_tools: dict[str, asyncio.Task[list[Tool]]] = {}
+# A gated call returns a ticket; the host is polled for the outcome on this cadence. Polling
+# keeps each bridge request short, since a decision can take far longer than a tool call.
+_APPROVAL_POLL_INTERVAL_SECONDS = 2.0
+_APPROVAL_TIMEOUT_SECONDS = 600.0
 
 _raw_servers = os.environ.get("TFY_MCP_SERVERS")
 _servers_map: dict[str, _ServerConfig] = json.loads(base64.b64decode(_raw_servers).decode()) if _raw_servers else {}
-# Approvals are always enabled (Sandbox always injects TFY_ENABLE_AGENT_APPROVALS=true).
-_enable_agent_approvals = os.environ.get("TFY_ENABLE_AGENT_APPROVALS", "true").lower() == "true"
 
 
 def _check_tool_allowed(server: str, tool_name: str) -> None:
@@ -79,34 +72,6 @@ def _check_tool_allowed(server: str, tool_name: str) -> None:
         raise RuntimeError(f"Access denied: tool '{tool_name}' is not enabled on server '{server}'") from None
 
 
-def _cache_path(server: str) -> Path:
-    return Path(__file__).parent / f"{server}.tools.json"
-
-
-def _read_tools_cache(server: str) -> _ToolsCache | None:
-    p = _cache_path(server)
-    if not p.exists():
-        return None
-    try:
-        cache = _ToolsCache.model_validate_json(p.read_text(encoding="utf-8"))
-    except Exception:
-        logger.exception("_ToolsCache.model_validate_json")
-        p.unlink(missing_ok=True)
-        return None
-    if time.time() - cache.fetched_at > _TOOLS_CACHE_TTL_SECONDS:
-        p.unlink(missing_ok=True)
-        return None
-    return cache
-
-
-def _write_tools_cache(server: str, tools: list[Tool]) -> None:
-    try:
-        cache = _ToolsCache(fetched_at=time.time(), tools=tools)
-        _cache_path(server).write_text(cache.model_dump_json(), encoding="utf-8")
-    except Exception:
-        logger.exception("_write_tools_cache")
-
-
 def _require_nats_subject() -> str:
     if not _NATS_SUBJECT or not _nats_url:
         raise RuntimeError(
@@ -114,19 +79,6 @@ def _require_nats_subject() -> str:
             "Try again."
         ) from None
     return _NATS_SUBJECT
-
-
-async def _fetch_tools(server: str) -> list[Tool]:
-    result = await _nats_request(_require_nats_subject(), {"op": "list_tools", "server": server})
-    if not isinstance(result, dict):
-        raise RuntimeError(f"NATS list_tools '{server}' returned unexpected shape: {result!r}") from None
-    return [Tool.model_validate(t) for t in result.get("tools", [])]
-
-
-async def _fetch_and_cache_tools(server: str) -> list[Tool]:
-    tools = await _fetch_tools(server)
-    _write_tools_cache(server, tools)
-    return tools
 
 
 async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
@@ -202,47 +154,32 @@ async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
             logger.debug("Error closing NATS connection", exc_info=True)
 
 
-async def _get_tools(server: str) -> list[Tool]:
-    cache = _read_tools_cache(server)
-    if cache is not None:
-        return cache.tools
-    task = _inflight_list_tools.get(server)
-    if task is None:
-        task = asyncio.create_task(_fetch_and_cache_tools(server))
-        _inflight_list_tools[server] = task
-        task.add_done_callback(lambda _t: _inflight_list_tools.pop(server, None))
-    return await task
+def _approval_id(raw: Any) -> str | None:
+    """Ticket handed back when the call needs a user decision, else None."""
+    if not isinstance(raw, dict):
+        return None
+    pending = raw.get("approval_pending")
+    if not isinstance(pending, dict):
+        return None
+    approval_id = pending.get("approval_id")
+    return approval_id if isinstance(approval_id, str) and approval_id else None
 
 
-async def _get_tool(server: str, tool_name: str) -> Tool | None:
-    for t in await _get_tools(server):
-        if t.name == tool_name:
-            return t
-    return None
-
-
-def _is_destructive(tool: Tool) -> bool:
-    annotations = tool.annotations
-    if annotations is None:
-        return False
-
-    destructive = getattr(
-        annotations, "destructive_hint", getattr(annotations, "destructiveHint", None)
-    )
-    read_only = getattr(
-        annotations, "read_only_hint", getattr(annotations, "readOnlyHint", None)
-    )
-    return bool(destructive) or (not read_only and read_only is not None)
-
-async def _ensure_non_destructive(server: str, tool_name: str) -> None:
-    tool = await _get_tool(server, tool_name)
-    if tool is None:
-        raise RuntimeError(f"Tool '{tool_name}' not found on MCP server '{server}'") from None
-    if _is_destructive(tool):
-        raise RuntimeError(
-            f"Tool '{tool_name}' on MCP server '{server}' is destructive and cannot be called in Code Mode; "
-            f"call it directly so it can go through the user approval flow"
-        ) from None
+async def _await_approval(server: str, tool: str, approval_id: str) -> Any:
+    deadline = time.monotonic() + _APPROVAL_TIMEOUT_SECONDS
+    while True:
+        await asyncio.sleep(_APPROVAL_POLL_INTERVAL_SECONDS)
+        raw = await _nats_request(
+            _require_nats_subject(),
+            {"op": "await_approval", "approval_id": approval_id},
+        )
+        if _approval_id(raw) is None:
+            return raw
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"Approval for '{server}/{tool}' was not granted within "
+                f"{int(_APPROVAL_TIMEOUT_SECONDS)}s"
+            ) from None
 
 
 def _project_call_tool_result(server: str, tool: str, result: CallToolResult) -> Any:
@@ -270,13 +207,14 @@ def _project_call_tool_result(server: str, tool: str, result: CallToolResult) ->
 
 async def call_tool(server: str, tool: str, body: dict[str, Any]) -> Any:
     _check_tool_allowed(server, tool)
-    if _enable_agent_approvals:
-        await _ensure_non_destructive(server, tool)
 
     raw = await _nats_request(
         _require_nats_subject(),
         {"op": "call_tool", "server": server, "tool": tool, "arguments": body},
     )
+    approval_id = _approval_id(raw)
+    if approval_id is not None:
+        raw = await _await_approval(server, tool, approval_id)
     try:
         result = CallToolResult.model_validate(raw)
     except Exception as e:

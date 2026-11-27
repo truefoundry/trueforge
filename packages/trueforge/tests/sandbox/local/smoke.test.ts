@@ -45,10 +45,11 @@ const ENV_INHERIT_MARKER = 'TFY_SMOKE_INHERIT';
 const ENV_INHERIT_VALUE = `inherit-${randomUUID()}`;
 const ENV_PEER_MARKER = 'TFY_SMOKE_PEER_ENV';
 const ENV_PEER_VALUE = `peer-secret-${randomUUID()}`;
-/** Product-shaped allowlist for smoke Code Mode client (demo/ping only). */
-const TFY_MCP_SERVERS_DEMO = Buffer.from(JSON.stringify({ demo: { allowed_tools: ['ping'] } }), 'utf8').toString(
-  'base64',
-);
+/** Product-shaped allowlist for smoke Code Mode client (demo server only). */
+const TFY_MCP_SERVERS_DEMO = Buffer.from(
+  JSON.stringify({ demo: { allowed_tools: ['ping', 'wipe'] } }),
+  'utf8',
+).toString('base64');
 // Package-root resolve: Jest's CJS transform breaks import.meta.resolve.
 const SRT_VENDOR = join(
   dirname(createRequire(import.meta.url).resolve('@anthropic-ai/sandbox-runtime/package.json')),
@@ -232,7 +233,8 @@ function makeSilentCodeModeLogger() {
   return logger;
 }
 
-function makeDemoToolSet(params: { onRequest?: () => void }): IToolSet {
+/** `ping` runs; `wipe` is annotated destructive and always needs a user decision. */
+function makeDemoToolSet(params: { onRequest?: () => void; onToolRun?: (tool: string) => void }): IToolSet {
   return {
     name: 'demo',
     id: 'demo',
@@ -250,6 +252,13 @@ function makeDemoToolSet(params: { onRequest?: () => void }): IToolSet {
               inputSchema: { type: 'object' as const, properties: {} },
               preload: true,
             },
+            {
+              name: 'wipe',
+              description: 'wipe',
+              inputSchema: { type: 'object' as const, properties: {} },
+              annotations: { destructiveHint: true },
+              preload: true,
+            },
           ],
         },
         wasInitialized: undefined,
@@ -257,6 +266,20 @@ function makeDemoToolSet(params: { onRequest?: () => void }): IToolSet {
     },
     callTool: async request => {
       params.onRequest?.();
+      if (request.name === 'wipe') {
+        return {
+          approvalRequired: {
+            tool_info: {
+              type: 'mcp' as const,
+              original_tool_name: 'wipe',
+              mcp_server_id: 'demo',
+              mcp_server_name: 'demo',
+              is_approval_required: true,
+            },
+          },
+        };
+      }
+      params.onToolRun?.(request.name);
       const args = request.arguments ?? {};
       const delayRaw = args['delay_ms'];
       const delayMs = typeof delayRaw === 'number' && Number.isFinite(delayRaw) ? delayRaw : 0;
@@ -277,8 +300,10 @@ async function withCodeModeTransport(params: {
   codeModeSocketParentPath: string;
   sandboxRootPath: string;
   maxMessageBytes?: number;
+  approvalsEnabled?: boolean;
   onProtocolError?: (message: string) => void;
   onRequest?: () => void;
+  onToolRun?: (tool: string) => void;
   run: (env: Record<string, string>) => Promise<void>;
 }): Promise<void> {
   const transport = new CodeModeUdsTransport({
@@ -288,7 +313,13 @@ async function withCodeModeTransport(params: {
     ...(params.onProtocolError === undefined ? {} : { onProtocolError: params.onProtocolError }),
   });
   const dispatcher = new CodeModeDispatcher({
-    toolSets: [makeDemoToolSet({ onRequest: params.onRequest })],
+    toolSets: [
+      makeDemoToolSet({
+        ...(params.onRequest === undefined ? {} : { onRequest: params.onRequest }),
+        ...(params.onToolRun === undefined ? {} : { onToolRun: params.onToolRun }),
+      }),
+    ],
+    approvalsEnabled: params.approvalsEnabled ?? false,
     logger: makeSilentCodeModeLogger(),
   });
   const install = transport.getClientInstall({ sandboxId: params.sandboxRootPath });
@@ -302,11 +333,56 @@ async function withCodeModeTransport(params: {
       ...env,
       PYTHONPATH: dirname(install.remotePath),
       TFY_MCP_SERVERS: TFY_MCP_SERVERS_DEMO,
-      TFY_ENABLE_AGENT_APPROVALS: 'true',
     });
   } finally {
     dispatcher.close();
     await transport.stop();
+  }
+}
+
+/**
+ * A tool that needs approval must never execute from a script, with the flag off (refused
+ * outright) or on (ticket, then a poll that cannot be satisfied until a broker exists).
+ */
+async function smokeCodeModeApprovalGate(params: {
+  sandboxRootPath: string;
+  codeModeSocketParentPath: string;
+  shell: string;
+  platform: 'darwin' | 'linux';
+}): Promise<void> {
+  const callWipe = `mcp-client call-tool demo wipe '${JSON.stringify({ target: 'everything' })}'`;
+
+  for (const approvalsEnabled of [false, true]) {
+    let ran = false;
+    await withCodeModeTransport({
+      codeModeSocketParentPath: params.codeModeSocketParentPath,
+      sandboxRootPath: params.sandboxRootPath,
+      approvalsEnabled,
+      onToolRun: () => {
+        ran = true;
+      },
+      run: async env => {
+        const call = await runSupervisorSession({
+          sandboxRootPath: params.sandboxRootPath,
+          shell: params.shell,
+          platform: params.platform,
+          command: callWipe,
+          env,
+          timeoutMs: 20_000,
+        });
+        assert.equal(call.protocolError, undefined, call.protocolError);
+        assert.notEqual(call.exitCode, 0, `gated tool must not succeed:\n${call.stdoutText}`);
+        assert.match(
+          call.stderrText,
+          approvalsEnabled ? /needs approval, which is not available yet/ : /cannot be called in Code Mode/,
+          call.stderrText,
+        );
+        assert.equal(ran, false, 'gated tool must not execute');
+        console.log(
+          `ok: Code Mode gated tool blocked (CODE_MODE_APPROVALS_ENABLED=${approvalsEnabled ? 'true' : 'false'})`,
+        );
+      },
+    });
   }
 }
 
@@ -354,6 +430,8 @@ async function smokeCodeMode(params: {
       console.log('ok: Code Mode call-tool (UDS)');
     },
   });
+
+  await smokeCodeModeApprovalGate(params);
 
   const oversizeCap = 1024;
   let oversizeError: string | undefined;

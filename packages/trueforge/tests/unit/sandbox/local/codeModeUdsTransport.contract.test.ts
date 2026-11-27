@@ -133,6 +133,7 @@ runCodeModeTransportContractSuite(async (): Promise<CodeModeTransportContractFix
   });
   const dispatcher = new CodeModeDispatcher({
     toolSets: [makeDemoToolSet()],
+    approvalsEnabled: false,
     logger: makeSilentLogger(),
   });
 

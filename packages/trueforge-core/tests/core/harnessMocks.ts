@@ -90,7 +90,7 @@ export function makeStubPublicSandbox(): Sandbox {
   };
   return new Sandbox({
     provider,
-    blockDestructiveToolsInCodeMode: true,
+    codeModeApprovalsEnabled: false,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
     logger: makeSilentLogger(),
