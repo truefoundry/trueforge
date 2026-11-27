@@ -469,8 +469,10 @@ export function ShellModeProvider({
   }, [queryClient]);
 
   const invalidateEnvironmentsList = useCallback(() => {
+    // Pickers and the manage page use different environment keys under this prefix.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.environments.all() });
     setEnvironmentsListEpoch(n => n + 1);
-  }, []);
+  }, [queryClient]);
 
   const lockedAgentName = agentConfig.mode === 'SingleAgent' ? agentConfig.name : '';
   const effectiveMode: ShellMode = useMemo(() => {

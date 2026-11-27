@@ -5,6 +5,7 @@ import {
   ThemeProvider,
   TrueForgeUI,
   useTheme,
+  type AgentBuilderCapabilitiesResponse,
   type AnalyticsConfig,
   type SlotOverrides,
   type ThemeConfig,
@@ -93,7 +94,12 @@ function Loader() {
 type BootState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
+  | {
+      status: 'ready';
+      defaultAgentSpec: HarnessAgentSpec;
+      openSettings: boolean;
+      capabilities: AgentBuilderCapabilitiesResponse['data'];
+    };
 
 export function App() {
   const authError = parseAuthErrorReason(window.location.search);
@@ -151,6 +157,7 @@ export function App() {
           setBoot({
             status: 'ready',
             openSettings: capabilities.settings.modelProviders.enabled,
+            capabilities,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,
@@ -162,6 +169,7 @@ export function App() {
         setBoot({
           status: 'ready',
           openSettings: false,
+          capabilities,
           defaultAgentSpec: {
             model: {
               name: first.name,
@@ -258,6 +266,7 @@ export function App() {
           type: 'trueforge',
           baseUrl: API_BASE_URL,
           fetch: authAwareFetch,
+          capabilities: boot.capabilities,
         }}
         layout="sidebar"
         withRouter

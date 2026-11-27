@@ -95,6 +95,29 @@ describe('useResolvedServer', () => {
     expect(result.current.server?.permissions).toBe(permissions);
   });
 
+  it('keeps host-loaded capabilities on the resolved state', async () => {
+    mockCreateTrueForgeAgentUIServer.mockClear();
+    const capabilities = {
+      sandbox: { enabled: false, environments: { enabled: false } },
+      skill: { enabled: true },
+      auto: { enabled: false },
+      sessionSharing: tenantSessionSharing,
+    };
+    const { result } = renderHook(() =>
+      useResolvedServer({
+        type: 'trueforge',
+        token: 'tok',
+        capabilities,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+    expect(result.current.status === 'ready' ? result.current.capabilities : undefined).toBe(capabilities);
+    expect(mockCreateTrueForgeAgentUIServer).toHaveBeenCalledWith({ token: 'tok' });
+  });
+
   it('attaches an optional catalog onto the trueforge server when factory returns one', async () => {
     const catalog = createMockCatalog();
     mockCreateTrueForgeAgentUIServer.mockImplementationOnce(async () =>

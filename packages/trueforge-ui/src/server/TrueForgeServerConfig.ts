@@ -1,4 +1,4 @@
-import type { AgentUIServer, CatalogServer, PermissionsServer } from './types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentUIServer, CatalogServer, PermissionsServer } from './types.js';
 
 /**
  * Built-in backends init inside `<TrueForgeUI />`.
@@ -14,6 +14,12 @@ export type TrueForgeBuiltInServerConfig = {
   fetch?: typeof fetch;
   catalog?: CatalogServer;
   permissions?: PermissionsServer;
+  /**
+   * Capabilities the host already loaded (for example at boot). The shell uses this as the
+   * capabilities query's initial data so it does not fetch the same flags again on mount.
+   * Keep the reference stable; a new object re-resolves the built-in server.
+   */
+  capabilities?: AgentBuilderCapabilitiesResponse['data'];
 };
 
 /**

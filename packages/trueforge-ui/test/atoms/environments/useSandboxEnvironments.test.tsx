@@ -125,6 +125,37 @@ describe('useSandboxEnvironments', () => {
     expect(result.current.environments.map(e => e.name)).toEqual(['env-page-1', 'env-page-2']);
   });
 
+  it('shares one list request across mounted hooks', async () => {
+    const listEnvironments = vi.fn().mockResolvedValue({ data: [readyEnv] });
+    const server = createMockAgentUIServer({
+      sandboxEnvironments: createMockSandboxEnvironmentServer({ listEnvironments }),
+    });
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return (
+        <ServerProvider server={server}>
+          <ShellModeProvider>{children}</ShellModeProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { result } = renderHook(
+      () => ({
+        first: useSandboxEnvironments(),
+        second: useSandboxEnvironments(),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.first.loaded).toBe(true);
+      expect(result.current.second.loaded).toBe(true);
+    });
+    expect(listEnvironments).toHaveBeenCalledTimes(1);
+    expect(result.current.first.environments).toEqual([readyEnv]);
+    expect(result.current.second.environments).toEqual([readyEnv]);
+  });
+
   it('clears a stale error when a catalog refresh succeeds', async () => {
     const listEnvironments = vi
       .fn()
