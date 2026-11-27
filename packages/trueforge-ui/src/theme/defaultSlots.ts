@@ -38,6 +38,7 @@ import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
 import type { ArtifactsPageProps } from '../atoms/artifacts/ArtifactsPage.js';
+import { SessionArtifactsCard } from '../atoms/artifacts/SessionArtifactsCard.js';
 import { ArtifactsButton } from '../atoms/ArtifactsButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
@@ -283,6 +284,7 @@ export const defaultSlots = {
   EnvironmentsButton,
   ArtifactsPage,
   ArtifactsButton,
+  SessionArtifactsCard,
   SaveAgentButton,
   SaveAgentForm,
   SelectAgentEmptyState,

@@ -1,5 +1,5 @@
 /**
- * Harness ArtifactServer adapter. `list` and rename exist on the API; the other methods reject
+ * Harness ArtifactServer adapter. List, session list and rename exist on the API; the other methods reject
  * until their routes land.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
@@ -29,6 +29,10 @@ export function createArtifactServer(client: TrueForge): ArtifactServer {
         ...(request.name === undefined || request.name.length === 0 ? {} : { name: request.name }),
       });
       return toListResult(page, toUiArtifact);
+    },
+    async listSessionArtifacts({ sessionId }) {
+      const response = await client.sessions.listArtifacts(sessionId);
+      return response.data.map(toUiArtifact);
     },
     getArtifact: () => unavailable('Get artifact'),
     async updateArtifact({ id, name }) {

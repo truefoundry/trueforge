@@ -20,11 +20,13 @@ const sdkArtifact = {
 function mockClient({
   list = vi.fn(),
   update = vi.fn(),
+  listSessionArtifacts = vi.fn(),
 }: {
   list?: ReturnType<typeof vi.fn>;
   update?: ReturnType<typeof vi.fn>;
+  listSessionArtifacts?: ReturnType<typeof vi.fn>;
 }) {
-  return { artifacts: { list, update } } as unknown as TrueForge;
+  return { artifacts: { list, update }, sessions: { listArtifacts: listSessionArtifacts } } as unknown as TrueForge;
 }
 
 describe('createArtifactServer', () => {
@@ -54,6 +56,24 @@ describe('createArtifactServer', () => {
     const list = vi.fn(async () => ({ data: [], response: { pagination: { limit: 25 } } }));
     await createArtifactServer(mockClient({ list })).listArtifacts({ name: '' });
     expect(list).toHaveBeenCalledWith({});
+  });
+
+  it('lists a session’s artifacts and maps them to UI artifacts', async () => {
+    const listSessionArtifacts = vi.fn(async () => ({ data: [sdkArtifact] }));
+    const artifacts = await createArtifactServer(mockClient({ listSessionArtifacts })).listSessionArtifacts({
+      sessionId: 's1',
+    });
+
+    expect(listSessionArtifacts).toHaveBeenCalledWith('s1');
+    expect(artifacts).toEqual([
+      {
+        id: 'a1',
+        name: 'Q4 brief',
+        createdBySubject,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-02T00:00:00.000Z',
+      },
+    ]);
   });
 
   it('renames through the update route and maps the response', async () => {
