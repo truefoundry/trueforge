@@ -5,6 +5,8 @@ import { shellEscape } from './provider/Provider';
 const UPLOAD_REQUESTS_DIR_NAME = 'uploads';
 // Above the script's own upload deadline, so the script reports timeouts itself.
 export const ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS = 300;
+// Hashes every file before size limits apply, so allow for a large dir.
+export const ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS = 120;
 
 export interface ArtifactUploadRequest {
   concurrency: number;

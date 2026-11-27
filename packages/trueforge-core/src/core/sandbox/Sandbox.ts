@@ -16,6 +16,7 @@ import {
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import {
+  ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS,
   ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
   ArtifactDirMetadataSchema,
   artifactUploadRequestPath,
@@ -719,7 +720,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       schema: ArtifactDirMetadataSchema,
       command: paths => buildArtifactMetadataCommand({ ...paths, dir }),
       requestFile: undefined,
-      timeoutSeconds: undefined,
+      timeoutSeconds: ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS,
     });
   }
 
@@ -750,7 +751,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     schema: z.ZodType<T>;
     requestFile: ((paths: ArtifactTransferPaths) => { remotePath: string; content: Buffer }) | undefined;
     command: (paths: ArtifactTransferPaths) => string;
-    timeoutSeconds: number | undefined;
+    timeoutSeconds: number;
   }): Promise<ArtifactTransferRun<T>> {
     const { sandboxInfo, sandboxCreated } = await this.ensureReadySandbox();
     const sandboxId = this.providerSandboxId(sandboxInfo.sandbox_id);

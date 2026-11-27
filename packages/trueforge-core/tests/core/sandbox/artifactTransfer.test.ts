@@ -228,6 +228,7 @@ describe('Sandbox artifact transfer', () => {
     const command = execs.at(-1)?.command;
     expect(command).toContain(`umask 077 && mkdir -p '${ARTIFACTS_DIR}/uploads'`);
     expect(command).toContain(`python3 '${SCRIPT}' metadata '/home/trueforge/it'\\''s'`);
+    expect(execs.at(-1)?.timeoutSeconds).toBe(120);
   });
 
   it('upload copies the script and request, then runs and deletes the request in one exec', async () => {
