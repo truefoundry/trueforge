@@ -876,7 +876,7 @@ export interface SharedServerConfiguration {
   /**
    * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`) and per-version limits
    * `max_files` (default 25) and `max_total_bytes` (default 25 MB). A tenant that is on gets
-   * `push_artifact` when S3 is configured. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
+   * `push_artifact`. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
    */
   ARTIFACTS: ArtifactsConfig | undefined;
   /**

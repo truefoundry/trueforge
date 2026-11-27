@@ -171,7 +171,7 @@ export function buildResolveSkillStore<TTransaction>(options: {
   return () => persistenceStore;
 }
 
-/** S3 object store shared by tenants with artifacts on; undefined for all when S3 is not configured. */
+/** Shared S3 object store for enabled tenants; undefined for all when S3 is not configured. */
 export function buildResolveObjectStore(options: { s3Config: S3Config | undefined }): ResolveObjectStore {
   const { s3Config } = options;
   if (s3Config === undefined) {
