@@ -97,10 +97,10 @@ export interface SandboxOptions<TEnvironment = undefined> {
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
   resolvedGitCredentialsContent?: string | null | undefined;
   /**
-   * Blocks destructive tools in code mode so they go through the approval flow
-   * instead. Must be `true` — approvals are always enabled (the kill switch is gone).
+   * When false, a Code Mode call that needs approval is refused. When true, the script is
+   * handed a ticket to poll instead.
    */
-  blockDestructiveToolsInCodeMode: true;
+  codeModeApprovalsEnabled: boolean;
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
@@ -166,8 +166,6 @@ function injectMCPClientEnv(params: {
       // Sandbox: exec span as parent.
       ...injectTraceContextEnv(),
     }),
-    // Approvals are always enabled: destructive tools cannot run in code mode.
-    TFY_ENABLE_AGENT_APPROVALS: 'true',
   };
 }
 
@@ -217,6 +215,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   private sandboxInitPromise?: Promise<void> | undefined;
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
+  private readonly codeModeApprovalsEnabled: boolean;
   private readonly requestTimeoutSeconds: number;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
@@ -247,6 +246,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     this.existingSandboxId = options.existingSandboxId;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
+    this.codeModeApprovalsEnabled = options.codeModeApprovalsEnabled;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.logger = options.logger.child({ module: 'Sandbox' });
@@ -288,7 +288,11 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       throw new Error('Code Mode is already configured for this Sandbox');
     }
     this.codeExecToolSets = servers;
-    this.codeModeDispatcher = new CodeModeDispatcher({ toolSets: servers, logger: this.logger });
+    this.codeModeDispatcher = new CodeModeDispatcher({
+      toolSets: servers,
+      approvalsEnabled: this.codeModeApprovalsEnabled,
+      logger: this.logger,
+    });
     this.codeModeTransport = this.provider.createCodeModeTransport();
   }
 

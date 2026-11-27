@@ -19,26 +19,26 @@ import os
 import socket
 import sys
 import time
-from pathlib import Path
 from typing import Any, TypedDict
 
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024
-_TOOLS_CACHE_TTL_SECONDS = 600
+
+# A gated call returns a ticket; the host is polled for the outcome on this cadence. Polling
+# keeps each bridge request short, since a decision can take far longer than a tool call.
+_APPROVAL_POLL_INTERVAL_SECONDS = 2.0
+_APPROVAL_TIMEOUT_SECONDS = 600.0
 
 
 class _ServerConfig(TypedDict):
     allowed_tools: list[str]
 
 
-_inflight_list_tools: dict[str, asyncio.Task[list[dict[str, Any]]]] = {}
-
 _raw_servers = os.environ.get("TFY_MCP_SERVERS")
 _servers_map: dict[str, _ServerConfig] = (
     json.loads(base64.b64decode(_raw_servers).decode()) if _raw_servers else {}
 )
-_enable_agent_approvals = os.environ.get("TFY_ENABLE_AGENT_APPROVALS", "true").lower() == "true"
 
 
 def _sock_path() -> str:
@@ -59,40 +59,6 @@ def _check_tool_allowed(server: str, tool_name: str) -> None:
     server_tools = server_config.get("allowed_tools") or []
     if len(server_tools) > 0 and tool_name not in server_tools:
         raise RuntimeError(f"Access denied: tool '{tool_name}' is not enabled on server '{server}'") from None
-
-
-def _cache_path(server: str) -> Path:
-    return Path(__file__).parent / f"{server}.tools.json"
-
-
-def _read_tools_cache(server: str) -> list[dict[str, Any]] | None:
-    p = _cache_path(server)
-    if not p.exists():
-        return None
-    try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
-        if not isinstance(raw, dict):
-            raise ValueError("cache root must be object")
-        fetched_at = raw.get("fetched_at")
-        tools = raw.get("tools")
-        if not isinstance(fetched_at, (int, float)) or not isinstance(tools, list):
-            raise ValueError("cache shape invalid")
-        if time.time() - float(fetched_at) > _TOOLS_CACHE_TTL_SECONDS:
-            p.unlink(missing_ok=True)
-            return None
-        return [t for t in tools if isinstance(t, dict)]
-    except Exception:
-        logger.exception("_read_tools_cache")
-        p.unlink(missing_ok=True)
-        return None
-
-
-def _write_tools_cache(server: str, tools: list[dict[str, Any]]) -> None:
-    try:
-        payload = {"fetched_at": time.time(), "tools": tools}
-        _cache_path(server).write_text(json.dumps(payload), encoding="utf-8")
-    except Exception:
-        logger.exception("_write_tools_cache")
 
 
 def _read_message(sock: socket.socket) -> Any:
@@ -140,62 +106,29 @@ async def _uds_request(payload: dict[str, Any]) -> Any:
     return await asyncio.to_thread(_uds_request_sync, payload)
 
 
-async def _fetch_tools(server: str) -> list[dict[str, Any]]:
-    result = await _uds_request({"op": "list_tools", "server": server})
-    if not isinstance(result, dict):
-        raise RuntimeError(f"list_tools '{server}' returned unexpected shape: {result!r}") from None
-    tools = result.get("tools", [])
-    if not isinstance(tools, list):
-        raise RuntimeError(f"list_tools '{server}' tools is not a list: {tools!r}") from None
-    return [t for t in tools if isinstance(t, dict)]
+def _approval_id(raw: Any) -> str | None:
+    """Ticket handed back when the call needs a user decision, else None."""
+    if not isinstance(raw, dict):
+        return None
+    pending = raw.get("approval_pending")
+    if not isinstance(pending, dict):
+        return None
+    approval_id = pending.get("approval_id")
+    return approval_id if isinstance(approval_id, str) and approval_id else None
 
 
-async def _fetch_and_cache_tools(server: str) -> list[dict[str, Any]]:
-    tools = await _fetch_tools(server)
-    _write_tools_cache(server, tools)
-    return tools
-
-
-async def _get_tools(server: str) -> list[dict[str, Any]]:
-    cached = _read_tools_cache(server)
-    if cached is not None:
-        return cached
-    task = _inflight_list_tools.get(server)
-    if task is None:
-        task = asyncio.create_task(_fetch_and_cache_tools(server))
-        _inflight_list_tools[server] = task
-        task.add_done_callback(lambda _t: _inflight_list_tools.pop(server, None))
-    return await task
-
-
-async def _get_tool(server: str, tool_name: str) -> dict[str, Any] | None:
-    for t in await _get_tools(server):
-        if t.get("name") == tool_name:
-            return t
-    return None
-
-
-def _is_destructive(tool: dict[str, Any]) -> bool:
-    annotations = tool.get("annotations")
-    if annotations is None:
-        return False
-    if not isinstance(annotations, dict):
-        return False
-
-    read_only = annotations.get("read_only_hint", annotations.get("readOnlyHint"))
-    destructive = annotations.get("destructive_hint", annotations.get("destructiveHint"))
-    return bool(destructive) or (not read_only and read_only is not None)
-
-
-async def _ensure_non_destructive(server: str, tool_name: str) -> None:
-    tool = await _get_tool(server, tool_name)
-    if tool is None:
-        raise RuntimeError(f"Tool '{tool_name}' not found on MCP server '{server}'") from None
-    if _is_destructive(tool):
-        raise RuntimeError(
-            f"Tool '{tool_name}' on MCP server '{server}' is destructive and cannot be called in Code Mode; "
-            f"call it directly so it can go through the user approval flow"
-        ) from None
+async def _await_approval(server: str, tool: str, approval_id: str) -> Any:
+    deadline = time.monotonic() + _APPROVAL_TIMEOUT_SECONDS
+    while True:
+        await asyncio.sleep(_APPROVAL_POLL_INTERVAL_SECONDS)
+        raw = await _uds_request({"op": "await_approval", "approval_id": approval_id})
+        if _approval_id(raw) is None:
+            return raw
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"Approval for '{server}/{tool}' was not granted within "
+                f"{int(_APPROVAL_TIMEOUT_SECONDS)}s"
+            ) from None
 
 
 def _project_call_tool_result(server: str, tool: str, result: Any) -> Any:
@@ -235,8 +168,6 @@ def _project_call_tool_result(server: str, tool: str, result: Any) -> Any:
 
 async def call_tool(server: str, tool: str, body: dict[str, Any]) -> Any:
     _check_tool_allowed(server, tool)
-    if _enable_agent_approvals:
-        await _ensure_non_destructive(server, tool)
 
     raw = await _uds_request(
         {
@@ -246,6 +177,9 @@ async def call_tool(server: str, tool: str, body: dict[str, Any]) -> Any:
             "arguments": body,
         },
     )
+    approval_id = _approval_id(raw)
+    if approval_id is not None:
+        raw = await _await_approval(server, tool, approval_id)
     return _project_call_tool_result(server, tool, raw)
 
 

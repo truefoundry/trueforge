@@ -989,6 +989,11 @@ export interface SharedServerConfiguration {
    * timeouts or 409/520/524 — upstream may already have started the tool; honors Retry-After up to 5s, else backoff). Env: `MCP_HTTP_MAX_RETRIES`. Default 2.
    */
   MCP_HTTP_MAX_RETRIES: number;
+  /**
+   * Let a Code Mode script wait for approval on a gated tool instead of being refused.
+   * Env: `CODE_MODE_APPROVALS_ENABLED`. Default false.
+   */
+  CODE_MODE_APPROVALS_ENABLED: boolean;
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
@@ -1421,6 +1426,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_HTTP_MAX_RETRIES',
     raw: getEnv('MCP_HTTP_MAX_RETRIES'),
     defaultValue: 2,
+  }),
+  CODE_MODE_APPROVALS_ENABLED: parseBoolean({
+    envKey: 'CODE_MODE_APPROVALS_ENABLED',
+    raw: getEnv('CODE_MODE_APPROVALS_ENABLED'),
+    defaultValue: false,
   }),
   SENTRY_ENABLED: parseBoolean({
     envKey: 'SENTRY_ENABLED',

@@ -253,7 +253,7 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
     ...(input.environment !== undefined ? { environment: input.environment } : {}),
     existingSandboxId: input.existingSandboxId,
     fileDownloadEnabled: input.fileDownloadEnabled,
-    blockDestructiveToolsInCodeMode: true,
+    codeModeApprovalsEnabled: configuration.CODE_MODE_APPROVALS_ENABLED,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     skillMounter: new SkillMounter({ skills: input.skills ?? [] }),

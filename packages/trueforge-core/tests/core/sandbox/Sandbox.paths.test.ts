@@ -41,7 +41,7 @@ function makeSandbox(
     provider,
     existingSandboxId: options.existingSandboxId,
     skillMounter: options.skillMounter,
-    blockDestructiveToolsInCodeMode: true,
+    codeModeApprovalsEnabled: false,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
     logger: makeSilentLogger(),
