@@ -245,19 +245,15 @@ describe('draft preference storage', () => {
   });
 
   it('marks the Auto default and stores Auto as the chat model', () => {
-    const autoModel = { type: 'auto' as const, candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] };
-    markChatAutoModelDefaulted(
-      {
-        model: { type: 'fixed' as const, name: 'chat/model' },
-        skills: [{ name: 'Skill' }],
-        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
-      },
-      autoModel,
-    );
+    markChatAutoModelDefaulted({
+      model: { type: 'fixed' as const, name: 'chat/model' },
+      skills: [{ name: 'Skill' }],
+      config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+    });
 
     expect(chatAutoModelDefaultPending()).toBe(false);
     expect(readDraftSpecPreferences('chat')).toEqual({
-      model: autoModel,
+      model: { type: 'auto', candidateModels: [] },
       skills: [{ name: 'Skill' }],
       config: { webSearch: { enabled: true } },
     });
@@ -268,10 +264,7 @@ describe('draft preference storage', () => {
   });
 
   it('keeps the Auto-default marker when a later write stores a different model', () => {
-    markChatAutoModelDefaulted(
-      { model: { type: 'fixed' as const, name: 'chat/model' } },
-      { type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] },
-    );
+    markChatAutoModelDefaulted({ model: { type: 'fixed' as const, name: 'chat/model' } });
     writeDraftSpecPreferences('chat', { model: { type: 'fixed' as const, name: 'gpt' } });
 
     expect(chatAutoModelDefaultPending()).toBe(false);

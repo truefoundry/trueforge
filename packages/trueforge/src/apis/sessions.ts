@@ -346,8 +346,9 @@ type ValidateSessionSpecDeps<TTransaction = never> = Pick<
  * held to the same rules.
  *
  * `allowInlineResources` is for caller-supplied specs only: it checks model, MCP, and
- * skill names against `x-tfg-*` when those headers are present. A named agent runs a
- * stored spec, so those headers must not widen what it may reference.
+ * skill names against `x-tfg-*` when those headers are present, and lets an auto model
+ * leave `candidate_models` empty. A named agent runs a stored spec, so those headers must
+ * not widen what it may reference and its candidate list must be filled.
  *
  * `runAsAgent` matches the identity a turn runs under, so a caller who may use an
  * agent is not rejected for models or connectors only the agent can reach.
@@ -385,6 +386,7 @@ function validateSessionSpec<TTransaction>({
     previousSpec,
     agentId: runAsAgent?.id,
     modelRouting: trueFoundryModelRouting(),
+    allowDefaultCandidates: allowInlineResources,
   });
 }
 

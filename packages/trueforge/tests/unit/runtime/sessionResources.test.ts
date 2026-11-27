@@ -267,6 +267,103 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
+  describe('auto with no candidate models', () => {
+    const emptyAuto = AgentSpecSchema.parse({
+      model: { type: 'auto', candidate_models: [] },
+      instructions: 'test',
+    });
+    const routingOn = () =>
+      parseTrueFoundryModelRouting(
+        JSON.stringify({
+          decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+          tenants: { default: { enabled: 'on' } },
+        }),
+      );
+
+    async function setupTenantList(tenantModels: ModelInfo[], accessibleModels = tenantModels) {
+      const stores = await setup();
+      jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue(accessibleModels);
+      await stores.configurationStore.upsertConfiguration({
+        tenant_id: 'default',
+        manifest: {
+          web_search: { enabled: true },
+          memory: { enabled: true },
+          auto_model_routing: { enabled: true, candidate_models: tenantModels.map(model => model.name) },
+        },
+      });
+      return stores;
+    }
+
+    it("accepts it in a chat when the tenant's models can route every category", async () => {
+      const stores = await setupTenantList(COVERING);
+      await expect(
+        validateAgentSpec({
+          spec: emptyAuto,
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          modelRouting: routingOn(),
+          allowDefaultCandidates: true,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("rejects it in a chat when the tenant's models cannot route every category", async () => {
+      // Haiku and Luna serve the cheaper categories only, so adaptive and frontier get no model.
+      const stores = await setupTenantList([COVERING[0], COVERING[2]].filter(model => model !== undefined));
+      await expect(
+        validateAgentSpec({
+          spec: emptyAuto,
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          modelRouting: routingOn(),
+          allowDefaultCandidates: true,
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining("don't cover every tier"),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('does not count tenant models the caller cannot access', async () => {
+      // The tenant's models cover every category, but the caller can only reach Haiku and Luna.
+      const stores = await setupTenantList(
+        COVERING,
+        [COVERING[0], COVERING[2]].filter(model => model !== undefined),
+      );
+      await expect(
+        validateAgentSpec({
+          spec: emptyAuto,
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          modelRouting: routingOn(),
+          allowDefaultCandidates: true,
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: expect.stringContaining("don't cover every tier"),
+      } satisfies Partial<HTTPException>);
+    });
+
+    it('rejects it on a saved agent, which must list its own models', async () => {
+      const stores = await setupTenantList(COVERING);
+      await expect(
+        validateAgentSpec({
+          spec: emptyAuto,
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          modelRouting: routingOn(),
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        message: 'model.candidate_models needs at least 4 models',
+      } satisfies Partial<HTTPException>);
+    });
+  });
+
   it('rejects auto when the tenant turned Auto mode off, even with model routing on', async () => {
     const stores = await setup();
     await stores.configurationStore.upsertConfiguration({

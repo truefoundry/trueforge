@@ -62,19 +62,18 @@ export const AutoModelSchema = z
     type: z.literal(AUTO_MODEL).describe('Route each turn to the cheapest candidate model that suits the task.'),
     candidate_models: z
       .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
-      .min(
-        MIN_AUTO_CANDIDATE_MODELS,
-        `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
-      )
       .max(
         MAX_AUTO_CANDIDATE_MODELS,
         `model.candidate_models takes at most ${String(MAX_AUTO_CANDIDATE_MODELS)} models`,
       )
+      .refine(names => names.length === 0 || names.length >= MIN_AUTO_CANDIDATE_MODELS, {
+        message: `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
+      })
       .refine(names => new Set(names).size === names.length, {
         message: 'model.candidate_models must not contain duplicates',
       })
       .describe(
-        `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models the router may choose from, covering every routing category.`,
+        `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models the router may choose from.`,
       ),
   })
   .strict()

@@ -1,6 +1,7 @@
 import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
 
-import type { AgentRuntimeConfig, AgentSpec, Model } from './types.js';
+import { AUTO_MODEL_PATCH } from '../atoms/draft/autoModel.js';
+import type { AgentRuntimeConfig, AgentSpec } from './types.js';
 
 /** @deprecated Migrated into chat/agent keys on first read. */
 export const DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-draft-spec-preferences';
@@ -429,14 +430,14 @@ export function chatAutoModelDefaultPending(): boolean {
   return entry == null || entry.autoModelDefaulted !== true;
 }
 
-/** Persist `autoModel` as the New Chat model and mark the one-time default as applied. */
-export function markChatAutoModelDefaulted(spec: AgentSpec, autoModel: Model): void {
+/** Persist Auto as the New Chat model and mark the one-time default as applied. */
+export function markChatAutoModelDefaulted(spec: AgentSpec): void {
   if (typeof window === 'undefined') return;
   try {
     const stored: StoredDraftSpecPreferences = {
       version: 1,
       autoModelDefaulted: true,
-      spec: selectChatDraftSpecPreferences({ ...spec, model: autoModel }),
+      spec: selectChatDraftSpecPreferences({ ...spec, model: AUTO_MODEL_PATCH }),
     };
     window.localStorage.setItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY, JSON.stringify(stored));
   } catch {

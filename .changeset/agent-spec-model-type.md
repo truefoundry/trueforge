@@ -7,4 +7,4 @@
 ---
 
 The agent spec `model` is now `{ type: "fixed", name, params? }` or `{ type: "auto", candidate_models }` (4 to 10 models).
-A migration rewrites saved agents and inline sessions; `auto` copies the tenant's candidate models.
+A migration rewrites saved agents and inline sessions.

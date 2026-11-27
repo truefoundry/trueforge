@@ -10,7 +10,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class AutoModel(UncheckedBaseModel):
     candidate_models: typing.List[str] = pydantic.Field()
     """
-    Full names (account/model) of 4 to 10 models the router may choose from, covering every routing category.
+    Full names (account/model) of 4 to 10 models the router may choose from.
     """
 
     type: typing.Literal["auto"] = "auto"

@@ -1,22 +1,10 @@
 import { sql, type Kysely, type RawBuilder } from 'kysely';
 
-function typedModel({
-  table,
-  column,
-}: {
-  table: 'agent' | 'session';
-  column: 'manifest' | 'agent_spec';
-}): RawBuilder<unknown> {
+function typedModel({ column }: { column: 'manifest' | 'agent_spec' }): RawBuilder<unknown> {
   const spec = sql.id(column);
-  const adminList = sql`coalesce((
-    SELECT json_extract(c.manifest, '$.auto_model_routing.candidate_models')
-    FROM configuration c
-    WHERE c.tenant_id = ${sql.id(table, 'tenant_id')}
-      AND json_type(c.manifest, '$.auto_model_routing.candidate_models') = 'array'
-  ), '[]')`;
   return sql`CASE
     WHEN json_extract(${spec}, '$.model.name') = 'auto'
-      THEN json_object('type', 'auto', 'candidate_models', json(${adminList}))
+      THEN json_object('type', 'auto', 'candidate_models', json('[]'))
     WHEN json_type(${spec}, '$.model.params') IS NOT NULL
       THEN json_object(
         'type', 'fixed',
@@ -29,20 +17,21 @@ function typedModel({
 
 /**
  * Mirrors db/postgres/migrations/20261126_000001_agent_spec_model_type.ts.
- * A named model becomes fixed. Auto copies `candidate_models` from the tenant's configuration.
+ * A named model becomes fixed. A model named `auto` (only inline sessions have one) becomes an auto model with no
+ * candidates, which means the tenant's Auto models.
  * Saved agents live on `agent.manifest`; inline sessions live on `session.agent_spec`.
  */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
   await db.transaction().execute(async trx => {
     await sql`
       UPDATE agent
-      SET manifest = jsonb_set(manifest, '$.model', jsonb(${typedModel({ table: 'agent', column: 'manifest' })}))
+      SET manifest = jsonb_set(manifest, '$.model', jsonb(${typedModel({ column: 'manifest' })}))
       WHERE json_type(manifest, '$.model.type') IS NULL
     `.execute(trx);
 
     await sql`
       UPDATE session
-      SET agent_spec = jsonb_set(agent_spec, '$.model', jsonb(${typedModel({ table: 'session', column: 'agent_spec' })}))
+      SET agent_spec = jsonb_set(agent_spec, '$.model', jsonb(${typedModel({ column: 'agent_spec' })}))
       WHERE agent_spec IS NOT NULL AND json_type(agent_spec, '$.model.type') IS NULL
     `.execute(trx);
   });

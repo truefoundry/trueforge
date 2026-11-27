@@ -10,19 +10,10 @@ import {
   writeDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentBuilderCapabilitiesResponse, AgentSpec, ConfigurationServer } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer, tenantSessionSharing } from '../../server/mockServer.js';
 
-const TENANT_CANDIDATES = ['acct/haiku', 'acct/sonnet', 'acct/luna', 'acct/fable'];
-const AUTO = { type: 'auto' as const, candidateModels: TENANT_CANDIDATES };
-const tenantConfiguration: ConfigurationServer = {
-  getConfiguration: async () => ({
-    webSearch: { enabled: true },
-    memory: { enabled: true },
-    autoModelRouting: { enabled: true, candidateModels: TENANT_CANDIDATES },
-  }),
-  updateConfiguration: vi.fn(),
-};
+const AUTO = { type: 'auto' as const, candidateModels: [] };
 
 let agentSpec: AgentSpec;
 let draftSessionId: string | undefined;
@@ -61,14 +52,11 @@ async function expectMemoryUntouched() {
 function renderBridge({
   memory,
   auto = { status: 'not_configured' },
-  configuration = tenantConfiguration,
 }: {
   memory?: { enabled: boolean };
   auto?: AgentBuilderCapabilitiesResponse['data']['auto'];
-  configuration?: ConfigurationServer;
 } = {}) {
   const server = createMockAgentUIServer({
-    configuration,
     getCapabilities: async () => ({
       data: {
         sandbox: { enabled: true },
@@ -274,7 +262,7 @@ describe('DraftSpecPreferenceBridge Auto default', () => {
   it('does not switch again once the Auto default marker is stored', async () => {
     agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
     draftSessionId = undefined;
-    markChatAutoModelDefaulted(agentSpec, AUTO);
+    markChatAutoModelDefaulted(agentSpec);
     writeDraftSpecPreferences('chat', { model: { type: 'fixed' as const, name: 'model' } });
     updateAgentSpec.mockClear();
 
@@ -309,22 +297,6 @@ describe('DraftSpecPreferenceBridge Auto default', () => {
     }
   });
 
-  it("waits for the tenant's candidate models before switching to Auto", async () => {
-    agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
-    draftSessionId = undefined;
-
-    renderBridge({
-      auto: { status: 'enabled' },
-      configuration: { getConfiguration: () => new Promise(() => {}), updateConfiguration: vi.fn() },
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-    for (const [update] of updateAgentSpec.mock.calls) {
-      expect(update.model).not.toEqual(AUTO);
-    }
-    expect(chatAutoModelDefaultPending()).toBe(true);
-  });
-
   it('leaves the Auto default pending when Auto is not configured', async () => {
     agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
     draftSessionId = undefined;
@@ -336,30 +308,6 @@ describe('DraftSpecPreferenceBridge Auto default', () => {
       expect(update.model).not.toEqual(AUTO);
     }
     expect(chatAutoModelDefaultPending()).toBe(true);
-  });
-
-  it.each([
-    ['not configured', { status: 'not_configured' as const }],
-    ['disabled', { status: 'disabled' as const, reason: 'Auto mode is turned off for this tenant' }],
-  ])("does not read the tenant's configuration while Auto is %s", async (_label, auto) => {
-    agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
-    draftSessionId = undefined;
-    const getConfiguration = vi.fn(tenantConfiguration.getConfiguration);
-
-    renderBridge({ auto, configuration: { ...tenantConfiguration, getConfiguration } });
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-    expect(getConfiguration).not.toHaveBeenCalled();
-  });
-
-  it("reads the tenant's configuration once Auto is enabled", async () => {
-    agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
-    draftSessionId = undefined;
-    const getConfiguration = vi.fn(tenantConfiguration.getConfiguration);
-
-    renderBridge({ auto: { status: 'enabled' }, configuration: { ...tenantConfiguration, getConfiguration } });
-
-    await waitFor(() => expect(getConfiguration).toHaveBeenCalled());
   });
 });
 

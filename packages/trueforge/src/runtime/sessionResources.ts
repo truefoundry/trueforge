@@ -1,6 +1,7 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   AUTO_MODEL,
+  MIN_AUTO_CANDIDATE_MODELS,
   parseModelFqn,
   Sandbox,
   SkillMounter,
@@ -284,6 +285,7 @@ export async function validateAgentSpec({
   previousSpec,
   agentId,
   modelRouting,
+  allowDefaultCandidates = false,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -300,6 +302,7 @@ export async function validateAgentSpec({
   agentId: string | undefined;
   /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
   modelRouting: TrueFoundryModelRouting | undefined;
+  allowDefaultCandidates?: boolean;
 }): Promise<void> {
   // An auto model is only valid when this tenant routes models and allows Auto mode, and its candidates can route
   // every category.
@@ -313,13 +316,21 @@ export async function validateAgentSpec({
     if (!autoModelRouting.enabled) {
       throw new HTTPException(422, { message: AUTO_MODE_TURNED_OFF_MESSAGE });
     }
+    const listed = spec.model.candidate_models;
+    // Only a chat may leave the list empty; a saved agent must list its own models.
+    if (listed.length === 0 && !allowDefaultCandidates) {
+      throw new HTTPException(422, {
+        message: `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
+      });
+    }
     const accessibleModels = await modelProviderStore.listModels({ tenant_id });
     const accessible = new Set(accessibleModels.map(model => model.name));
     // Which candidate failed is left out, so the error cannot be used to probe which models the caller lacks.
-    if (spec.model.candidate_models.some(name => !accessible.has(name))) {
+    if (listed.some(name => !accessible.has(name))) {
       throw new HTTPException(422, { message: 'candidate_models must only contain models you have access to' });
     }
-    const candidates = new Set(spec.model.candidate_models);
+    // An empty list stands for the tenant's Auto models; only the ones the caller can access count.
+    const candidates = new Set(listed.length === 0 ? autoModelRouting.candidate_models : listed);
     const uncovered = describeUncoveredCandidateCategories(
       accessibleModels.filter(model => candidates.has(model.name)),
     );

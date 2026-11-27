@@ -399,12 +399,11 @@
         "additionalProperties": false,
         "properties": {
           "candidate_models": {
-            "description": "Full names (account/model) of 4 to 10 models the router may choose from, covering every routing category.",
+            "description": "Full names (account/model) of 4 to 10 models the router may choose from.",
             "items": {
               "type": "string"
             },
             "maxItems": 10,
-            "minItems": 4,
             "type": "array"
           },
           "type": {

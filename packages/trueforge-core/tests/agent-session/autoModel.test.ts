@@ -262,6 +262,26 @@ describe('auto model selection', () => {
     expect(names).toEqual(['a/claude-haiku-5-5']);
   });
 
+  it("routes among the tenant's models when the spec lists no candidates", async () => {
+    const { session } = await createSession({ type: 'auto', candidate_models: [] });
+    const names: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({
+        modelRouting: {
+          ...routing().deps,
+          candidateModels: ['a/claude-haiku-5-5', 'a/claude-sonnet-5-5', 'a/gpt-6-luna', FRONTIER],
+        },
+        onModel: name => names.push(name),
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    // The cheaper `b/` haiku is outside the tenant's models, so it is never picked.
+    expect(names).toEqual(['a/claude-haiku-5-5']);
+  });
+
   it('classifies the next turn with the previous conversation', async () => {
     const { session } = await createSession(autoSpec);
     const route = routing();

@@ -14,6 +14,9 @@ export const AUTO_MODEL_TOOLTIP_LINES = [
   'Auto is an intelligent model router that balances intelligence and cost.',
 ] as const;
 
+/** Selects Auto; the empty list leaves the choice to the tenant's Auto models. */
+export const AUTO_MODEL_PATCH: Model = { type: 'auto', candidateModels: [] };
+
 /** The key a model has in model lists: its name, or `AUTO_MODEL` for Auto. */
 export function modelSelectionKey(model: Model): string {
   return model.type === 'auto' ? AUTO_MODEL : model.name;

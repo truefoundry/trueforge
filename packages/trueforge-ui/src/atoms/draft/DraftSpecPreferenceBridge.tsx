@@ -23,11 +23,10 @@ import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
-import { AUTO_MODEL, keepsAutoModel, modelSelectionKey } from './autoModel.js';
+import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel, modelSelectionKey } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort } from './reasoningEffort.js';
 import { skillFamilyId } from './SkillVersionSelector.js';
-import { useAutoModel } from './useAutoModel.js';
 
 function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
@@ -238,7 +237,6 @@ export function DraftSpecPreferenceBridge() {
   // Capabilities omit memory when no provider is configured, which means unavailable.
   const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
   const isAutoModelKept = keepsAutoModel(capabilities);
-  const autoModel = useAutoModel();
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const prevMemoryEnabledRef = useRef(memoryEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
@@ -365,17 +363,15 @@ export function DraftSpecPreferenceBridge() {
     // One-time: the first time Auto is enabled for this user, switch the New Chat draft to it.
     if (!isPlainDraft || preferenceKind !== 'chat' || editsStoredSpec) return;
     if (!canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
-    if (capabilities?.auto.status !== 'enabled' || autoModel === undefined || autoModelDefaultAppliedRef.current)
-      return;
+    if (capabilities?.auto.status !== 'enabled' || autoModelDefaultAppliedRef.current) return;
     if (!chatAutoModelDefaultPending()) return;
     autoModelDefaultAppliedRef.current = true;
-    markChatAutoModelDefaulted(agentSpec, autoModel);
+    markChatAutoModelDefaulted(agentSpec);
     if (agentSpec.model.type !== 'auto') {
-      updateAgentSpec({ model: autoModel });
+      updateAgentSpec({ model: AUTO_MODEL_PATCH });
     }
   }, [
     agentSpec,
-    autoModel,
     canReconcileLiveSpec,
     capabilities?.auto.status,
     editsStoredSpec,

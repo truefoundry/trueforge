@@ -21,7 +21,13 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_UNAVAILABLE_HINT, keepsAutoModel, modelSelectionKey } from './autoModel.js';
+import {
+  AUTO_MODEL,
+  AUTO_MODEL_PATCH,
+  AUTO_MODEL_UNAVAILABLE_HINT,
+  keepsAutoModel,
+  modelSelectionKey,
+} from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ModelWarningMark, ProviderMark } from './DraftModelCatalogPanel.js';
 import { DraftReasoningEffortMenu } from './DraftReasoningEffortMenu.js';
@@ -31,7 +37,6 @@ import {
   reasoningEffortLabel,
   resolveReasoningEffort,
 } from './reasoningEffort.js';
-import { useAutoModel } from './useAutoModel.js';
 
 type ReasoningEffortTarget = { model: ModelSelection; efforts: string[]; top: number };
 
@@ -61,7 +66,6 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
     loaded && models.length === 0 && settingsChromeEnabled && canManageModelProviders && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
   const isAutoModelKept = keepsAutoModel(capabilities);
-  const autoModel = useAutoModel();
   const currentModel = agentSpec?.model;
   const currentParams = currentModel === undefined ? undefined : modelParams(currentModel);
   const currentKey = currentModel === undefined ? undefined : modelSelectionKey(currentModel);
@@ -172,11 +176,9 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
         capabilities == null || capabilities.auto.status === 'not_configured'
           ? undefined
           : {
-              enabled: capabilities.auto.status === 'enabled' && autoModel !== undefined,
+              enabled: capabilities.auto.status === 'enabled',
               unavailableHint: capabilities.auto.reason ?? AUTO_MODEL_UNAVAILABLE_HINT,
-              onSelect: () => {
-                if (autoModel !== undefined) commit(autoModel);
-              },
+              onSelect: () => commit(AUTO_MODEL_PATCH),
             }
       }
       reasoning={{

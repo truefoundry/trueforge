@@ -23,6 +23,13 @@ describe('AgentSpecSchema model', () => {
     expect(AgentSpecSchema.parse({ model }).model).toEqual(model);
   });
 
+  it('accepts no candidates, which leaves the choice to the tenant', () => {
+    expect(AgentSpecSchema.parse({ model: { type: 'auto', candidate_models: [] } }).model).toEqual({
+      type: 'auto',
+      candidate_models: [],
+    });
+  });
+
   it('accepts exactly the fewest and the most candidates', () => {
     expect(AgentSpecSchema.safeParse({ model: { type: 'auto', candidate_models: CANDIDATES } }).success).toBe(true);
     const most = Array.from({ length: 10 }, (_, index) => `a/model-${String(index)}`);
@@ -30,9 +37,9 @@ describe('AgentSpecSchema model', () => {
   });
 
   it.each([
-    ['no candidates', { type: 'auto', candidate_models: [] }],
     ['missing candidates', { type: 'auto' }],
     ['too few candidates', { type: 'auto', candidate_models: CANDIDATES.slice(0, 3) }],
+    ['a single candidate', { type: 'auto', candidate_models: CANDIDATES.slice(0, 1) }],
     [
       'too many candidates',
       { type: 'auto', candidate_models: Array.from({ length: 11 }, (_, i) => `a/model-${String(i)}`) },

@@ -324,17 +324,8 @@ describe('DraftModelSelector', () => {
   });
 
   describe('with Auto available', () => {
-    const tenantCandidates = ['acct/haiku', 'acct/sonnet', 'acct/luna', 'acct/fable'];
     const withAuto: Partial<AgentUIServer> = {
       getModels: async () => models,
-      configuration: {
-        getConfiguration: async () => ({
-          webSearch: { enabled: true },
-          memory: { enabled: true },
-          autoModelRouting: { enabled: true, candidateModels: tenantCandidates },
-        }),
-        updateConfiguration: vi.fn(),
-      },
       getCapabilities: async () => ({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
@@ -346,31 +337,15 @@ describe('DraftModelSelector', () => {
       }),
     };
 
-    it("selects Auto over the tenant's candidate models", async () => {
+    it('selects Auto with no candidates, which leaves the choice to the tenant', async () => {
       renderSelector({}, withAuto);
 
       const trigger = await screen.findByRole('button', { name: 'Select model' });
       await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
       fireEvent.click(trigger);
-      const auto = await screen.findByRole('option', { name: /Auto/ });
-      await waitFor(() => expect(auto).toBeEnabled());
-      fireEvent.click(auto);
+      fireEvent.click(await screen.findByRole('option', { name: /Auto/ }));
 
-      expect(updateAgentSpec).toHaveBeenCalledWith({
-        model: { type: 'auto', candidateModels: tenantCandidates },
-      });
-    });
-
-    it("keeps Auto disabled until the tenant's candidate models have loaded", async () => {
-      renderSelector(
-        {},
-        { ...withAuto, configuration: { getConfiguration: () => new Promise(() => {}), updateConfiguration: vi.fn() } },
-      );
-
-      const trigger = await screen.findByRole('button', { name: 'Select model' });
-      await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
-      fireEvent.click(trigger);
-      expect(await screen.findByRole('option', { name: /Auto/ })).toBeDisabled();
+      expect(updateAgentSpec).toHaveBeenCalledWith({ model: { type: 'auto', candidateModels: [] } });
     });
 
     it('shows no empty state when the search only matches Auto', async () => {

@@ -124,6 +124,18 @@ function threadIdsForCurrentTurn(snapshot: TurnSnapshot | undefined): string[] {
   return snapshot ? Object.keys(snapshot.threads) : [MAIN_THREAD_ID];
 }
 
+/** The models a thread may be routed to: the spec's own candidates, else the tenant's. */
+function routingCandidateModels({
+  spec,
+  resolver,
+}: {
+  spec: AgentSpec;
+  resolver: Pick<ITurnResourceResolver, 'routingCandidateModels'>;
+}): readonly string[] {
+  const own = spec.model.type === AUTO_MODEL ? spec.model.candidate_models : [];
+  return own.length > 0 ? own : resolver.routingCandidateModels;
+}
+
 export class SessionHandle<
   TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
@@ -752,7 +764,7 @@ export class SessionHandle<
             input: routingConversation(previousThread?.context ?? [], input.userMessage ?? []),
             instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
             categories: ROOT_ROUTING_CATEGORIES,
-            candidateModels: specModel.candidate_models,
+            candidateModels: routingCandidateModels({ spec, resolver }),
           }
         : undefined;
       const model = specModel.type === AUTO_MODEL && input.resuming ? saved : undefined;
@@ -769,7 +781,7 @@ export class SessionHandle<
         input: `Name: ${request.name}\n\nTask:\n${request.input}`,
         instructions: TASK_ROUTING_INSTRUCTIONS,
         categories: SUBAGENT_ROUTING_CATEGORIES,
-        candidateModels: spec.model.type === AUTO_MODEL ? spec.model.candidate_models : resolver.routingCandidateModels,
+        candidateModels: routingCandidateModels({ spec, resolver }),
       };
       return () => resolver.resolveModel({ spec, model: requested ?? input.rootModel, routingInput });
     }
