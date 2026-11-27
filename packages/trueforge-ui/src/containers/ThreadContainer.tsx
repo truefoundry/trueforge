@@ -18,6 +18,7 @@ import { HistoryLoaderContainer } from './HistoryLoaderContainer.js';
 import { ResumeUnavailableContainer } from './ResumeUnavailableContainer.js';
 import {
   SESSION_ARTIFACTS_COLUMN_INSET_CLASS,
+  SESSION_ARTIFACTS_TRANSITION_CLASS,
   SessionArtifactsContainer,
   useSessionArtifactsVisible,
 } from './SessionArtifactsContainer.js';
@@ -114,7 +115,11 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
                   {!showMessageSkeleton && !isEmpty && (
                     <div
-                      className={cn('flex shrink-0 flex-col', artifactsVisible && SESSION_ARTIFACTS_COLUMN_INSET_CLASS)}
+                      className={cn(
+                        'flex shrink-0 flex-col transition-[padding]',
+                        SESSION_ARTIFACTS_TRANSITION_CLASS,
+                        artifactsVisible && SESSION_ARTIFACTS_COLUMN_INSET_CLASS,
+                      )}
                     >
                       <ThreadComposerAreaShell isEmpty={isEmpty}>
                         <ThreadPrimitive.ScrollToBottom asChild>

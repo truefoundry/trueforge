@@ -7,6 +7,7 @@ import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useAuiState } from '../assistant-ui.js';
 import { artifactPreviewTarget } from '../atoms/artifacts/artifactDisplay.js';
+import { cn } from '../atoms/lib/cn.js';
 import { useFilePreview } from '../filePreview/FilePreviewContext.js';
 import { useServerQueryClient } from '../server/queryClient.js';
 import { queryKeys } from '../server/queryKeys.js';
@@ -20,6 +21,9 @@ export const SESSION_ARTIFACTS_COLUMN_INSET_CLASS = 'lg:pr-[20rem]';
 
 /** The backend writes artifacts mid-run and the stream has no artifact event, so the list is polled while a run is active. */
 export const SESSION_ARTIFACTS_RUN_POLL_MS = 5000;
+
+/** Shared by the card column and the composer inset so both move in step when the card is toggled. */
+export const SESSION_ARTIFACTS_TRANSITION_CLASS = 'duration-200 ease-out motion-reduce:transition-none';
 
 function useSessionArtifactsQuery() {
   const artifactServer = useOptionalArtifactServer();
@@ -52,7 +56,7 @@ export function useSessionArtifactsVisible(): boolean {
   return available && (panel?.open ?? true);
 }
 
-/** Card listing the artifacts the active session produced; renders nothing when there are none or it is hidden. */
+/** Card listing the artifacts the active session produced; renders nothing when there are none. */
 export function SessionArtifactsContainer() {
   const SessionArtifactsCard = useSlot('SessionArtifactsCard');
   const queryClient = useServerQueryClient();
@@ -72,8 +76,9 @@ export function SessionArtifactsContainer() {
     wasRunning.current = isRunning;
   }, [isRunning, queryClient, sessionId]);
 
-  if (artifactServer == null || artifacts == null || artifacts.length === 0 || panel?.open === false) return null;
+  if (artifactServer == null || artifacts == null || artifacts.length === 0) return null;
 
+  const open = panel?.open !== false;
   const openArtifact = (artifact: Artifact) => {
     track(AnalyticsEvents.Artifact.SESSION_CARD_PREVIEW_OPENED, { artifact_id: artifact.id });
     openFilePreview(artifactPreviewTarget({ artifact, artifactServer }));
@@ -81,14 +86,25 @@ export function SessionArtifactsContainer() {
 
   // Rendered inside the thread scroll root, beside the messages: the messages shift left and the
   // card stays pinned while the chat scrolls, with the scrollbar after it.
+  // Hiding collapses the column width instead of unmounting, so the centered messages and the composer
+  // inset glide together; `invisible` drops the collapsed card from focus once the transition ends.
   return (
-    <div className="sticky top-0 hidden shrink-0 self-start p-4 lg:block">
-      <SessionArtifactsCard
-        artifacts={artifacts}
-        selectedKey={preview.target?.turnId}
-        onOpen={openArtifact}
-        onShowMore={() => track(AnalyticsEvents.Artifact.SESSION_CARD_SHOW_MORE)}
-      />
+    <div
+      data-state={open ? 'open' : 'closed'}
+      className={cn(
+        SESSION_ARTIFACTS_TRANSITION_CLASS,
+        'sticky top-0 hidden shrink-0 self-start overflow-hidden transition-[width,opacity,visibility] lg:block',
+        open ? 'w-[20rem] opacity-100' : 'invisible w-0 opacity-0',
+      )}
+    >
+      <div className="w-[20rem] p-4">
+        <SessionArtifactsCard
+          artifacts={artifacts}
+          selectedKey={preview.target?.turnId}
+          onOpen={openArtifact}
+          onShowMore={() => track(AnalyticsEvents.Artifact.SESSION_CARD_SHOW_MORE)}
+        />
+      </div>
     </div>
   );
 }

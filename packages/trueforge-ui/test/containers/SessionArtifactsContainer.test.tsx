@@ -138,13 +138,18 @@ describe('SessionArtifactsContainer', () => {
     const toggle = screen.getByRole('button', { name: 'Artifacts' });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
 
+    const column = () => screen.getByLabelText('Session artifacts').closest('[data-state]');
+    expect(column()).toHaveAttribute('data-state', 'open');
+
     fireEvent.click(toggle);
-    expect(screen.queryByLabelText('Session artifacts')).not.toBeInTheDocument();
+    // The column collapses in place rather than unmounting, so it can animate.
+    expect(column()).toHaveAttribute('data-state', 'closed');
+    expect(column()).toHaveClass('invisible');
     expect(screen.getByRole('button', { name: 'Artifacts' })).toHaveAttribute('aria-pressed', 'false');
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Artifact.SESSION_CARD_TOGGLED, { open: false });
 
     fireEvent.click(screen.getByRole('button', { name: 'Artifacts' }));
-    expect(screen.getByLabelText('Session artifacts')).toBeInTheDocument();
+    expect(column()).toHaveAttribute('data-state', 'open');
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Artifact.SESSION_CARD_TOGGLED, { open: true });
   });
 
