@@ -989,6 +989,12 @@ export interface SharedServerConfiguration {
    * timeouts or 409/520/524 — upstream may already have started the tool; honors Retry-After up to 5s, else backoff). Env: `MCP_HTTP_MAX_RETRIES`. Default 2.
    */
   MCP_HTTP_MAX_RETRIES: number;
+  /**
+   * Budget added to the sandbox provider's exec ceiling for a Code Mode approval, so a user
+   * reading a card does not have the script killed underneath them. A blocked script is still
+   * a running process. Env: `CODE_MODE_APPROVAL_TIMEOUT_MS`. Default 10 minutes.
+   */
+  CODE_MODE_APPROVAL_TIMEOUT_MS: number;
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
@@ -1421,6 +1427,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_HTTP_MAX_RETRIES',
     raw: getEnv('MCP_HTTP_MAX_RETRIES'),
     defaultValue: 2,
+  }),
+  CODE_MODE_APPROVAL_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'CODE_MODE_APPROVAL_TIMEOUT_MS',
+    raw: getEnv('CODE_MODE_APPROVAL_TIMEOUT_MS'),
+    defaultValue: 10 * 60 * 1000,
   }),
   SENTRY_ENABLED: parseBoolean({
     envKey: 'SENTRY_ENABLED',

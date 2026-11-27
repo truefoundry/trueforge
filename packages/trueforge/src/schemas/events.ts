@@ -14,6 +14,7 @@ import {
   TurnUserEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
+  CodeModeApprovalRequiredEventSchema,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   ModelMessageDeltaEventSchema,
@@ -27,6 +28,7 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserCodeModeApprovalEventSchema,
   UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
@@ -65,10 +67,12 @@ export const TurnStreamingEventSchema = z
     SandboxCreatedEventSchema,
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
+    CodeModeApprovalRequiredEventSchema,
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
     UserMCPAuthContinueEventSchema,
+    UserCodeModeApprovalEventSchema,
     TurnCreatedEventSchema,
     TurnUpdateEventSchema,
     TurnDoneEventSchema,

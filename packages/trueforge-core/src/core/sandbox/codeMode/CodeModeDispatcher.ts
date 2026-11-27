@@ -124,6 +124,9 @@ export class CodeModeDispatcher {
     return response.result;
   }
 
+  // An approval-gated tool still falls through to the `interactive handling` throw below.
+  // Routing it to `CodeModeApprovalBroker.open` needs the `approval_pending` ticket and the
+  // `await_approval` poll, which are not on this branch; both arrive together.
   private async handleCallTool(req: {
     server: string;
     tool: string;

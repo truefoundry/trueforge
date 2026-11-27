@@ -231,6 +231,10 @@ export class LocalSandboxProvider implements SandboxProvider {
   private srtInitialized = false;
   private readonly logger: Logger;
 
+  getDefaultExecTimeoutSeconds(): number {
+    return this.defaultExecTimeoutSeconds;
+  }
+
   validateAccess(): Promise<void> {
     return Promise.resolve();
   }

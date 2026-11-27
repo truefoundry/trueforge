@@ -23,6 +23,7 @@ import type {
 } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
+import { CodeModeApprovalBroker } from '../core/sandbox/codeMode/CodeModeApprovalBroker';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
@@ -523,6 +524,9 @@ export class SessionHandle<
     const orchestrator = new AgentThreadOrchestrator({
       agentThreads,
       ...(maxParallelSubAgents !== undefined ? { maxParallelSubAgents } : {}),
+      // Approval ids only mean anything to the dispatcher that minted them, and a rebuild
+      // replaces both the sandbox handle and the orchestrator, so the broker is per turn.
+      ...(sandbox ? { codeModeApprovals: new CodeModeApprovalBroker({ logger: input.resolver.logger }) } : {}),
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,

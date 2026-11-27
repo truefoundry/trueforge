@@ -7,6 +7,7 @@
 import { z } from '@hono/zod-openapi';
 import type { WithRegisteredPassthrough } from '../../core/events/PassthroughEvents';
 import {
+  CodeModeApprovalRequiredEventSchema,
   EventIdSchema,
   EventType as HarnessEventType,
   MCPAuthRequiredEventSchema,
@@ -21,6 +22,7 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserCodeModeApprovalEventSchema,
   UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
@@ -101,10 +103,12 @@ export const SessionEventSchema = z
     SandboxCreatedEventSchema,
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
+    CodeModeApprovalRequiredEventSchema,
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
     UserMCPAuthContinueEventSchema,
+    UserCodeModeApprovalEventSchema,
   ])
   .openapi('SessionEvent');
 
