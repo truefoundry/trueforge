@@ -76,9 +76,9 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
   };
 }
 
-// The API omits `type` on a fixed model sent by an older client.
+// The API type also lists the legacy model, which responses never carry.
 function toUiModel(model: TrueForgeApi.ModelDefinition): Model {
-  return model.type === 'auto' ? model : { ...model, type: 'fixed' };
+  return 'type' in model ? model : { ...model, type: 'fixed' };
 }
 
 export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {

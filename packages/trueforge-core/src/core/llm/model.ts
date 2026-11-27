@@ -31,14 +31,17 @@ export const ModelSchema = z
 
 export const FixedModelSchema = z
   .object({
-    type: z
-      .literal('fixed')
-      .default('fixed')
-      .describe('Run every turn on the model named in `name`. Omitted by older clients.'),
+    type: z.literal('fixed').describe('Run every turn on the model named in `name`.'),
     ...ModelSchema.shape,
   })
   .strict()
   .openapi('FixedModel');
+
+/** The model shape sent before `type` existed; read as a fixed model. */
+export const LegacyModelSchema = z
+  .object({ ...ModelSchema.shape })
+  .strict()
+  .openapi('LegacyModel');
 
 /** Fewest models an auto spec may name, so every routing category can have one. */
 export const MIN_AUTO_CANDIDATE_MODELS = 4;
@@ -82,7 +85,10 @@ export const AutoModelSchema = z
   .strict()
   .openapi('AutoModel');
 
-export const ModelDefinitionSchema = z.union([FixedModelSchema, AutoModelSchema]).openapi('ModelDefinition');
+export const ModelDefinitionSchema = z
+  .union([LegacyModelSchema, FixedModelSchema, AutoModelSchema])
+  .transform((model): FixedModel | AutoModel => ('type' in model ? model : { type: 'fixed', ...model }))
+  .openapi('ModelDefinition');
 
 export type ModelParams = z.infer<typeof ModelParamsSchema>;
 export type Model = z.infer<typeof ModelSchema>;

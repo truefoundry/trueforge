@@ -108,6 +108,7 @@ export * from "./GoogleGeminiModelProvider.js";
 export * from "./InitialUserMessage.js";
 export * from "./InputTokensCompactionTrigger.js";
 export * from "./LargeToolResponseConfig.js";
+export * from "./LegacyModel.js";
 export * from "./LegacyTurnInputItem.js";
 export * from "./ListAgentsResponse.js";
 export * from "./ListArtifactsResponse.js";

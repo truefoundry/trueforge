@@ -110,7 +110,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, FixedModel, TrueForge
+        from trueforge_sdk import AgentSpec, LegacyModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -119,7 +119,7 @@ class AgentsClient:
         client.agents.create(
             description="description",
             manifest=AgentSpec(
-                model=FixedModel(
+                model=LegacyModel(
                     name="name",
                 ),
             ),
@@ -193,7 +193,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, FixedModel, TrueForge
+        from trueforge_sdk import AgentSpec, LegacyModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -202,7 +202,7 @@ class AgentsClient:
         client.agents.update(
             agent_id="agent_id",
             manifest=AgentSpec(
-                model=FixedModel(
+                model=LegacyModel(
                     name="name",
                 ),
             ),
@@ -350,7 +350,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, FixedModel
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, LegacyModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -362,7 +362,7 @@ class AsyncAgentsClient:
             await client.agents.create(
                 description="description",
                 manifest=AgentSpec(
-                    model=FixedModel(
+                    model=LegacyModel(
                         name="name",
                     ),
                 ),
@@ -449,7 +449,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, FixedModel
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, LegacyModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -461,7 +461,7 @@ class AsyncAgentsClient:
             await client.agents.update(
                 agent_id="agent_id",
                 manifest=AgentSpec(
-                    model=FixedModel(
+                    model=LegacyModel(
                         name="name",
                     ),
                 ),

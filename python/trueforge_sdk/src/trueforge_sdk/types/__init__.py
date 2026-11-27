@@ -116,6 +116,7 @@ if typing.TYPE_CHECKING:
     from .initial_user_message import InitialUserMessage
     from .input_tokens_compaction_trigger import InputTokensCompactionTrigger
     from .large_tool_response_config import LargeToolResponseConfig
+    from .legacy_model import LegacyModel
     from .legacy_turn_input_item import LegacyTurnInputItem
     from .list_agents_response import ListAgentsResponse
     from .list_artifacts_response import ListArtifactsResponse
@@ -426,6 +427,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InitialUserMessage": ".initial_user_message",
     "InputTokensCompactionTrigger": ".input_tokens_compaction_trigger",
     "LargeToolResponseConfig": ".large_tool_response_config",
+    "LegacyModel": ".legacy_model",
     "LegacyTurnInputItem": ".legacy_turn_input_item",
     "ListAgentsResponse": ".list_agents_response",
     "ListArtifactsResponse": ".list_artifacts_response",
@@ -760,6 +762,7 @@ __all__ = [
     "InitialUserMessage",
     "InputTokensCompactionTrigger",
     "LargeToolResponseConfig",
+    "LegacyModel",
     "LegacyTurnInputItem",
     "ListAgentsResponse",
     "ListArtifactsResponse",

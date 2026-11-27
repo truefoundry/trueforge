@@ -5,10 +5,11 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AutoModel } from "./AutoModel.js";
 import { FixedModel } from "./FixedModel.js";
+import { LegacyModel } from "./LegacyModel.js";
 
 export const ModelDefinition: core.serialization.Schema<serializers.ModelDefinition.Raw, TrueForge.ModelDefinition> =
-    core.serialization.undiscriminatedUnion([FixedModel, AutoModel]);
+    core.serialization.undiscriminatedUnion([LegacyModel, FixedModel, AutoModel]);
 
 export declare namespace ModelDefinition {
-    export type Raw = FixedModel.Raw | AutoModel.Raw;
+    export type Raw = LegacyModel.Raw | FixedModel.Raw | AutoModel.Raw;
 }

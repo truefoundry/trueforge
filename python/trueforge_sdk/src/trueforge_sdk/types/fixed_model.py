@@ -15,9 +15,9 @@ class FixedModel(UncheckedBaseModel):
     """
 
     params: typing.Optional[ModelParams] = None
-    type: typing.Optional[typing.Literal["fixed"]] = pydantic.Field(default=None)
+    type: typing.Literal["fixed"] = pydantic.Field(default="fixed")
     """
-    Run every turn on the model named in `name`. Omitted by older clients.
+    Run every turn on the model named in `name`.
     """
 
     if IS_PYDANTIC_V2:

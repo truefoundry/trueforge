@@ -4,5 +4,6 @@ import typing
 
 from .auto_model import AutoModel
 from .fixed_model import FixedModel
+from .legacy_model import LegacyModel
 
-ModelDefinition = typing.Union[FixedModel, AutoModel]
+ModelDefinition = typing.Union[LegacyModel, FixedModel, AutoModel]

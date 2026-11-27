@@ -343,7 +343,7 @@ The only required field. `type` picks how the model is chosen.
 
 | Field        | Type    | Required | Set via  | Description                                                                |
 | ------------ | ------- | -------- | -------- | -------------------------------------------------------------------------- |
-| `type`       | `fixed` | No       | UI + API | Always `fixed`. Requests without it still work.                            |
+| `type`       | `fixed` | Yes      | UI + API | Always `fixed`.                                                            |
 | `name`       | string  | Yes      | UI + API | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
 | `params`     | object  | No       | API      | Model call parameters, passed through to the provider.                     |
 

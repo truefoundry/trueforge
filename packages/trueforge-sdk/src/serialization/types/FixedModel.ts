@@ -9,13 +9,13 @@ export const FixedModel: core.serialization.ObjectSchema<serializers.FixedModel.
     core.serialization.object({
         name: core.serialization.string(),
         params: ModelParams.optional(),
-        type: core.serialization.stringLiteral("fixed").optional(),
+        type: core.serialization.stringLiteral("fixed"),
     });
 
 export declare namespace FixedModel {
     export interface Raw {
         name: string;
         params?: ModelParams.Raw | null;
-        type?: "fixed" | null;
+        type: "fixed";
     }
 }
