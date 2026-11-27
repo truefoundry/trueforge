@@ -313,9 +313,15 @@ export async function validateAgentSpec({
     if (!autoModelRouting.enabled) {
       throw new HTTPException(422, { message: AUTO_MODE_TURNED_OFF_MESSAGE });
     }
+    const accessibleModels = await modelProviderStore.listModels({ tenant_id });
+    const accessible = new Set(accessibleModels.map(model => model.name));
+    // Which candidate failed is left out, so the error cannot be used to probe which models the caller lacks.
+    if (spec.model.candidate_models.some(name => !accessible.has(name))) {
+      throw new HTTPException(422, { message: 'candidate_models must only contain models you have access to' });
+    }
     const candidates = new Set(spec.model.candidate_models);
     const uncovered = describeUncoveredCandidateCategories(
-      (await modelProviderStore.listModels({ tenant_id })).filter(model => candidates.has(model.name)),
+      accessibleModels.filter(model => candidates.has(model.name)),
     );
     if (uncovered !== undefined) {
       throw new HTTPException(422, { message: uncovered });

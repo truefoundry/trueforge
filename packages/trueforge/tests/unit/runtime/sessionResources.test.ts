@@ -212,6 +212,33 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('rejects auto when a candidate model is not accessible, without naming it', async () => {
+    const stores = await setup();
+    jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue(COVERING);
+    const modelRouting = parseTrueFoundryModelRouting(
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
+    );
+    const rejection = validateAgentSpec({
+      spec: AgentSpecSchema.parse({
+        model: { type: 'auto', candidate_models: [...autoModel.candidate_models, 'acct/secret'] },
+        instructions: 'test',
+      }),
+      tenant_id: 'default',
+      created_by_subject_id: 'test-subject',
+      ...stores,
+      modelRouting,
+    });
+
+    await expect(rejection).rejects.toMatchObject({
+      status: 422,
+      message: 'candidate_models must only contain models you have access to',
+    } satisfies Partial<HTTPException>);
+    await expect(rejection).rejects.not.toMatchObject({ message: expect.stringContaining('acct/secret') });
+  });
+
   it('rejects auto when its candidate models cannot route every category', async () => {
     const stores = await setup();
     const extras = [1, 2].map(index => routableModel(`acct/extra-${String(index)}`, 'google/gemini-3-8-flash'));
