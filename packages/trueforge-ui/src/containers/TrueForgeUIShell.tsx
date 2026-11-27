@@ -31,6 +31,7 @@ import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { SessionArtifactsPanelProvider } from './SessionArtifactsPanelContext.js';
 import { ToasterProvider } from './ToasterContainer.js';
 import { TrueForgeChatProvider, type TrueForgeChatProviderProps } from './TrueForgeChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
@@ -331,7 +332,11 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   }
 
   const server = resolved.server;
-  const layoutTree = <LayoutChildren layout={layout} className={className} />;
+  const layoutTree = (
+    <SessionArtifactsPanelProvider>
+      <LayoutChildren layout={layout} className={className} />
+    </SessionArtifactsPanelProvider>
+  );
 
   // Outer toaster for sessions browser / chrome; nested ToasterProvider inside
   // TrueForgeChatProvider stays for hosts that mount chat alone. Analytics wraps

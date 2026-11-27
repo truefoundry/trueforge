@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
+import { SessionArtifactsToggleButton } from '@/atoms/artifacts/SessionArtifactsToggleButton.js';
 import { SESSION_ARTIFACTS_RUN_POLL_MS, SessionArtifactsContainer } from '@/containers/SessionArtifactsContainer.js';
+import { SessionArtifactsPanelProvider } from '@/containers/SessionArtifactsPanelContext.js';
 import { FilePreviewProvider, useFilePreview } from '@/filePreview/FilePreviewContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { Artifact } from '@/server/types.js';
@@ -50,9 +52,11 @@ function PreviewProbe() {
 function renderContainer({
   artifacts,
   track,
+  withToggle = false,
 }: {
   artifacts: ReturnType<typeof createMockArtifactServer> | undefined;
   track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
+  withToggle?: boolean;
 }) {
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(),
@@ -63,8 +67,11 @@ function renderContainer({
       <AnalyticsProvider {...(track === undefined ? {} : { track })}>
         <ServerProvider server={server}>
           <FilePreviewProvider>
-            <SessionArtifactsContainer />
-            <PreviewProbe />
+            <SessionArtifactsPanelProvider>
+              {withToggle ? <SessionArtifactsToggleButton /> : null}
+              <SessionArtifactsContainer />
+              <PreviewProbe />
+            </SessionArtifactsPanelProvider>
           </FilePreviewProvider>
         </ServerProvider>
       </AnalyticsProvider>
@@ -116,6 +123,37 @@ describe('SessionArtifactsContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'load preview' }));
     expect(readArtifactFile).toHaveBeenCalledWith({ id: 'a1' });
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Artifact.SESSION_CARD_PREVIEW_OPENED, { artifact_id: 'a1' });
+  });
+
+  it('hides the card when the header toggle turns it off and shows it again', async () => {
+    const listSessionArtifacts = vi.fn(async () => [artifact('a1', 'report.html')]);
+    const track = vi.fn();
+    renderContainer({
+      artifacts: createMockArtifactServer({ listSessionArtifacts }),
+      track,
+      withToggle: true,
+    });
+
+    expect(await screen.findByText('report.html')).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Artifacts' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText('Session artifacts')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Artifacts' })).toHaveAttribute('aria-pressed', 'false');
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Artifact.SESSION_CARD_TOGGLED, { open: false });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Artifacts' }));
+    expect(screen.getByLabelText('Session artifacts')).toBeInTheDocument();
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Artifact.SESSION_CARD_TOGGLED, { open: true });
+  });
+
+  it('shows no toggle when the session has no artifacts', async () => {
+    const listSessionArtifacts = vi.fn(async () => []);
+    renderContainer({ artifacts: createMockArtifactServer({ listSessionArtifacts }), withToggle: true });
+
+    await waitFor(() => expect(listSessionArtifacts).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Artifacts' })).not.toBeInTheDocument();
   });
 
   it('renders nothing when the session has no artifacts', async () => {

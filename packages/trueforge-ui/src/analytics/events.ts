@@ -99,6 +99,7 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.artifact.edited',
     SESSION_CARD_PREVIEW_OPENED: 'trueforge.artifact.session_card_preview_opened',
     SESSION_CARD_SHOW_MORE: 'trueforge.artifact.session_card_show_more',
+    SESSION_CARD_TOGGLED: 'trueforge.artifact.session_card_toggled',
   },
   FilePreview: {
     RELOADED: 'trueforge.file_preview.reloaded',

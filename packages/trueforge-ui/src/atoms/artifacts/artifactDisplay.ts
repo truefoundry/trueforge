@@ -34,7 +34,7 @@ const FILE_TYPE: ArtifactType = { label: 'File', icon: 'file' };
 /** Short type label and icon for an artifact row, derived from the file name extension. */
 export function artifactType({ name }: Pick<Artifact, 'name'>): ArtifactType {
   const kind = inlinePreviewKind({ name, path: name });
-  if (kind === 'image') return { label: 'Image', icon: 'file-image' };
+  if (kind === 'image') return { label: 'Image', icon: 'image' };
   if (kind === 'html') return { label: 'Html', icon: 'file-code' };
   if (kind === 'pdf') return { label: 'Pdf', icon: 'file-text' };
   const extension = fileExtension(name);

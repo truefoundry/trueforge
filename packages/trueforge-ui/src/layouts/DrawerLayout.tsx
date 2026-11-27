@@ -33,6 +33,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const SessionsPage = useSlot('SessionsPage');
   const ArtifactsPage = useSlot('ArtifactsPage');
   const ShareChatButton = useSlot('ShareChatButton');
+  const SessionArtifactsToggleButton = useSlot('SessionArtifactsToggleButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const UserAvatar = useSlot('UserAvatar');
@@ -119,6 +120,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               {!overlayOpen && !showDesktopOnlyNotice ? (
                 <>
                   <ResetAgentBuilderButton />
+                  <SessionArtifactsToggleButton />
                   <ShareChatButton />
                   <ClearChatButton />
                   <SaveAgentButton />
