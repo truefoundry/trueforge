@@ -23,18 +23,32 @@ const baseClasses =
 /** Sidebar / list nav control corner radius: 12px. */
 export const sidebarButtonRadiusClassName = 'rounded-[0.75rem]';
 
+/** Soft blue sidebar / list hover (pairs with `shellSelectedClassName`). */
+export const shellHoverClassName = 'aui-shell-hover';
+
 /** Icon-only app rail control: 36×36 circle with 16px glyphs. */
 export const sidebarRailButtonClassName = cn(
   'rounded-full',
-  'size-9 shrink-0 !justify-center p-0 font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text [&_svg]:size-4',
+  'size-9 shrink-0 !justify-center p-0 font-normal shadow-none',
+  shellHoverClassName,
+  '[&_svg]:size-4',
 );
 
-/** Active rail / chat-history selection (theme fill + gradient stroke). */
-export const shellSelectedClassName = 'aui-shell-selected rounded-[0.5rem]';
+/** Collapsed labeled-sidebar control: 32×32 circle (matches selected chrome). */
+export const sidebarCompactNavButtonClassName = cn(
+  'size-8 shrink-0 !justify-center rounded-full p-0 text-sm font-normal text-sidebar-text shadow-none',
+  shellHoverClassName,
+);
 
-/** Active icon-rail control: selected chrome + primary text on hover. */
+/** Soft selected chrome for chat-history rows (and similar lists). */
+export const shellSelectedClassName = 'aui-shell-selected';
+
+/** Solid indigo selected chrome for sidebar nav — same 0.5rem radius as chat-history active. */
+export const shellNavSelectedClassName = 'aui-shell-nav-selected rounded-[0.5rem]';
+
+/** Active icon-rail control: nav selected chrome + primary text on hover. */
 export const shellRailSelectedClassName = cn(
-  shellSelectedClassName,
+  shellNavSelectedClassName,
   'rounded-full font-medium hover:text-text-primary',
 );
 

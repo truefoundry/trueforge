@@ -20,6 +20,7 @@ describe('sessionCreateAgent', () => {
     expect(readSessionIsCreateAgent({})).toBe(false);
     expect(readSessionIsCreateAgent({ 'tfg.is_create_agent': 'false' })).toBe(false);
     expect(readSessionIsCreateAgent({ 'tfg.is_create_agent': 'true' })).toBe(true);
+    expect(readSessionIsCreateAgent({ is_create_agent: 'true' })).toBe(true);
   });
 
   it('reads isCreateAgent from UI session objects', () => {

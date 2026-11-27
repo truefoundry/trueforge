@@ -124,7 +124,7 @@ describe('TrueForgeUI', () => {
       switch (layout) {
         case 'sidebar':
           expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-          expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
           break;
         case 'drawer':
           expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
@@ -160,10 +160,9 @@ describe('TrueForgeUI', () => {
     const avatar = await screen.findByLabelText('Ada Lovelace');
     expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
     if (layout === 'sidebar') {
-      // Desktop rail is icon-only; name stays on aria-label / title.
-      expect(avatar).not.toHaveTextContent('Ada Lovelace');
+      // Desktop sidebar shows the display name beside the avatar.
+      expect(avatar).toHaveTextContent('Ada Lovelace');
       expect(avatar.closest('aside')).not.toBeNull();
-      expect(avatar).toHaveClass('size-9');
     } else {
       expect(avatar).toHaveTextContent('Ada Lovelace');
       if (layout === 'drawer') {
@@ -189,7 +188,7 @@ describe('TrueForgeUI', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
     }
 
-    // Sidebar rail passes iconOnly (not labeled); other layouts use the default compact chrome.
+    // Sidebar and other layouts use the default (non-labeled) avatar chrome.
     expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent('compact user');
   });
 
@@ -600,7 +599,7 @@ describe('SidebarLayout', () => {
     }
   });
 
-  it('shows the default icon mark in the permanent rail', () => {
+  it('shows the default logomark, title, and collapse control in the permanent sidebar', () => {
     const { container } = render(
       <SlotsProvider>
         <RuntimeHarness messages={[]}>
@@ -611,13 +610,13 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    const mark = container.querySelector('aside svg');
-    expect(mark).toHaveAttribute('viewBox', '0 0 140 140');
-    expect(screen.queryByText('TrueForge')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+    // Expanded rail uses the compact logomark slot (same as collapsed) so the icon column stays fixed.
+    expect(container.querySelector('aside svg')).toBeInTheDocument();
+    expect(screen.getByText('TrueForge')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
-  it('uses the square brand icon in the rail (not the wide wordmark)', () => {
+  it('uses the square brand icon plus title in the sidebar rail (logo mode still collapses to icon)', () => {
     const { container } = render(
       <SlotsProvider
         theme={{ brand: { mode: 'logo', name: 'Acme', icon: '/acme-icon.svg', logo: '/acme-wordmark.svg' } }}
@@ -631,10 +630,10 @@ describe('SidebarLayout', () => {
     );
 
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
-    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
+    expect(screen.getByText('Acme')).toBeInTheDocument();
   });
 
-  it('supports icon-only branding in the rail', () => {
+  it('supports icon-only branding in the sidebar', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-only', name: 'Acme', icon: '/acme-icon.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -650,7 +649,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows a permanent icon-only rail with New Chat and no expand control', () => {
+  it('shows a labeled sidebar with New Chat and a collapse control', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -662,12 +661,13 @@ describe('SidebarLayout', () => {
     );
 
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme.svg');
-    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
+    expect(screen.getByText('Acme')).toBeInTheDocument();
     const newChat = screen.getByRole('button', { name: 'Start new chat' });
     expect(newChat).toBeInTheDocument();
-    expect(newChat).not.toHaveTextContent('New Chat');
-    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+    expect(newChat).toHaveTextContent('New Chat');
+    // Docs live under Schedules / mobile drawer — desktop rail footer omits them.
+    expect(screen.queryByRole('link', { name: 'Documentation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
   it('keeps recent history visible when a named chat loads in the same page', async () => {
@@ -698,21 +698,26 @@ describe('SidebarLayout', () => {
     );
 
     const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
-    expect(recentChats).toHaveClass('hidden', 'md:flex');
-    // History shares the padded shell with the chat column; the header sits beside history, not above it.
-    expect(recentChats.nextElementSibling?.querySelector('header')).toBeTruthy();
+    // Chat history lives in the app rail under Settings, with its filter heading.
+    expect(recentChats.closest('[data-slot="aui_app-rail"]')).not.toBeNull();
+    expect(within(recentChats).getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'New Chat' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
-    });
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start new chat' }));
-    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open named chat' }));
-    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Agents/ }));
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+    const [settingsButton] = await screen.findAllByRole('button', { name: 'Settings' });
+    if (settingsButton === undefined) throw new Error('Expected settings button');
+    fireEvent.click(settingsButton);
+    expect(screen.getByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
   });
 
   it('highlights New Chat, New Agent, and Settings when selected', async () => {
@@ -728,6 +733,9 @@ describe('SidebarLayout', () => {
             onClick={() => shell.selectLibraryAgent({ isMutable: false, agentId: 'support-id', agentName: 'support' })}
           >
             Try support
+          </button>
+          <button type="button" onClick={() => shell.openHistorySession({ sessionId: 'hist-1', isMutable: false })}>
+            Open history session
           </button>
         </>
       );
@@ -758,6 +766,13 @@ describe('SidebarLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open history' }));
     expect(newChat).toHaveAttribute('aria-current', 'page');
     expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open history session' }));
+    expect(newChat).not.toHaveAttribute('aria-current');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(newChat);
+    expect(newChat).toHaveAttribute('aria-current', 'page');
 
     fireEvent.click(screen.getByRole('button', { name: 'Try support' }));
     expect(newChat).not.toHaveAttribute('aria-current');
@@ -804,7 +819,7 @@ describe('SidebarLayout', () => {
     );
 
     expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
-    expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: /^Agents/ })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');

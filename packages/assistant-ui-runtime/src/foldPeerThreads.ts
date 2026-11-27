@@ -283,6 +283,7 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
     message.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED ||
     message.type === EVENT_TYPE.USER_TOOL_APPROVAL ||
     message.type === EVENT_TYPE.USER_TOOL_RESPONSE ||
+    message.type === EVENT_TYPE.THREAD_SWITCH_MODEL ||
     message.type === 'thread.context_compaction_started' ||
     message.type === 'thread.context_compaction_finished'
   );
@@ -409,12 +410,47 @@ function abandonedCompactionBelongsToSettledTurn({
 }
 
 /**
+ * Whether an event belongs to a model-message scope.
+ *
+ * Pairs with the next model.message after it. When that model message is in
+ * scope, include the event. When there is no following model message yet, it is
+ * the live tip: include for an empty scope, or when the scope holds the model
+ * message right before it (mid-turn). Events after a settled turn belong to the
+ * next turn.
+ */
+function isInModelMessageScope({
+  bucket,
+  eventId,
+  scopedModelIds,
+  settledTurnCompletedAtMs,
+}: {
+  bucket: ThreadBucket;
+  eventId: string;
+  scopedModelIds: ReadonlySet<string> | null;
+  settledTurnCompletedAtMs: number | undefined;
+}): boolean {
+  if (scopedModelIds == null) {
+    return true;
+  }
+  const nextModelId = nextModelMessageIdAfter({ bucket, fromId: eventId });
+  if (nextModelId != null) {
+    return scopedModelIds.has(nextModelId);
+  }
+  // The fold is session-wide: an event that began after this turn finished is the next turn's.
+  const eventAtMs = Date.parse(bucket.events.get(eventId)?.createdAt ?? '');
+  if (settledTurnCompletedAtMs != null && eventAtMs > settledTurnCompletedAtMs) {
+    return false;
+  }
+  if (scopedModelIds.size === 0) {
+    return true;
+  }
+  const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: eventId });
+  return previousModelId != null && scopedModelIds.has(previousModelId);
+}
+
+/**
  * Compaction started events belonging to a model-message scope.
  *
- * A started event pairs with the next model.message after it. When that model
- * message is in scope, include the compaction. When there is no following model
- * message yet, it is the live tip: include for an empty scope, or when the
- * scope holds the model message right before it (mid-turn compaction).
  * A start replaced by a later compaction before any model.message stays on the
  * cancelled or failed turn, so the retry does not draw a second spinner.
  */
@@ -437,23 +473,7 @@ function shouldIncludeCompactionStarted({
       abandonedCompactionBelongsToSettledTurn({ bucket, startedId, settledTurnCompletedAtMs })
     );
   }
-  if (scopedModelIds == null) {
-    return true;
-  }
-  const nextModelId = nextModelMessageIdAfter({ bucket, fromId: startedId });
-  if (nextModelId != null) {
-    return scopedModelIds.has(nextModelId);
-  }
-  // The fold is session-wide: a compaction that began after this turn finished is the next turn's.
-  const startedAtMs = Date.parse(bucket.events.get(startedId)?.createdAt ?? '');
-  if (settledTurnCompletedAtMs != null && startedAtMs > settledTurnCompletedAtMs) {
-    return false;
-  }
-  if (scopedModelIds.size === 0) {
-    return true;
-  }
-  const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: startedId });
-  return previousModelId != null && scopedModelIds.has(previousModelId);
+  return isInModelMessageScope({ bucket, eventId: startedId, scopedModelIds, settledTurnCompletedAtMs });
 }
 
 function findFinishedForStarted({
@@ -936,8 +956,8 @@ function buildThreadAssistantFold(
   // so emitting the same id twice crashes the render. Collapse duplicates,
   // letting the latest occurrence win while preserving the original position.
   const toolCallIndexById = new Map<string, number>();
-  // Walk insertion order so compaction steps sit before the model message they
-  // prepare for (PreLLM). Scoped builds still filter via model-message pairing.
+  // Walk insertion order so compaction / model-switch steps sit before the model
+  // message they prepare for (PreLLM). Scoped builds still filter via pairing.
   for (const [id, event] of eventsInTimeOrder(bucket)) {
     if (event.type === 'thread.context_compaction_started') {
       if (
@@ -952,6 +972,20 @@ function buildThreadAssistantFold(
         continue;
       }
       parts.push(compactionPartFromStarted({ bucket, state, started: event }));
+      continue;
+    }
+
+    if (event.type === EVENT_TYPE.THREAD_SWITCH_MODEL) {
+      if (
+        isInModelMessageScope({
+          bucket,
+          eventId: id,
+          scopedModelIds,
+          settledTurnCompletedAtMs: state.settledTurnCompletedAtMs,
+        })
+      ) {
+        parts.push({ type: 'data', name: EVENT_TYPE.THREAD_SWITCH_MODEL, data: event });
+      }
       continue;
     }
 

@@ -5,13 +5,13 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .auto_model_routing_configuration import AutoModelRoutingConfiguration
+from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
 from .memory_configuration import MemoryConfiguration
 from .web_search_configuration import WebSearchConfiguration
 
 
 class ConfigurationManifestPatch(UncheckedBaseModel):
-    auto_model_routing: typing.Optional[AutoModelRoutingConfiguration] = None
+    auto_model_routing: typing.Optional[AutoModelRoutingConfigurationPatch] = None
     memory: typing.Optional[MemoryConfiguration] = None
     web_search: typing.Optional[WebSearchConfiguration] = None
 

@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import type { Kysely } from 'kysely';
 import type { Configuration } from 'openid-client';
 import { createLogger } from 'winston';
 import { createCapabilitiesRouter } from '../../../src/apis/capabilities';
@@ -13,10 +14,11 @@ import configuration, { parseTrueFoundryModelRouting, type OIDCConfig } from '..
 import type { IConfigurationStore } from '../../../src/db/configurationStore';
 import type { IMemoryProviderStore } from '../../../src/db/memoryProviderStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
-import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
+import type { IModelProviderStore, ModelInfo } from '../../../src/db/modelProviderStore';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../../../src/db/sandboxEnvironmentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
@@ -46,7 +48,27 @@ const ALL_SETTINGS_OFF = {
 const NO_PROVIDER_REASON = 'Web search needs a provider, which is not configured.';
 const TENANT_OFF_REASON = 'Web search is turned off for this tenant - an admin can turn it back on in settings.';
 const MEMORY_TENANT_OFF_REASON = 'Memory is turned off for this tenant - an admin can turn it back on in settings.';
-const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - an admin can turn it back on in settings.';
+const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - it can be turned back on in settings.';
+const AUTO_MODELS_RESTRICTED_REASON =
+  'Auto mode has no usable models - models need to be added to the global list of candidate models in settings.';
+
+function routableModel({ name, canonicalModel }: { name: string; canonicalModel: string | undefined }): ModelInfo {
+  return { name, model_id: name, provider: { name: 'acct' }, properties: {}, canonicalModel, cost: 1 };
+}
+
+/** Lists a fixed set of models, standing in for a catalog that reports canonical ids. */
+class ListedModelsStore extends SqliteModelProviderStore {
+  readonly #models: ModelInfo[];
+
+  constructor({ db, models }: { db: Kysely<Database>; models: ModelInfo[] }) {
+    super(db);
+    this.#models = models;
+  }
+
+  override listModels(): Promise<ModelInfo[]> {
+    return Promise.resolve(this.#models);
+  }
+}
 
 let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
@@ -108,6 +130,7 @@ describe('capabilities routers', () => {
     tenantWebSearchEnabled = true,
     tenantMemoryEnabled = true,
     tenantAutoEnabled = true,
+    tenantAutoCandidateModels = [],
     hasMemoryProvider = true,
     userStore = new EmptyUserStore(),
     modelProviderStore,
@@ -117,6 +140,7 @@ describe('capabilities routers', () => {
     tenantWebSearchEnabled?: boolean;
     tenantMemoryEnabled?: boolean;
     tenantAutoEnabled?: boolean;
+    tenantAutoCandidateModels?: string[];
     hasMemoryProvider?: boolean;
     userStore?: IUserStore;
     modelProviderStore?: IModelProviderStore;
@@ -145,7 +169,7 @@ describe('capabilities routers', () => {
       manifest: {
         web_search: { enabled: tenantWebSearchEnabled },
         memory: { enabled: tenantMemoryEnabled },
-        auto_model_routing: { enabled: tenantAutoEnabled },
+        auto_model_routing: { enabled: tenantAutoEnabled, candidate_models: tenantAutoCandidateModels },
       },
       updated_at: '2026-01-01T00:00:00.000Z',
     };
@@ -276,7 +300,10 @@ describe('capabilities routers', () => {
 
   describe('auto', () => {
     const routingForDefaultTenant = parseTrueFoundryModelRouting(
-      JSON.stringify({ tenants: { default: { enabled: 'on', decision_model: 'typesafe/jev-1.13.0' } } }),
+      JSON.stringify({
+        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+        tenants: { default: { enabled: 'on' } },
+      }),
     );
 
     const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
@@ -313,15 +340,87 @@ describe('capabilities routers', () => {
       });
     });
 
-    it('reports auto disabled when the tenant allows it but has no models to route to', async () => {
+    it('reports auto unavailable when the admin picked models but the user has none of them', async () => {
       disableOidcAuth();
       enableModelRouting();
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
-      const response = await makeRouter({ modelProviderStore: new SqliteModelProviderStore(db) }).request('/');
+      const response = await makeRouter({
+        tenantAutoCandidateModels: ['acct/sonnet'],
+        modelProviderStore: new SqliteModelProviderStore(db),
+      }).request('/');
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         data: { auto: { status: 'disabled', reason: 'Auto mode is not available for now' } },
+      });
+    });
+
+    describe('with an admin candidate list', () => {
+      // Sonnet alone covers every routing category; Haiku misses the adaptive one.
+      const sonnet = 'acct/sonnet';
+      const haiku = 'acct/haiku';
+      const outsideClusters = 'acct/unclustered';
+
+      async function autoStatus(candidateModels: string[]) {
+        disableOidcAuth();
+        enableModelRouting();
+        const db = createSqliteDb(':memory:');
+        const response = await makeRouter({
+          tenantAutoCandidateModels: candidateModels,
+          modelProviderStore: new ListedModelsStore({
+            db,
+            models: [
+              routableModel({ name: sonnet, canonicalModel: 'anthropic/claude-sonnet-5-5' }),
+              routableModel({ name: haiku, canonicalModel: 'anthropic/claude-haiku-5-5' }),
+              routableModel({ name: outsideClusters, canonicalModel: undefined }),
+            ],
+          }),
+        }).request('/');
+        expect(response.status).toBe(200);
+        return await response.json();
+      }
+
+      it('enables auto when the allowed models can route every category', async () => {
+        expect(await autoStatus([sonnet])).toMatchObject({ data: { auto: { status: 'enabled' } } });
+      });
+
+      it('ignores allowed models the user does not have access to', async () => {
+        expect(await autoStatus([sonnet, 'acct/not-visible'])).toMatchObject({
+          data: { auto: { status: 'enabled' } },
+        });
+      });
+
+      it('tells the admin when the allowed models cannot route every category', async () => {
+        expect(await autoStatus([haiku])).toMatchObject({
+          data: { auto: { status: 'disabled', reason: AUTO_MODELS_RESTRICTED_REASON } },
+        });
+      });
+
+      it('disables auto for an empty candidate list, even though the user has routable models', async () => {
+        expect(await autoStatus([])).toMatchObject({
+          data: { auto: { status: 'disabled', reason: AUTO_MODELS_RESTRICTED_REASON } },
+        });
+      });
+
+      it('disables auto when allowed models are outside every routing cluster', async () => {
+        expect(await autoStatus([outsideClusters])).toMatchObject({
+          data: { auto: { status: 'disabled', reason: AUTO_MODELS_RESTRICTED_REASON } },
+        });
+      });
+
+      it('reports the generic reason when the user lacks the models regardless of the candidate list', async () => {
+        disableOidcAuth();
+        enableModelRouting();
+        const response = await makeRouter({
+          tenantAutoCandidateModels: [haiku],
+          modelProviderStore: new ListedModelsStore({
+            db: createSqliteDb(':memory:'),
+            models: [routableModel({ name: haiku, canonicalModel: 'anthropic/claude-haiku-5-5' })],
+          }),
+        }).request('/');
+        expect(await response.json()).toMatchObject({
+          data: { auto: { status: 'disabled', reason: 'Auto mode is not available for now' } },
+        });
       });
     });
 

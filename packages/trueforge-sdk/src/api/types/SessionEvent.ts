@@ -11,6 +11,7 @@ export type SessionEvent =
     | TrueForge.ThreadContextCompactionStartedEvent
     | TrueForge.ThreadCreatedEvent
     | TrueForge.ThreadDoneEvent
+    | TrueForge.ThreadSwitchModelEvent
     | TrueForge.ToolApprovalRequiredEvent
     | TrueForge.ToolResponseEvent
     | TrueForge.ToolResponseRequiredEvent

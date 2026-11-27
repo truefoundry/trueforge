@@ -16,13 +16,24 @@ import type {
 export function isSettingsChromeEnabled({
   catalog,
   capabilities,
+  sandboxEnvironments,
 }: {
   catalog: CatalogServer | null | undefined;
-  capabilities: { settings?: SettingsCapability } | null | undefined;
+  capabilities:
+    | {
+        settings?: SettingsCapability;
+        sandbox?: { environments?: { enabled?: boolean } };
+      }
+    | null
+    | undefined;
+  /** When set, Environments-as-Settings keeps Settings chrome available. */
+  sandboxEnvironments?: SandboxEnvironmentServer | null | undefined;
 }): boolean {
   // Absent capabilities mean "still loading", so wait rather than flash Settings
   // open and shut. Loaded capabilities that omit `settings` are an older host.
-  return catalog != null && capabilities != null && hasAnySettingsSectionEnabled(capabilities.settings);
+  if (catalog == null || capabilities == null) return false;
+  if (hasAnySettingsSectionEnabled(capabilities.settings)) return true;
+  return isEnvironmentsChromeEnabled({ sandboxEnvironments, capabilities });
 }
 
 const SETTINGS_SECTIONS = [
@@ -116,7 +127,7 @@ export function toEffectiveRoutes({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions });
   return {
     ...routes,
-    settings: isSettingsChromeEnabled({ catalog, capabilities }) ? routes.settings : null,
+    settings: isSettingsChromeEnabled({ catalog, capabilities, sandboxEnvironments }) ? routes.settings : null,
     sessionsBrowser: sessionsEnabled ? routes.sessionsBrowser : null,
     sharedSession: sessionsEnabled ? routes.sharedSession : null,
     libraryAgent: sessionsEnabled ? routes.libraryAgent : null,

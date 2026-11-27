@@ -97,6 +97,8 @@ vi.mock('@/server/ServerContext.js', () => ({
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
+  shellIsCreateAgent: (mode: { status: string; isMutable: boolean; isCreateAgent: boolean }) =>
+    mode.status === 'active' && mode.isMutable && mode.isCreateAgent,
   useOptionalShellMode: () => ({
     isLibraryEnabled: false,
     isNewChatEnabled: true,
@@ -114,6 +116,7 @@ vi.mock('@/server/ShellModeContext.js', () => ({
     setSchedulesOpen,
     setSessionsOpen,
     setEnvironmentsOpen: vi.fn(),
+    setArtifactsOpen: vi.fn(),
     selectLibraryAgent: vi.fn(),
     openDraft: vi.fn(),
     openAgentBuilder: vi.fn(),

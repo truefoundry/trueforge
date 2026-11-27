@@ -2,7 +2,13 @@ import { largeToolResponse } from '../../../../src/core/capabilities/builtins/La
 import type { IToolSet } from '../../../../src/core/mcp/IMCPServer';
 import type { ToolCallResult } from '../../../../src/core/mcp/executeToolCalls';
 import { getEmptyCurrentContextUsage } from '../../../../src/core/runtime/contextUsage';
-import { makeMockIMCPServer, makeSilentLogger, makeStubPublicSandbox } from '../../harnessMocks';
+import {
+  makeMockILLM,
+  makeMockIMCPServer,
+  makeSilentLogger,
+  makeStubPublicSandbox,
+  TEST_MODEL_NAME,
+} from '../../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 
@@ -46,6 +52,7 @@ describe('LargeToolResponse sandbox object identity (ISSUE-035)', () => {
       sandbox,
       currentContextUsage: getEmptyCurrentContextUsage(),
       context: [],
+      model: { client: makeMockILLM(), name: TEST_MODEL_NAME },
     });
 
     expect(sandboxResult.message.content).toContain('It MUST write the full output to a file');

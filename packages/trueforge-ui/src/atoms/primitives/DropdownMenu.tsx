@@ -135,6 +135,15 @@ export function DropdownMenu({
         return;
       }
 
+      // Submenus may portal a search field / listbox outside this menu — leave those keys alone.
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        active.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [role="combobox"]') != null
+      ) {
+        return;
+      }
+
       const items = Array.from(
         menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [],
       );

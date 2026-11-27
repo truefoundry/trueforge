@@ -6,6 +6,7 @@ import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
 import { ContextCompactionCard } from '../atoms/adapters/ContextCompactionCardAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
+import { ThreadSwitchModelCard } from '../atoms/adapters/ThreadSwitchModelCardAdapter.js';
 
 import { StepTree, StepTreeItem } from '../atoms/agent-chat/StepTree.js';
 import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
@@ -32,6 +33,7 @@ import type {
   AgentSessionsProps,
 } from '../atoms/agent-details/types.js';
 import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
+import { AgentSearchListPanel } from '../atoms/AgentSearchListPanel.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
@@ -42,8 +44,10 @@ import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
 import { AttachmentPreviewDialog } from '../atoms/AttachmentPreviewDialog.js';
 import { ChatFileDownload } from '../atoms/ChatFileDownload.js';
+import { ChatHistorySearchButton } from '../atoms/ChatHistorySearchButton.js';
 import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
+import { ComposerAssistantAgentsPicker } from '../atoms/ComposerAssistantAgentsPicker.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
@@ -169,6 +173,8 @@ export const defaultSlots = {
   AccordionSummary,
   AccordionDetails,
   BrandLogo,
+  AgentSearchListPanel,
+  ComposerAssistantAgentsPicker,
   ComposerShell,
   ComposerLeftSection,
   ComposerRightSection,
@@ -231,6 +237,7 @@ export const defaultSlots = {
   AgentStepsCard,
   ReasoningCard,
   ContextCompactionCard,
+  ThreadSwitchModelCard,
   AskUserPrompt,
   McpAuthPrompt,
   AttachmentCard,
@@ -238,6 +245,7 @@ export const defaultSlots = {
   AttachmentPickerButton,
   ScrollToBottomButton,
   ThreadListRow,
+  ChatHistorySearchButton,
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,

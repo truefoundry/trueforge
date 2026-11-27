@@ -11,10 +11,17 @@ import {
   GET_TOOL_OUTPUT_SCHEMA_NAME,
   LIST_TOOLS_NAME,
 } from '../../../src/core/runtime/DeferredTool';
+import type { HarnessSandbox } from '../../../src/core/sandbox/Sandbox';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { textReplyStream } from '../../orchestration/helpers/helpers';
 import '../harnessMocks';
-import { makeMockIMCPServer, makeSilentLogger, OBJECT_INPUT_SCHEMA, TEST_MODEL_NAME } from '../harnessMocks';
+import {
+  makeMockIMCPServer,
+  makeSilentLogger,
+  makeStubPublicSandbox,
+  OBJECT_INPUT_SCHEMA,
+  TEST_MODEL_NAME,
+} from '../harnessMocks';
 
 const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 
@@ -96,27 +103,35 @@ describe('DeferredTool deferred loading behavior', () => {
   });
 });
 
-const DEFERRED_DISCOVERY_TOOLS = [LIST_TOOLS_NAME, GET_TOOL_INFO_NAME, GET_TOOL_OUTPUT_SCHEMA_NAME, CALL_TOOL_NAME];
+const META_TOOL_NAMES = [LIST_TOOLS_NAME, GET_TOOL_INFO_NAME, GET_TOOL_OUTPUT_SCHEMA_NAME, CALL_TOOL_NAME];
 
-async function registeredToolNames(input: {
+/** Names of the tools the thread sends to the model on its first call. */
+async function toolNamesSentToModel(input: {
   capabilities?: readonly AgentCapability[];
   toolSets?: IToolSet[];
+  sandbox?: HarnessSandbox;
 }): Promise<string[]> {
   const create = jest.fn().mockImplementation(() => textReplyStream('ok'));
   const thread = new AgentThread({
+    lastUsedModel: null,
     threadId: 'main',
     title: 'Main',
     tracing: NOOP_AGENT_TRACING,
     logger: silentLogger,
-    capabilities: input.capabilities,
+    ...(input.capabilities ? { capabilities: input.capabilities } : {}),
     definition: {
       toolSets: input.toolSets ?? [],
     },
-    model: {
-      client: { create, createNonStream: jest.fn() },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: { create, createNonStream: jest.fn() },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     context: [{ role: 'user', content: 'hi' }],
+    ...(input.sandbox ? { sandbox: input.sandbox } : {}),
   });
   for await (const event of thread.execute({ signal: new AbortController().signal })) {
     void event;
@@ -125,25 +140,52 @@ async function registeredToolNames(input: {
   return (body?.tools ?? []).flatMap(tool => (tool.type === 'function' ? [tool.function.name] : []));
 }
 
-describe('AgentThread deferred discovery registration', () => {
-  it('does not register discovery tools when every server is preloaded', async () => {
-    const names = await registeredToolNames({
-      capabilities: [currentDateTime({ tracing: NOOP_AGENT_TRACING })],
+describe('AgentThread deferred meta tools', () => {
+  it.each([
+    { servers: 'every server preload:true', preloads: [true], sandbox: false, expected: false },
+    { servers: 'a preload:false server', preloads: [false], sandbox: false, expected: true },
+    { servers: 'preload:true and preload:false servers', preloads: [true, false], sandbox: false, expected: true },
+    { servers: 'every server preload:true, with a sandbox', preloads: [true], sandbox: true, expected: true },
+    { servers: 'no servers', preloads: [], sandbox: false, expected: false },
+  ])('offers them for $servers: $expected', async ({ preloads, sandbox, expected }) => {
+    const toolSets = preloads.map((preload, i) => makeMockIMCPServer({ name: `server-${i}`, preload }));
+    const names = await toolNamesSentToModel({
+      toolSets,
+      ...(sandbox ? { sandbox: makeStubPublicSandbox() } : {}),
     });
-
-    expect(names).toContain('get_current_datetime');
-    expect(names).not.toEqual(expect.arrayContaining(DEFERRED_DISCOVERY_TOOLS));
+    for (const metaTool of META_TOOL_NAMES) {
+      expect(names.includes(metaTool)).toBe(expected);
+    }
   });
 
-  it('registers discovery tools when a system toolset is not preloaded', async () => {
-    const names = await registeredToolNames({
+  it('still offers the preloaded tools when the meta tools are left out', async () => {
+    const names = await toolNamesSentToModel({
+      toolSets: [makeMockIMCPServer({ name: 'eager', preload: true })],
+    });
+    expect(names).toContain('tool_a');
+  });
+
+  it('offers them when a system toolset is not preloaded', async () => {
+    const names = await toolNamesSentToModel({
       capabilities: [
         currentDateTime({ tracing: NOOP_AGENT_TRACING }),
         { systemToolSets: [makeMockIMCPServer({ name: 'trueforge:mcp', preload: false })] },
       ],
     });
 
-    expect(names).toEqual(expect.arrayContaining(DEFERRED_DISCOVERY_TOOLS));
+    expect(names).toEqual(expect.arrayContaining(META_TOOL_NAMES));
     expect(names).toContain('get_current_datetime');
+  });
+
+  it('does not offer them for a sandbox with only preloaded builtins and no user MCP', async () => {
+    const names = await toolNamesSentToModel({
+      capabilities: [currentDateTime({ tracing: NOOP_AGENT_TRACING })],
+      sandbox: makeStubPublicSandbox(),
+    });
+
+    expect(names).toContain('get_current_datetime');
+    for (const metaTool of META_TOOL_NAMES) {
+      expect(names.includes(metaTool)).toBe(false);
+    }
   });
 });

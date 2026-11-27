@@ -12,10 +12,12 @@ If the diff changes code that ships in a published package and does not add a ne
 - `packages/trueforge-sdk` → `@truefoundry/trueforge-sdk` (when regenerating the SDK, some changeset in the PR must name this patch bump — same file or a separate one via `pnpm changeset:sdk-regen`)
 - `packages/frontend` → `@truefoundry/trueforge` (UI is bundled into the server tarball)
 
+If the diff changes `packages/assistant-ui-runtime`, `packages/trueforge-ui`, `packages/frontend`, or `charts/trueforge`, some changeset in the PR must also name `"@truefoundry/trueforge": patch`. Those ship in the server image, and that package version is the chart `appVersion`. This still applies when the rest of the diff is chart-only.
+
 Skip when:
 
-- The PR already adds `.changeset/*.md`
-- Changes are docs, `AGENTS.md`, CI/workflows, charts, or docker-compose only
+- The PR already adds `.changeset/*.md` that covers the packages above, including `"@truefoundry/trueforge": patch` when assistant-ui-runtime, trueforge-ui, frontend, or `charts/trueforge` changed
+- Changes are docs, `AGENTS.md`, CI/workflows, charts other than `charts/trueforge`, or docker-compose only
 - The PR is a Version Packages / `changeset-release/*` release PR
 
 If a new or changed `.changeset/*.md` uses `minor` or `major`, flag it. Only `patch` bumps are allowed in PR changesets; minor/major version bumps are controlled by an external release process.
@@ -29,6 +31,14 @@ If a workspace package is added, renamed, or moved, flag unless CI package path 
 If the change touches release, pack, or publish wiring, flag if it would break dist-free host development, `pnpm smoke`, or packed CJS/ESM consumers of `@truefoundry/trueforge-core`.
 
 If `docker-compose.yml` or `docker-compose.dev.yml` changes, flag when shared Postgres/Redis settings (image versions, health checks, `env_file`) drift. Intentional differences (app services, data paths, project `name`, host ports, in-network `POSTGRES_HOST` / `REDIS_URL`) must stay explicit. `docker-compose.yml` may read `packages/trueforge/.env` but must override container connectivity so host-dev localhost values are not used inside the smoke-test stack.
+
+### GitHub token choice (workflows)
+
+Flag a workflow that pushes commits to `main` or `release-v*`, opens or merges PRs into those branches, or writes to another repository using `secrets.GITHUB_TOKEN` instead of a TrueForge Dev Bot App installation token (`TRUEFORGE_GENERATE_SDK_APP_ID` / `TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY` via `actions/create-github-app-token`).
+
+Flag minting that App token for same-repo API reads or for creating package git tags / GitHub Releases when `secrets.GITHUB_TOKEN` is enough.
+
+Flag either token calling `api.github.com` without joining `tag:ci-github-egress` first (org IP allowlist).
 
 ## Types, schemas, and ownership
 

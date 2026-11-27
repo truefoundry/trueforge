@@ -30,6 +30,10 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
 
 /** Full place with overlay priority: settings, schedules, environments, artifacts, sessions, library, chat. */
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
+  // Environments is a Settings tab but keeps its own `/environments` URL.
+  if (snapshot.settingsOpen && snapshot.settingsSection === 'environments') {
+    return { type: 'environments' };
+  }
   if (snapshot.settingsOpen) return { type: 'settings' };
   if (snapshot.schedulesOpen) return { type: 'schedules' };
   if (snapshot.environmentsOpen) return { type: 'environments' };

@@ -48,6 +48,8 @@ export { Button } from './atoms/primitives/Button.js';
 export type { ButtonProps, ButtonSize, ButtonVariant, FixedVariantButtonProps } from './atoms/primitives/Button.js';
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
+export { DropdownSubmenu } from './atoms/primitives/DropdownSubmenu.js';
+export type { DropdownSubmenuProps } from './atoms/primitives/DropdownSubmenu.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
 export { PopoverSelect } from './atoms/primitives/PopoverSelect.js';
 export type { PopoverSelectOption, PopoverSelectProps } from './atoms/primitives/PopoverSelect.js';
@@ -171,14 +173,22 @@ export type {
   McpServer as McpAuthServer,
 } from './atoms/adapters/McpAuthPromptAdapter.js';
 export type { ReasoningCardProps } from './atoms/adapters/ReasoningCardAdapter.js';
+export type { ThreadSwitchModelCardProps } from './atoms/adapters/ThreadSwitchModelCardAdapter.js';
 export { StepTree, StepTreeItem } from './atoms/agent-chat/StepTree.js';
 export type { StepTreeItemProps, StepTreeProps } from './atoms/agent-chat/StepTree.js';
+export { AgentSearchListPanel } from './atoms/AgentSearchListPanel.js';
+export type { AgentSearchListPanelProps } from './atoms/AgentSearchListPanel.js';
 export { AttachmentCard, USER_MESSAGE_ATTACHMENT_PREVIEW_REM } from './atoms/AttachmentCard.js';
 export type { AttachmentCardProps, AttachmentCardSize } from './atoms/AttachmentCard.js';
 export { AttachmentPickerButton } from './atoms/AttachmentPickerButton.js';
 export type { AttachmentPickerButtonProps } from './atoms/AttachmentPickerButton.js';
 export { AttachmentPreviewDialog } from './atoms/AttachmentPreviewDialog.js';
 export type { AttachmentPreviewDialogProps } from './atoms/AttachmentPreviewDialog.js';
+export { ComposerAssistantAgentsPicker } from './atoms/ComposerAssistantAgentsPicker.js';
+export type {
+  ComposerAssistantAgentsPickerProps,
+  ComposerAssistantAgentsPickerSelection,
+} from './atoms/ComposerAssistantAgentsPicker.js';
 export { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from './atoms/ComposerSections.js';
 export type {
   ComposerLeftSectionProps,
@@ -226,6 +236,7 @@ export {
   ComposerAttachmentsContainer,
   MessageAttachmentsContainer,
 } from './containers/AttachmentsContainer.js';
+export { ComposerAssistantAgentsPickerContainer } from './containers/ComposerAssistantAgentsPickerContainer.js';
 export { ComposerContainer } from './containers/ComposerContainer.js';
 export type { ComposerContainerProps } from './containers/ComposerContainer.js';
 export { CustomActionContainer } from './containers/CustomActionContainer.js';

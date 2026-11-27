@@ -87,6 +87,11 @@ describe('sandbox file preview', () => {
       });
       expect(anchorClick).toHaveBeenCalledTimes(2);
 
+      fireEvent.click(within(panel).getByRole('button', { name: 'Reload preview' }));
+      await waitFor(() => {
+        expect(downloadSandboxFile).toHaveBeenCalledTimes(3);
+      });
+
       fireEvent.click(within(panel).getByRole('button', { name: 'Close preview' }));
       expect(screen.queryByRole('complementary', { name: 'Preview of report.txt' })).not.toBeInTheDocument();
     } finally {

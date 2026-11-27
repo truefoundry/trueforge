@@ -1,4 +1,4 @@
-import type { AgentConfig, ShellMode } from '../server/ShellModeContext.js';
+import type { AgentConfig, SettingsSection, ShellMode } from '../server/ShellModeContext.js';
 
 /**
  * A navigable place in the chat shell. The router mirrors these to the URL;
@@ -78,6 +78,8 @@ export type ResolvedRoutes = {
 /** Inputs for deriving the current place from shell + runtime state. */
 export type ShellSnapshot = {
   settingsOpen: boolean;
+  /** When settings is open on Environments, place stays `/environments`. */
+  settingsSection?: SettingsSection;
   libraryOpen: boolean;
   sessionsOpen: boolean;
   sharedSessionId: string | null;

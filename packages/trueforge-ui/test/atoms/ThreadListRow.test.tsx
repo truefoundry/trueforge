@@ -53,7 +53,7 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const row = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(row?.className).toMatch(/hover:bg-ghost-button-hover/);
+    expect(row?.className).toMatch(/aui-shell-hover/);
     expect(row?.className).not.toMatch(/bg-dropdown-selected-item-bg/);
 
     rerender(
@@ -63,35 +63,48 @@ describe('ThreadListRow', () => {
     );
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
     expect(activeRow?.className).toMatch(/aui-shell-selected/);
+    expect(screen.getByText('Session A').className).toMatch(/text-inherit/);
   });
 
-  it('renders agent name and relative time when provided', () => {
+  it('marks overflowing titles so hover can scroll the full name', () => {
+    const clientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+    const scrollWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-slot') === 'aui_thread-list-item-title' ? 240 : 80;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-slot') === 'aui_thread-list-item-title' ? 240 : 80;
+      },
+    });
+
+    try {
+      const { container } = render(
+        <SlotsProvider>
+          <ThreadListRow title="Write me a very long message about GDPR" active={false} onSelect={() => {}} />
+        </SlotsProvider>,
+      );
+      const title = container.querySelector('[data-slot="aui_thread-list-item-title"]');
+      expect(title).toHaveClass('aui-thread-list-title-scroll');
+      expect(title).toHaveAttribute('data-overflow', 'true');
+    } finally {
+      if (clientWidth != null) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidth);
+      if (scrollWidth != null) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', scrollWidth);
+    }
+  });
+
+  it('keeps kebab hover-only for normal chats (no age in the row)', () => {
     const lastMessageAt = new Date(Date.now() - 30 * 60_000);
-    render(
+    const { container } = render(
       <SlotsProvider>
         <ThreadListRow
           title="Hello chat"
           active={false}
           onSelect={() => {}}
-          agentName="from-sdk"
-          lastMessageAt={lastMessageAt}
-        />
-      </SlotsProvider>,
-    );
-    expect(screen.getByText('Hello chat')).toBeInTheDocument();
-    expect(screen.getByText('from-sdk')).toBeInTheDocument();
-    expect(screen.getByText('30m')).toBeInTheDocument();
-  });
-
-  it('keeps relative time and actions in one trailing slot that swaps on hover', () => {
-    const lastMessageAt = new Date(Date.now() - 2 * 24 * 60 * 60_000);
-    const { container } = render(
-      <SlotsProvider>
-        <ThreadListRow
-          title="Hello"
-          active={false}
-          onSelect={() => {}}
-          agentName="test-gv-yo"
           lastMessageAt={lastMessageAt}
           actions={
             <button type="button" aria-label="Session actions">
@@ -101,17 +114,42 @@ describe('ThreadListRow', () => {
         />
       </SlotsProvider>,
     );
-    const row = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(row?.className).toMatch(/items-center/);
-    const time = screen.getByText('2d');
-    expect(time.getAttribute('data-slot')).toBe('aui_thread-list-item-age');
+    expect(screen.getByText('Hello chat')).toBeInTheDocument();
+    expect(screen.queryByText('30m')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-item-age"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-item-agent-icon"]')).not.toBeInTheDocument();
     const actionsSlot = screen.getByRole('button', { name: 'Session actions' }).parentElement;
-    expect(actionsSlot?.getAttribute('data-slot')).toBe('aui_thread-list-item-actions');
-    expect(actionsSlot?.className).toMatch(/absolute/);
     expect(actionsSlot?.className).toMatch(/md:opacity-0/);
     expect(actionsSlot?.className).toMatch(/md:group-hover:opacity-100/);
-    expect(time.className).toMatch(/md:opacity-100/);
-    expect(time.className).toMatch(/md:group-hover:opacity-0/);
+  });
+
+  it('for try-agent chats shows a trailing agent icon that swaps to kebab on hover', () => {
+    const lastMessageAt = new Date(Date.now() - 2 * 24 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Hello"
+          active={false}
+          onSelect={() => {}}
+          showTryAgentIcon
+          lastMessageAt={lastMessageAt}
+          actions={
+            <button type="button" aria-label="Session actions">
+              …
+            </button>
+          }
+        />
+      </SlotsProvider>,
+    );
+    expect(screen.queryByText('2d')).not.toBeInTheDocument();
+    const agentIcon = container.querySelector('[data-slot="aui_thread-list-item-agent-icon"]');
+    expect(agentIcon).toBeInTheDocument();
+    expect(agentIcon?.className).toMatch(/md:opacity-100/);
+    expect(agentIcon?.className).toMatch(/md:group-hover:opacity-0/);
+    const actionsSlot = screen.getByRole('button', { name: 'Session actions' }).parentElement;
+    expect(actionsSlot?.getAttribute('data-slot')).toBe('aui_thread-list-item-actions');
+    expect(actionsSlot?.className).toMatch(/md:opacity-0/);
+    expect(actionsSlot?.className).toMatch(/md:group-hover:opacity-100/);
   });
 
   it('shimmers the title when running and replaces the relative age with jumping dots', () => {
@@ -177,7 +215,7 @@ describe('ThreadListRow', () => {
     expect(screen.queryByText('30m')).not.toBeInTheDocument();
   });
 
-  it('hides the paused status dot and shows relative age when activity is older than 48 hours', () => {
+  it('hides the paused status dot when activity is older than 48 hours (age stays in the tip only)', () => {
     const lastMessageAt = new Date(Date.now() - 49 * 60 * 60_000);
     const { container } = render(
       <SlotsProvider>
@@ -193,10 +231,10 @@ describe('ThreadListRow', () => {
 
     expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
     expect(screen.queryByText('Waiting for input', { selector: '.sr-only' })).not.toBeInTheDocument();
-    expect(screen.getByText('2d')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-item-age"]')).not.toBeInTheDocument();
   });
 
-  it('shows relative age for error with no failure chrome', () => {
+  it('shows no failure chrome for error and keeps age out of the row', () => {
     const lastMessageAt = new Date(Date.now() - 30 * 60_000);
     const { container } = render(
       <SlotsProvider>
@@ -212,7 +250,7 @@ describe('ThreadListRow', () => {
 
     expect(container.querySelector('[data-slot="session-status-dot"]')).not.toBeInTheDocument();
     expect(screen.queryByText('Failed', { selector: '.sr-only' })).not.toBeInTheDocument();
-    expect(screen.getByText('30m')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-item-age"]')).not.toBeInTheDocument();
   });
 
   it('shows a desktop hover tip with the full title and relative age', () => {

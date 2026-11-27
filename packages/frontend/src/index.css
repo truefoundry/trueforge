@@ -22,12 +22,9 @@ body {
   height: 100%;
 }
 
-/* Figma fills share the white inset; button/toggle and rail selected use different stops. */
+/* Primary buttons + checked toggles: #A970FF → #234CFC (sidebar selection uses shell tokens). */
 .harness-primary-gradient {
-  /* Primary buttons + checked toggles: #A970FF → #234CFC. */
   --harness-button-fill: linear-gradient(135deg, #a970ff 0%, #234cfc 100%);
-  /* Sidenav selected rail control: #C198FF → #234CFC. */
-  --harness-rail-fill: linear-gradient(135deg, #c198ff 0%, #234cfc 100%);
   --harness-primary-inset: inset 0 0.3125rem 0.3125rem 0 rgb(255 255 255 / 0.25);
 }
 
@@ -40,16 +37,6 @@ body {
 
 .harness-primary-gradient[data-theme='light'] aside.bg-sidebar-bg button.bg-primary-button-bg {
   box-shadow: 0 0.25rem 0.75rem color-mix(in oklab, #4f39f6 35%, transparent);
-}
-
-/* Light-only: selected icon-rail keeps the lighter purple→blue fill (overrides shell fill). */
-.harness-primary-gradient[data-theme='light'] [data-slot='aui_app-rail'] .aui-shell-selected,
-.harness-primary-gradient[data-theme='light'] [data-slot='aui_app-rail'] .aui-shell-selected:hover {
-  background: var(--harness-rail-fill);
-  /* Drop the shell-selected 0.5px gradient stroke — Figma uses fill + inset only. */
-  border: none;
-  box-shadow: var(--harness-primary-inset);
-  color: #ffffff;
 }
 
 /* New Agent welcome only: polka-dot canvas on the empty thread viewport.

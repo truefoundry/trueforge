@@ -20,10 +20,6 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
-const EnvironmentsPage = lazy(() =>
-  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
-);
-
 export type StackChatPanelProps = {
   className?: string;
   /** Extra actions in the thread header (e.g. close for widget). */
@@ -52,7 +48,6 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const environmentsOpen = shell?.environmentsOpen === true;
   const artifactsOpen = shell?.artifactsOpen === true;
   const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showNewActions = shell?.isNewChatEnabled !== false;
@@ -71,7 +66,6 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
-    shell?.setEnvironmentsOpen(false);
     shell?.setArtifactsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
@@ -132,24 +126,6 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             }
           >
             <SchedulesPage />
-          </Suspense>
-        </div>
-      ) : environmentsOpen ? (
-        <div className="min-h-0 flex-1">
-          <Suspense
-            fallback={
-              <div
-                className="flex h-full items-center justify-center"
-                role="status"
-                aria-live="polite"
-                aria-busy="true"
-              >
-                <Spinner size={28} className="text-text-primary" />
-                <span className="sr-only">Loading</span>
-              </div>
-            }
-          >
-            <EnvironmentsPage />
           </Suspense>
         </div>
       ) : artifactsOpen ? (
@@ -216,14 +192,13 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-1">
-          {libraryOpen || schedulesOpen || environmentsOpen || artifactsOpen ? (
+          {libraryOpen || schedulesOpen || artifactsOpen ? (
             <button
               type="button"
               className={auiButtonClass({ variant: 'ghost', size: 'small' })}
               onClick={() => {
                 shell?.setLibraryOpen(false);
                 shell?.setSchedulesOpen(false);
-                shell?.setEnvironmentsOpen(false);
                 shell?.setArtifactsOpen(false);
               }}
             >

@@ -83,6 +83,7 @@ export function ShellRouteSync({
 
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
+    settingsSection: shell.settingsSection,
     libraryOpen: shell.libraryOpen,
     sessionsOpen: shell.sessionsOpen,
     sharedSessionId: shell.sharedSessionId,
@@ -273,7 +274,11 @@ export function ShellRouteSync({
     (target: RoutePlace) => {
       switch (target.type) {
         case 'settings':
-          shell.setSettingsOpen(true);
+          // Environments owns `/environments`. Restoring `/settings` must leave that
+          // section or derivePlace remaps immediately back to `/environments`.
+          // Appearance is always mounted (no capability gate), so it stays valid when
+          // Models is hidden — unlike falling back to sections[0], which can be Environments.
+          shell.setSettingsOpen(true, shell.settingsSection === 'environments' ? 'appearance' : undefined);
           return;
         case 'library':
           shell.setLibraryOpen(true);

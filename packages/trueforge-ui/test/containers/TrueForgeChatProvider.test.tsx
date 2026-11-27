@@ -63,7 +63,7 @@ describe('TrueForgeChatProvider', () => {
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
-  it('filters create-agent sessions from runtime history', async () => {
+  it('keeps create-agent sessions in runtime history', async () => {
     const listSessions = vi.fn(async () => ({
       data: [
         {
@@ -97,7 +97,7 @@ describe('TrueForgeChatProvider', () => {
     }
     const result = await runtimeServer.listSessions();
 
-    expect(result.data.map(session => session.id)).toEqual(['chat-session']);
+    expect(result.data.map(session => session.id)).toEqual(['chat-session', 'builder-session']);
     expect(result.nextPageToken).toBe('next-page');
   });
 

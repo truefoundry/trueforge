@@ -140,6 +140,7 @@ export type {
   SkillConfigBase,
   SkillMount,
   Subject,
+  TenantAutoModelRouting,
   TenantConfiguration,
   TenantConfigurationSwitch,
   ToolApprovalPolicyAllowSession,

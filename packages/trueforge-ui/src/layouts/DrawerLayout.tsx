@@ -22,10 +22,6 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
-const EnvironmentsPage = lazy(() =>
-  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
-);
-
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
@@ -46,18 +42,12 @@ export function DrawerLayout({ className }: { className?: string }) {
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const environmentsOpen = shell?.environmentsOpen === true;
   const artifactsOpen = shell?.artifactsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen || artifactsOpen;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || artifactsOpen;
   const chatChromeActionsVisible = useChatChromeActionsVisible();
   const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
   const showDesktopOnlyNotice =
-    isMobile &&
-    (sessionsOpen ||
-      schedulesOpen ||
-      environmentsOpen ||
-      artifactsOpen ||
-      (isCreateAgent && !settingsOpen && !libraryOpen));
+    isMobile && (sessionsOpen || schedulesOpen || artifactsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
   const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
   const showNewActions = shell?.isNewChatEnabled !== false;
 
@@ -70,7 +60,6 @@ export function DrawerLayout({ className }: { className?: string }) {
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
-    shell?.setEnvironmentsOpen(false);
     shell?.setArtifactsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
@@ -87,14 +76,13 @@ export function DrawerLayout({ className }: { className?: string }) {
     shell?.setLibraryOpen(false);
     shell?.setSchedulesOpen(false);
     shell?.setSessionsOpen(false);
-    shell?.setEnvironmentsOpen(false);
     shell?.setArtifactsOpen(false);
     // Only exit create-agent when leaving the mobile Build Agent notice — not when
     // dismissing Agents/Schedules over an in-progress desktop builder.
     if (showDesktopOnlyNotice && isCreateAgent) shell?.openDraft();
   };
 
-  const showBackToChat = showDesktopOnlyNotice || libraryOpen || schedulesOpen || environmentsOpen || artifactsOpen;
+  const showBackToChat = showDesktopOnlyNotice || libraryOpen || schedulesOpen || artifactsOpen;
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
@@ -207,22 +195,6 @@ export function DrawerLayout({ className }: { className?: string }) {
               }
             >
               <SchedulesPage />
-            </Suspense>
-          ) : environmentsOpen ? (
-            <Suspense
-              fallback={
-                <div
-                  className="flex h-full items-center justify-center"
-                  role="status"
-                  aria-live="polite"
-                  aria-busy="true"
-                >
-                  <Spinner size={28} className="text-text-primary" />
-                  <span className="sr-only">Loading</span>
-                </div>
-              }
-            >
-              <EnvironmentsPage />
             </Suspense>
           ) : artifactsOpen ? (
             <Suspense

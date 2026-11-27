@@ -20,7 +20,7 @@ export function AgentDetailsTabs({
   end,
 }: AgentDetailsTabsProps) {
   return (
-    <div className="flex shrink-0 items-center border-b border-border bg-primary-bg px-3">
+    <div className="flex shrink-0 items-center border-b border-border bg-card-bg px-3">
       <div role="tablist" aria-label="Agent details" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
         {tabs
           .filter(tab => (tab.id !== 'metrics' || showMetrics) && (tab.id !== 'schedules' || showSchedules))

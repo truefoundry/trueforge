@@ -12,6 +12,7 @@ import {
   driveUntilPauseOrDone,
   llmCreateInputs,
   textReplyStream,
+  threadModelClient,
   WRITE_NOTE_ARGUMENTS,
   WRITE_NOTE_CALL_ID,
   WRITE_NOTE_RESULT,
@@ -197,7 +198,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       const paused = await driveUntilPauseOrDone(iterator);
       expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(llmCreateInputs(thread.model.client)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
       // Resume the SAME execute(): enqueue the approval via send() (drain the generator so the
@@ -225,7 +226,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).toHaveBeenCalledTimes(1);
-      expect(llmCreateInputs(thread.model.client)).toMatchObject([...EXPECTED_TURN_1_LLM_INPUT, EXPECTED_TURN_2_INPUT]);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject([
+        ...EXPECTED_TURN_1_LLM_INPUT,
+        EXPECTED_TURN_2_INPUT,
+      ]);
     });
   });
 
@@ -330,7 +334,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).not.toHaveBeenCalled();
-      expect(llmCreateInputs(thread.model.client)).toMatchObject([...EXPECTED_TURN_1_LLM_INPUT, EXPECTED_TURN_2_INPUT]);
+      expect(llmCreateInputs(threadModelClient(thread))).toMatchObject([
+        ...EXPECTED_TURN_1_LLM_INPUT,
+        EXPECTED_TURN_2_INPUT,
+      ]);
     });
   });
 });
@@ -658,6 +665,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
   beforeEach(() => {
     toolSet = makeApprovalGatedWriteNoteToolSet().toolSet;
     const thread = new AgentThread({
+      lastUsedModel: null,
       definition: {
         instruction: INSTRUCTION,
         messages: undefined,
@@ -665,13 +673,17 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
         iterationLimit: undefined,
         toolSets: [toolSet],
       },
-      model: {
-        client: {
-          create: jest.fn(),
-          createNonStream: jest.fn(),
-        },
-        name: TEST_MODEL_NAME,
-      },
+      resolveModel: () =>
+        Promise.resolve({
+          model: {
+            client: {
+              create: jest.fn(),
+              createNonStream: jest.fn(),
+            },
+            name: TEST_MODEL_NAME,
+          },
+          routed: false,
+        }),
       threadId: ROOT_ID,
       title: 'orchestration-approval-policy',
       parent: undefined,
@@ -819,6 +831,7 @@ function makeApprovalHarness(
 } {
   const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
   const agentThreadInput: AgentThreadConstructorInput = {
+    lastUsedModel: null,
     definition: {
       instruction: INSTRUCTION,
       messages: undefined,
@@ -826,16 +839,20 @@ function makeApprovalHarness(
       iterationLimit: undefined,
       toolSets: undefined,
     },
-    model: {
-      client: {
-        create: jest
-          .fn()
-          .mockImplementationOnce(() => writeNoteToolCallStream())
-          .mockImplementation(() => textReplyStream(finalReply)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest
+              .fn()
+              .mockImplementationOnce(() => writeNoteToolCallStream())
+              .mockImplementation(() => textReplyStream(finalReply)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId: ROOT_ID,
     title: 'orchestration-approval',
     parent: undefined,
@@ -884,6 +901,7 @@ function makeApprovalHarnessWithUserToolSet(
 } {
   const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
   const agentThreadInput: AgentThreadConstructorInput = {
+    lastUsedModel: null,
     definition: {
       instruction: INSTRUCTION,
       messages: undefined,
@@ -891,16 +909,20 @@ function makeApprovalHarnessWithUserToolSet(
       iterationLimit: undefined,
       toolSets: [toolSet],
     },
-    model: {
-      client: {
-        create: jest
-          .fn()
-          .mockImplementationOnce(() => writeNoteToolCallStream())
-          .mockImplementation(() => textReplyStream(finalReply)),
-        createNonStream: jest.fn(),
-      },
-      name: TEST_MODEL_NAME,
-    },
+    resolveModel: () =>
+      Promise.resolve({
+        model: {
+          client: {
+            create: jest
+              .fn()
+              .mockImplementationOnce(() => writeNoteToolCallStream())
+              .mockImplementation(() => textReplyStream(finalReply)),
+            createNonStream: jest.fn(),
+          },
+          name: TEST_MODEL_NAME,
+        },
+        routed: false,
+      }),
     threadId: ROOT_ID,
     title: 'orchestration-approval-policy-flow',
     parent: undefined,

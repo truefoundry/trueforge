@@ -11,9 +11,11 @@ import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import {
   auiButtonClass,
+  shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
   sidebarButtonRadiusClassName,
-  sidebarRailButtonClassName,
+  sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
@@ -65,11 +67,15 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          'font-normal shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+          'font-normal shadow-none',
           compact
-            ? cn(sidebarRailButtonClassName, 'text-inherit')
-            : cn(sidebarButtonRadiusClassName, 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text'),
-          libraryOpen && shellRailSelectedClassName,
+            ? sidebarCompactNavButtonClassName
+            : cn(
+                sidebarButtonRadiusClassName,
+                'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
+                shellHoverClassName,
+              ),
+          libraryOpen && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {
@@ -77,17 +83,14 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
         shell?.setLibraryOpen(true);
       }}
     >
-      <Icon name="agent-2" size={compact ? 16 : undefined} />
+      <Icon name="agent-2" />
       {compact ? null : (
-        <>
-          <span className="truncate">
-            Agents
-            {countLabel != null ? (
-              <span className={cn(!libraryOpen && 'text-text-secondary')}> ({countLabel})</span>
-            ) : null}
-          </span>
-          <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
-        </>
+        <span className="truncate">
+          Agents
+          {countLabel != null ? (
+            <span className={cn(!libraryOpen && 'text-text-secondary')}> ({countLabel})</span>
+          ) : null}
+        </span>
       )}
     </button>
   );

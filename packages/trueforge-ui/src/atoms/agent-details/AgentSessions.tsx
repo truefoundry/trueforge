@@ -373,13 +373,15 @@ export function AgentSessions({
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
   const detailPanel = (
-    <section className="isolate flex h-full min-w-0 flex-col bg-primary-bg">
+    <section
+      className={cn('isolate flex h-full min-w-0 flex-col', selectedSessionId != null ? 'bg-card-bg' : 'bg-primary-bg')}
+    >
       {selectedSessionId == null ? (
         <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
           Select a session to view details
         </div>
       ) : detailFailed ? (
-        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-primary-bg" />
+        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-card-bg" />
       ) : (
         <>
           <AgentSessionDetailHeader
@@ -438,7 +440,7 @@ export function AgentSessions({
       resizeTargetMinimumSize={{ coarse: 24, fine: 11 }}
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
-        <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
+        <aside className="flex h-full min-h-0 w-full flex-col bg-card-bg">
           {onLoadRecentSessions != null ? (
             <div className="flex shrink-0 justify-center border-b border-border p-3">
               <Button.Secondary type="button" size="small" onClick={onLoadRecentSessions}>

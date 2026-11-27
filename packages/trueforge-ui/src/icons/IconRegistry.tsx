@@ -1,3 +1,14 @@
+import Agent2Icon from './agent-2.svg';
+import AiIcon from './ai.svg';
+import BrainRegularIcon from './brain-regular.svg';
+import CompareIcon from './compare.svg';
+import EmptyIcon from './empty.svg';
+import McpServerIcon from './mcp-server.svg';
+import MessageAi3LineIcon from './message-ai-3-line.svg';
+import SearchGlobeIcon from './search-globe.svg';
+import TrueForgeLogomarkDarkIcon from './trueforge-logomark-dark.svg';
+import TrueForgeLogomarkLightIcon from './trueforge-logomark-light.svg';
+
 import {
   Archive,
   ArrowDown,
@@ -5,7 +16,6 @@ import {
   ArrowUp,
   BookOpen,
   BookText,
-  Bot,
   Box,
   Brain,
   Calendar,
@@ -52,6 +62,8 @@ import {
   LogOut,
   Maximize2,
   Menu,
+  MessageCircle,
+  MessageSquareMore,
   MessageSquareText,
   Minimize2,
   Monitor,
@@ -68,6 +80,7 @@ import {
   RefreshCw,
   RotateCw,
   Save,
+  ScrollText,
   Search,
   Settings,
   Share,
@@ -85,6 +98,7 @@ import {
   Type,
   UserCog,
   Users,
+  Wand,
   Wrench,
   X,
 } from 'lucide-react';
@@ -215,13 +229,27 @@ const defaults: Record<string, IconEntry> = {
   'oauth-error': CircleX,
   'oauth-loading': Loader2,
   'welcome-sparkle': Sparkle,
-  robot: Bot,
-  bot: Bot,
+  // Custom agent SVGs live in defaults so every bundled IconRegistry copy has them
+  // (lazy layout chunks do not re-run the index.ts registerAgentIcons side effect).
+  'agent-2': Agent2Icon,
+  robot: Agent2Icon,
+  bot: Agent2Icon,
+  'message-ai-3-line': MessageAi3LineIcon,
+  'mcp-server': McpServerIcon,
+  compare: CompareIcon,
+  ai: AiIcon,
+  searchGlobe: SearchGlobeIcon,
+  'brain-regular': BrainRegularIcon,
+  empty: EmptyIcon,
+  'trueforge-logomark-light': TrueForgeLogomarkLightIcon,
+  'trueforge-logomark-dark': TrueForgeLogomarkDarkIcon,
   layers: Layers,
   'library-big': LibraryBig,
   'book-text': BookText,
   'clock-7': Clock7,
   'layers-2': Layers2,
+  'message-circle': MessageCircle,
+  'message-square-more': MessageSquareMore,
   'message-square-text': MessageSquareText,
   'book-open': BookOpen,
   funnel: ListFilter,
@@ -231,6 +259,10 @@ const defaults: Record<string, IconEntry> = {
   'user-cog': UserCog,
   users: Users,
   lightbulb: Lightbulb,
+  wand: Wand,
+  // Skills (settings, composer attach, agent config / overview).
+  'scroll-text': ScrollText,
+
   tag: Tag,
   link: Link2,
   wrench: Wrench,
