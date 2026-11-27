@@ -581,3 +581,4 @@ export { SaveAgentForm } from './atoms/SaveAgentForm.js';
 export type { SaveAgentFormProps } from './atoms/SaveAgentForm.js';
 export { SessionsBrowserButton } from './atoms/SessionsBrowserButton.js';
 export type { SessionsBrowserButtonProps } from './atoms/SessionsBrowserButton.js';
+export { UnsavedChangesIndicator } from './atoms/UnsavedChangesIndicator.js';

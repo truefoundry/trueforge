@@ -7,6 +7,7 @@ import {
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef, useState } from 'react';
 
+import { useAgentHasUnsavedChanges } from '../hooks/useAgentHasUnsavedChanges.js';
 import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
@@ -73,6 +74,8 @@ function SaveAgentButtonContent({
   const { canCreateAgent, loading: createAgentPermissionLoading } = useCanCreateAgent();
   const configInstructions = useOptionalAgentConfigInstructions();
   const SaveAgentForm = useSlot('SaveAgentForm');
+  const UnsavedChangesIndicator = useSlot('UnsavedChangesIndicator');
+  const hasUnsavedChanges = useAgentHasUnsavedChanges();
   const PermissionGuard = useSlot('PermissionGuard');
   const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
@@ -155,6 +158,7 @@ function SaveAgentButtonContent({
 
   return (
     <>
+      {hasUnsavedChanges ? <UnsavedChangesIndicator /> : null}
       <PermissionGuard
         allowed={canTrigger}
         deniedMessage={isUpdateMode ? undefined : NO_CREATE_AGENT_PERMISSION_MESSAGE}
