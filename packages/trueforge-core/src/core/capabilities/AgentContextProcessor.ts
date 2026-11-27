@@ -4,12 +4,12 @@ import type {
   ThreadContextCompactionStartedEvent,
   ThreadOverwriteContextEvent,
 } from '../events/schema';
-import type { AgentModel } from '../runtime/AgentModel';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
   InternalCapabilityStateEvent,
   InternalPassthroughEvent,
+  ModelResolution,
 } from '../runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../runtime/contextUsage';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
@@ -23,9 +23,7 @@ export interface AgentThreadContext {
 }
 
 /** Thread state for hooks that run while the thread executes on a model. */
-export interface AgentThreadExecutionContext extends AgentThreadContext {
-  model: AgentModel;
-}
+export interface AgentThreadExecutionContext extends AgentThreadContext, ModelResolution {}
 
 export type AgentContextProcessorOverwriteContext = Omit<ThreadOverwriteContextEvent, 'thread_id'>;
 

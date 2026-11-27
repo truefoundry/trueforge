@@ -147,12 +147,13 @@ function userText(
 }
 
 /** Root replies with create_sub_agent, the child replies with text, then the root finishes. */
-function subAgentReplies(bodies: LLMCreateParamsStreaming[]) {
+function subAgentReplies(bodies: LLMCreateParamsStreaming[], selections?: string[]) {
   let calls = 0;
   // jest.fn() so the unannotated tool-call stream is not checked against the client type.
   const create = jest.fn();
-  create.mockImplementation((body: LLMCreateParamsStreaming) => {
+  create.mockImplementation((body: LLMCreateParamsStreaming, options?: { metadata?: Record<string, string> }) => {
     bodies.push(body);
+    selections?.push(options?.metadata?.['tfg.model_selection'] ?? 'none');
     calls += 1;
     if (calls === 1) return createSubAgentStream();
     if (calls === 2) return textReplyStream('from the child');
@@ -730,18 +731,20 @@ describe('auto model selection', () => {
   it('runs an unplaced subagent of an auto root on the root model and effort', async () => {
     const { session } = await createSession(autoSpec, true);
     const bodies: LLMCreateParamsStreaming[] = [];
+    const selections: string[] = [];
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({
         modelRouting: routing(input => (typeof input === 'string' ? undefined : 'direct')).deps,
         defaultModelParams: DEFAULTS,
-        llmCreate: subAgentReplies(bodies),
+        llmCreate: subAgentReplies(bodies, selections),
       }),
     });
     for await (const event of turn.stream()) void event;
 
     expect(bodies[1]).toMatchObject({ max_tokens: 128, reasoning_effort: 'low' });
     expect(bodies[1]).not.toHaveProperty('temperature');
+    expect(selections).toEqual(['auto', 'auto', 'auto']);
   });
 
   it('offers frontier to the root conversation but never to a subagent task', async () => {
@@ -801,17 +804,31 @@ describe('auto model selection', () => {
   it('keeps an unplaced subagent of a named model on the spec params', async () => {
     const { session } = await createSession({ name: SPEC_MODEL, params: { temperature: 0.2 } }, true);
     const bodies: LLMCreateParamsStreaming[] = [];
+    const selections: string[] = [];
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({
         modelRouting: routing(() => undefined).deps,
         defaultModelParams: DEFAULTS,
-        llmCreate: subAgentReplies(bodies),
+        llmCreate: subAgentReplies(bodies, selections),
       }),
     });
     for await (const event of turn.stream()) void event;
 
     expect(bodies[1]).toMatchObject({ max_tokens: 128, temperature: 0.2 });
     expect(bodies[1]).not.toHaveProperty('reasoning_effort');
+    expect(selections).toEqual(['none', 'auto', 'none']);
+  });
+
+  it('tags no call when a named model runs without routing', async () => {
+    const { session } = await createSession({ name: SPEC_MODEL }, true);
+    const selections: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({ llmCreate: subAgentReplies([], selections) }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    expect(selections).toEqual(['none', 'none', 'none']);
   });
 });

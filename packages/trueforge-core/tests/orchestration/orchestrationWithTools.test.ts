@@ -141,7 +141,7 @@ describe('orchestration: dynamic sub-agent', () => {
             },
             name: TEST_MODEL_NAME,
           },
-          routed: false,
+          choice: 'configured',
         }),
       threadId: ROOT_ID,
       title: 'orchestration-with-tools',
@@ -187,7 +187,7 @@ describe('orchestration: dynamic sub-agent', () => {
         resolveModel: () =>
           Promise.resolve({
             model: { client, name: CHILD_MODEL, params: { reasoning_effort: 'low' } },
-            routed: true,
+            choice: 'routed',
           }),
         threadId,
         title: request.name,

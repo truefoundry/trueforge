@@ -752,8 +752,8 @@ export class SessionHandle<
             categories: ROOT_ROUTING_CATEGORIES,
           }
         : undefined;
-      const model = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
-      return () => resolver.resolveModel({ spec, model, routingInput });
+      const carriedModel = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
+      return () => resolver.resolveModel({ spec, carriedModel, routingInput });
     }
     const requested = request?.model === undefined ? undefined : { name: request.model, effort: null };
     if (previousThread === undefined) {
@@ -767,8 +767,9 @@ export class SessionHandle<
         instructions: TASK_ROUTING_INSTRUCTIONS,
         categories: SUBAGENT_ROUTING_CATEGORIES,
       };
-      return () => resolver.resolveModel({ spec, model: requested ?? input.rootModel, routingInput });
+      return () => resolver.resolveModel({ spec, carriedModel: requested ?? input.rootModel, routingInput });
     }
-    return () => resolver.resolveModel({ spec, model: saved ?? requested ?? input.rootModel, routingInput: undefined });
+    return () =>
+      resolver.resolveModel({ spec, carriedModel: saved ?? requested ?? input.rootModel, routingInput: undefined });
   }
 }

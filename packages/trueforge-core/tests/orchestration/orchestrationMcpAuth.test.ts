@@ -48,7 +48,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
           },
           name: TEST_MODEL_NAME,
         },
-        routed: false,
+        choice: 'configured',
       }),
     threadId,
     title: threadId,

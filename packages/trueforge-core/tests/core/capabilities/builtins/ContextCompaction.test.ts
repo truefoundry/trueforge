@@ -7,6 +7,7 @@ import {
 import { EventType } from '../../../../src/core/events/schema';
 import { getEmptyUsage } from '../../../../src/core/llm/LLMTypes';
 import type { AgentModel } from '../../../../src/core/runtime/AgentModel';
+import type { ModelChoice } from '../../../../src/core/runtime/AgentThread.types';
 import { makeMockILLM, TEST_MODEL_NAME } from '../../harnessMocks';
 
 function modelWithContextLength(contextLength: number): AgentModel {
@@ -19,7 +20,11 @@ function modelWithContextLength(contextLength: number): AgentModel {
   return { client, name: TEST_MODEL_NAME, properties: { contextLength } };
 }
 
-async function compactionEventTypes(model: AgentModel, contextTokens: number): Promise<string[]> {
+async function compactionEventTypes(
+  model: AgentModel,
+  contextTokens: number,
+  choice: ModelChoice = 'configured',
+): Promise<string[]> {
   const processor = contextCompaction({}).preLLMProcessors?.[0];
   if (processor === undefined) {
     throw new Error('expected a compaction processor');
@@ -29,6 +34,7 @@ async function compactionEventTypes(model: AgentModel, contextTokens: number): P
     currentContextUsage: { prompt_tokens: contextTokens, completion_tokens: 0 },
     context: [{ role: 'user', content: 'hello' }],
     model,
+    choice,
   };
   const types: string[] = [];
   for await (const output of processor.processPreLLM(execution)) {
@@ -51,6 +57,32 @@ describe('contextCompaction', () => {
       EventType.AGENT_CONTEXT_OVERWRITE,
     ]);
     expect(small.client.createNonStream).toHaveBeenCalledTimes(1);
+    expect(small.client.createNonStream).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: {
+          'tfg.thread_id': 'main',
+          'tfg.compaction': 'true',
+        },
+      }),
+    );
+  });
+
+  it.each(['routed', 'carried'] as const)('tags the compaction call auto when the model was %s', async choice => {
+    const model = modelWithContextLength(10_000);
+
+    await compactionEventTypes(model, 50_000, choice);
+
+    expect(model.client.createNonStream).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        metadata: {
+          'tfg.thread_id': 'main',
+          'tfg.compaction': 'true',
+          'tfg.model_selection': 'auto',
+        },
+      }),
+    );
   });
 });
 

@@ -2,14 +2,12 @@ import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
-import type { AgentModel } from '../core/runtime/AgentModel';
-import type { AgentInfo, ModelSnapshot } from '../core/runtime/AgentThread.types';
+import type { AgentInfo, ModelResolution, ModelSnapshot } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-
 /** Result of {@link ITurnResourceResolver.resolveAgentDefinition}. */
 export interface ResolvedAgentDefinition {
   definition: AgentDefinition;
@@ -68,16 +66,16 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<ResolvedAgentDefinition>;
   /**
-   * The model a thread runs on: the routed model, else `model`, else the spec's. Throws when an auto spec ends up with
-   * neither.
+   * The model a thread runs on: the routed model, else `carriedModel`, else the spec's. Throws when an auto spec ends up with
+   * neither. `choice` says how it was chosen.
    */
   resolveModel(input: {
     spec: AgentSpec;
     /** The model to run on when nothing is routed: a saved one, or the root's for a subagent. */
-    model: ModelSnapshot | undefined;
+    carriedModel: ModelSnapshot | undefined;
     /** What to route on; undefined to not route. */
     routingInput: RouteInput | undefined;
-  }): Promise<{ model: AgentModel; routed: boolean }>;
+  }): Promise<ModelResolution>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by

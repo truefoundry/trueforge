@@ -61,7 +61,7 @@ async function runUntilDone({
           name: TEST_MODEL_NAME,
           ...(modelParams !== undefined ? { params: modelParams } : {}),
         },
-        routed: false,
+        choice: 'configured',
       }),
     context: [{ role: 'user', content: 'hi' }],
   });

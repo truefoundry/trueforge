@@ -104,7 +104,7 @@ describe('AgentThread unknown tool logging', () => {
             client: modelClient,
             name: TEST_MODEL_NAME,
           },
-          routed: false,
+          choice: 'configured',
         }),
       context: [{ role: 'user', content: 'hi' }],
     });

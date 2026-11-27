@@ -75,7 +75,7 @@ function baseThreadInput(
           },
           name: TEST_MODEL_NAME,
         },
-        routed: false,
+        choice: 'configured',
       }),
     parent: undefined,
     agentInfo: undefined,

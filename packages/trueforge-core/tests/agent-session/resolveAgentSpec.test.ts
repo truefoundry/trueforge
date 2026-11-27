@@ -5,6 +5,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
+import { DEFAULT_ROUTING_QUESTION } from '../../src/core/modelRouting/question';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import { createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 import {
@@ -56,7 +57,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveModel({
       spec: makeAgentSpec(),
-      model: undefined,
+      carriedModel: undefined,
       routingInput: undefined,
     });
 
@@ -100,7 +101,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveModel({
       spec,
-      model: undefined,
+      carriedModel: undefined,
       routingInput: undefined,
     });
 
@@ -140,7 +141,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveModel({
       spec,
-      model: { name: 'provider/other', effort: null },
+      carriedModel: { name: 'provider/other', effort: null },
       routingInput: undefined,
     });
 
@@ -167,12 +168,60 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { model } = await resolver.resolveModel({
       spec,
-      model: { name: 'provider/routed', effort: 'medium' },
+      carriedModel: { name: 'provider/routed', effort: 'medium' },
       routingInput: undefined,
     });
 
     expect(model.name).toBe('provider/routed');
     expect(model.params).toEqual({ max_tokens: 4096, reasoning_effort: 'medium' });
+  });
+
+  it.each([
+    {
+      name: 'configured for a named root',
+      routing: true,
+      specModel: 'provider/model',
+      saved: undefined,
+      choice: 'configured',
+    },
+    { name: 'carried for an auto root resuming', routing: true, specModel: 'auto', saved: 'saved', choice: 'carried' },
+    {
+      name: 'carried for a subagent on a carried model',
+      routing: true,
+      specModel: 'provider/model',
+      saved: 'saved',
+      choice: 'carried',
+    },
+    {
+      name: 'configured when there is no router',
+      routing: false,
+      specModel: 'provider/model',
+      saved: 'saved',
+      choice: 'configured',
+    },
+  ] as const)('returns choice $choice: $name', async ({ routing, specModel, saved, choice }) => {
+    const resolver = new TurnResourceResolver({
+      modelRouting: routing
+        ? {
+            classifier: () => Promise.reject(new Error('unused')),
+            question: DEFAULT_ROUTING_QUESTION,
+            listModels: () => Promise.resolve([]),
+          }
+        : undefined,
+      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {}, providerType: undefined }),
+      mcp: () => Promise.resolve(undefined),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger: makeSilentLogger(),
+    });
+
+    const resolved = await resolver.resolveModel({
+      spec: AgentSpecSchema.parse({ model: { name: specModel } }),
+      carriedModel: saved === undefined ? undefined : { name: 'provider/saved', effort: null },
+      routingInput: undefined,
+    });
+
+    expect(resolved.choice).toBe(choice);
   });
 
   it('closes each RemoteMCP when the turn ends', async () => {
@@ -315,7 +364,7 @@ describe('SessionHandle rebuild', () => {
     }
 
     expect(resolveModel.mock.calls.map(([input]) => input)).toContainEqual(
-      expect.objectContaining({ model: expected, routingInput: undefined }),
+      expect.objectContaining({ carriedModel: expected, routingInput: undefined }),
     );
     expect(resolveAgentDefinition.mock.calls.map(([input]) => input.agent_info)).toContainEqual(undefined);
   });
