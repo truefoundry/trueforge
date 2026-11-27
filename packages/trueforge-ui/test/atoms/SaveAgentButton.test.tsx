@@ -174,7 +174,7 @@ function deferred<T>() {
 describe('SaveAgentButton', () => {
   beforeEach(() => {
     agentSpec = {
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       instructions: 'Be helpful.',
       mcpServers: [{ id: 'github', name: 'GitHub' }],
       skills: [{ id: 'research', name: 'Research' }],
@@ -200,7 +200,7 @@ describe('SaveAgentButton', () => {
 
   it('is hidden when the draft has no model', () => {
     agentSpec = {
-      model: { name: '' },
+      model: { type: 'fixed', name: '' },
       skills: [{ id: 's1', name: 'Skill One' }],
     };
     renderButton();
@@ -274,7 +274,7 @@ describe('SaveAgentButton', () => {
     await waitFor(() => expect(flushAgentSpec).toHaveBeenCalledOnce());
 
     agentSpec = {
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       instructions: 'Latest flushed instructions.',
       mcpServers: [{ id: 'slack', name: 'Slack' }],
       skills: [{ id: 'writing', name: 'Writing' }],
@@ -422,7 +422,7 @@ describe('SaveAgentButton', () => {
       agentName: 'my-agent',
       description: 'My agent description.',
       agentSpec: {
-        model: { name: 'openai/gpt-4.1', params: undefined },
+        model: { type: 'fixed', name: 'openai/gpt-4.1', params: undefined },
         instructions: 'Be helpful.',
         mcpServers: [{ id: 'github', name: 'GitHub' }],
         skills: [{ id: 'research', name: 'Research' }],
@@ -433,7 +433,7 @@ describe('SaveAgentButton', () => {
     });
     await waitFor(() =>
       expect(adoptAgentSpec).toHaveBeenCalledWith({
-        agentSpec: expect.objectContaining({ model: { name: 'openai/gpt-4.1', params: undefined } }),
+        agentSpec: expect.objectContaining({ model: { type: 'fixed', name: 'openai/gpt-4.1', params: undefined } }),
         updatedAt: '2026-08-12T08:00:00.000Z',
       }),
     );
@@ -443,7 +443,7 @@ describe('SaveAgentButton', () => {
 
   it('preserves opaque mount fields without exposing resource editors', async () => {
     agentSpec = {
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['@read-only'], config: { project: 'sdk' } }],
       skills: [{ id: 'research', name: 'Research', fqn: 'skills/research:1', config: { depth: 2 } }],
     };
@@ -551,7 +551,7 @@ describe('SaveAgentButton', () => {
 
   it('prefills description on update intent', async () => {
     agentSpec = {
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       instructions: 'Be helpful.',
     };
     renderButton({

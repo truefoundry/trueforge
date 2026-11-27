@@ -18,7 +18,7 @@ vi.mock('@assistant-ui/core/react', () => ({
 }));
 
 const draftSpec: AgentSpec = {
-  model: { name: 'anthropic/claude-sonnet-4-6' },
+  model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
 };
 
 function mockServer(): AgentChatServer {

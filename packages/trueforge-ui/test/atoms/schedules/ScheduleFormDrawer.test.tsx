@@ -112,7 +112,7 @@ function renderDrawer({
             name: 'demo-agent',
             agentId: 'demo-agent',
             agentSpec: {
-              model: { name: 'openai/gpt-4.1' },
+              model: { type: 'fixed' as const, name: 'openai/gpt-4.1' },
               mcpServers: [{ name: 'Slack 1234' }],
             },
           },
@@ -180,7 +180,10 @@ describe('ScheduleFormDrawer', () => {
         {
           name: 'demo-agent',
           agentId: 'demo-agent',
-          agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [{ name: 'Slack 1234' }] },
+          agentSpec: {
+            model: { type: 'fixed' as const, name: 'openai/gpt-4.1' },
+            mcpServers: [{ name: 'Slack 1234' }],
+          },
         },
         { name: 'other-agent', agentId: 'other-agent' },
       ];
@@ -398,7 +401,7 @@ describe('ScheduleFormDrawer', () => {
               name: 'demo-agent',
               agentId: 'demo-agent',
               agentSpec: {
-                model: { name: 'openai/gpt-4.1' },
+                model: { type: 'fixed' as const, name: 'openai/gpt-4.1' },
                 mcpServers: [{ name: 'Slack 1234' }],
               },
             },
@@ -496,7 +499,7 @@ describe('ScheduleFormDrawer', () => {
           name: 'Demo Bot',
           agentId: 'agt_demo',
           agentSpec: {
-            model: { name: 'openai/gpt-4.1' },
+            model: { type: 'fixed' as const, name: 'openai/gpt-4.1' },
             mcpServers: [{ name: 'Slack 1234' }],
           },
         },
@@ -542,7 +545,7 @@ describe('ScheduleFormDrawer', () => {
             {
               name: 'Prefill Bot',
               agentId: 'agt_prefill',
-              agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+              agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' }, mcpServers: [] },
             },
           ],
         };
@@ -552,7 +555,7 @@ describe('ScheduleFormDrawer', () => {
           {
             name: 'Picked Bot',
             agentId: 'agt_picked',
-            agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' }, mcpServers: [] },
           },
         ],
       };

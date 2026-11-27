@@ -288,7 +288,9 @@ export { useTheme } from './theme/useTheme.js';
 
 // Runtime / server — consumer surface.
 export {
+  fixedModelName,
   mergeAgentSpec,
+  modelParams,
   trueForgeAttachmentAdapter,
   useTrueForgeAgentRuntime,
   useTrueForgeAgentSpec,
@@ -378,6 +380,7 @@ export type {
   AgentUIServer,
   ApprovalDecision,
   AuthenticateConnectorRequest,
+  AutoModel,
   CatalogServer,
   CodeSnippet,
   CodeSnippetSampleCode,
@@ -405,6 +408,7 @@ export type {
   CreateSkillRequestBase,
   CreateWebSearchProviderRequest,
   DefinedSkill,
+  FixedModel,
   GithubSkill,
   ImportGithubSkillRequest,
   ListPermissionsRequest,

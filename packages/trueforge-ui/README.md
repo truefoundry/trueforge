@@ -122,7 +122,7 @@ auth-aware wrapper that follows OIDC cookies):
   layout="sidebar"
   agentConfig={{
     mode: 'AgentLibraryWithComposer',
-    defaultAgentSpec: { model: { name: '…' } }, // often seeded at boot from listModels
+    defaultAgentSpec: { model: { type: 'fixed', name: '…' } }, // often seeded at boot from listModels
   }}
 />
 ```
@@ -166,7 +166,7 @@ const server = createTrueForgeServer({
   layout="sidebar" // 'sidebar' | 'drawer' | 'dock' | 'widget' | CustomLayout
   agentConfig={{
     mode: 'AgentLibraryWithComposer', // default when omitted
-    defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    defaultAgentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
   }}
   theme={{
     preset: 'claude',
@@ -411,7 +411,7 @@ Mutable composers expose **Agent Config** for live model parameters, instruction
   layout="sidebar"
   agentConfig={{
     mode: 'AgentComposer',
-    defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    defaultAgentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
   }}
 />;
 ```

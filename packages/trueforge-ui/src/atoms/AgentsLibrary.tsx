@@ -26,6 +26,7 @@ import {
 } from './AgentLibraryUsage.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
+import { modelSelectionKey } from './draft/autoModel.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { cn } from './lib/cn.js';
 import { isMobileNavDrawerOpen } from './lib/isMobileNavDrawerOpen.js';
@@ -381,7 +382,7 @@ export function AgentLibraryRow({
   const PermissionGuard = useSlot('PermissionGuard');
   const SlottedUsageCells = useSlot('AgentLibraryUsageCells');
   const spec = agent.agentSpec;
-  const modelName = spec?.model.name;
+  const modelName = spec && modelSelectionKey(spec.model);
   const skillNames = (spec?.skills ?? []).map(mountName).filter((name: string | null): name is string => name != null);
   const mcpNames = (spec?.mcpServers ?? [])
     .map(mountName)

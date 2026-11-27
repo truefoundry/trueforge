@@ -5,7 +5,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog, tenantSessionSharing } from '../server/mockServer.js';
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => ({
+  ...(await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>()),
   trueForgeAttachmentAdapter: {},
   useTrueForgeAgentRuntime: () =>
     useExternalStoreRuntime<ThreadMessageLike>({
@@ -25,7 +26,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
     loadMore: vi.fn(),
   }),
   useTrueForgeAgentSpec: () => ({
-    agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    agentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
   }),
   useTrueForgeFlushAgentSpec: () => async () => {},
   useTrueForgeAdoptAgentSpec: () => vi.fn(),

@@ -16,8 +16,8 @@ export {
   repositoryItemsFromMessages,
 } from './convertTurnMessages.js';
 export type { ConvertTurnsResult } from './convertTurnMessages.js';
-export { draftSessionTitle, mergeAgentSpec } from './draft/agentSpec.js';
-export type { AgentSpecUpdate, DraftSession } from './draft/agentSpec.js';
+export { draftSessionTitle, fixedModelName, mergeAgentSpec, modelParams } from './draft/agentSpec.js';
+export type { AgentSpecUpdate, DraftSession, ModelUpdate } from './draft/agentSpec.js';
 export { createDraftSessionBridge } from './draft/draftSessionBridge.js';
 export type { DraftSessionBridge } from './draft/draftSessionBridge.js';
 export { createTrueForgeDraftThreadListAdapter } from './draft/trueforgeDraftThreadListAdapter.js';
@@ -118,6 +118,7 @@ export type {
   AgentUIServerPort,
   ApprovalDecision,
   AuthenticateConnectorRequest,
+  AutoModel,
   CatalogServer,
   CodeSnippet,
   CodeSnippetSampleCode,
@@ -152,6 +153,7 @@ export type {
   CreateWebSearchProviderRequest,
   CreateWebSearchRequest,
   DefinedSkill,
+  FixedModel,
   GithubSkill,
   ImportGithubSkillRequest,
   ListPermissionsRequest,

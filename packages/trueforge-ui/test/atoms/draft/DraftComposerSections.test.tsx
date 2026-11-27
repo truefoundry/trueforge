@@ -14,7 +14,8 @@ import { createMockAgentUIServer } from '../../server/mockServer.js';
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => ({
+  ...(await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>()),
   useTrueForgeAgentSpec: () => ({ agentSpec }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
@@ -66,7 +67,7 @@ describe('draft composer sections', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     agentSpec = {
-      model: { name: 'openai/gpt-4.1', params: { reasoningEffort: 'high' } },
+      model: { type: 'fixed', name: 'openai/gpt-4.1', params: { reasoningEffort: 'high' } },
       mcpServers: [{ id: 'github', name: 'GitHub' }],
       skills: [
         { id: 'research', name: 'Research' },

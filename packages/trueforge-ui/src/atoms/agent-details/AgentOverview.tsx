@@ -1,9 +1,12 @@
 'use client';
 
+import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useState, type ComponentType } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { modelSelectionKey } from '../draft/autoModel.js';
+import { displayModelLabel } from '../draft/DraftModelCatalogPanel.js';
 import { cn } from '../lib/cn.js';
 import { AgentOverviewMcpServers } from './AgentOverviewMcpServers.js';
 import type { AgentOverviewProps } from './types.js';
@@ -29,11 +32,6 @@ function readRecordValue(record: Record<string, unknown> | null, ...keys: string
   return undefined;
 }
 
-function displayModelName(name: string): string {
-  const slash = name.lastIndexOf('/');
-  return slash >= 0 ? name.slice(slash + 1) : name;
-}
-
 export default function AgentOverview({ detail }: AgentOverviewProps) {
   const Markdown = useSlot('Markdown');
   const AgentOverviewCard = useSlot('AgentOverviewCard');
@@ -42,9 +40,11 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
   const [copied, setCopied] = useState(false);
   const spec = detail.agentSpec;
   const skills = spec.skills ?? [];
-  const modelParams = isRecord(spec.model.params) ? spec.model.params : null;
-  const maxTokens = readRecordValue(modelParams, 'maxTokens', 'max_tokens');
-  const temperature = readRecordValue(modelParams, 'temperature');
+  const modelKey = modelSelectionKey(spec.model);
+  const callParams = modelParams(spec.model);
+  const recordedParams = isRecord(callParams) ? callParams : null;
+  const maxTokens = readRecordValue(recordedParams, 'maxTokens', 'max_tokens');
+  const temperature = readRecordValue(recordedParams, 'temperature');
   const config = isRecord(spec.config) ? spec.config : null;
   const sandbox = isRecord(config?.sandbox) ? config.sandbox : null;
   const instructions = spec.instructions?.trim() ? spec.instructions : null;
@@ -132,8 +132,8 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
           <AgentOverviewCard title="Model Configuration" icon="cpu">
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
               <dt className="text-text-secondary">Model</dt>
-              <dd className={cn(valueClassName, 'truncate')} title={spec.model.name}>
-                {displayModelName(spec.model.name)}
+              <dd className={cn(valueClassName, 'truncate')} title={modelKey}>
+                {displayModelLabel(modelKey)}
               </dd>
               {typeof maxTokens === 'number' ? (
                 <>
@@ -141,10 +141,10 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
                   <dd className={valueClassName}>{maxTokens}</dd>
                 </>
               ) : null}
-              {spec.model.params?.reasoningEffort !== undefined ? (
+              {callParams?.reasoningEffort !== undefined ? (
                 <>
                   <dt className="text-text-secondary">Reasoning</dt>
-                  <dd className={valueClassName}>{spec.model.params.reasoningEffort}</dd>
+                  <dd className={valueClassName}>{callParams.reasoningEffort}</dd>
                 </>
               ) : null}
               {typeof temperature === 'number' ? (

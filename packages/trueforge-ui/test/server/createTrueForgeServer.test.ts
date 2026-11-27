@@ -90,7 +90,7 @@ describe('createTrueForgeServer', () => {
 
     await server.saveAgent({
       agentName: 'my-agent',
-      agentSpec: { model: { name: 'p/m' } },
+      agentSpec: { model: { type: 'fixed', name: 'p/m' } },
       intent: 'create',
     });
     expect(saveAgent).toHaveBeenCalled();

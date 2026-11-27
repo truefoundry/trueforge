@@ -6,7 +6,7 @@ import { createTrueForgeDraftThreadListAdapter } from '../../src/draft/trueforge
 import type { AgentSpec } from '../../src/server/types.js';
 
 const defaultAgentSpec: AgentSpec = {
-  model: { name: 'anthropic/claude-sonnet-4-6' },
+  model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'You are helpful.',
 };
 
@@ -146,7 +146,7 @@ describe('createTrueForgeDraftThreadListAdapter', () => {
 
   it('creates a draft session with the live agent spec when getAgentSpec is provided', async () => {
     const liveAgentSpec: AgentSpec = {
-      model: { name: 'anthropic/claude-opus-4-8' },
+      model: { type: 'fixed', name: 'anthropic/claude-opus-4-8' },
       instructions: 'You are helpful.',
       mcpServers: [{ id: 'github', name: 'github' }],
       skills: [{ id: 'skill-a', name: 'skill-a' }],

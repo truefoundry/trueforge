@@ -7,6 +7,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { withSessionProps } from '../analytics/sessionProps.js';
+import { modelSelectionKey } from '../atoms/draft/autoModel.js';
 import { DraftCatalogProvider, useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { useResolveDraftSandboxEnvironment } from '../atoms/environments/useResolveDraftSandboxEnvironment.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
@@ -67,7 +68,7 @@ function ComposerBody({
   const { agentSpec } = useTrueForgeAgentSpec();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
-  const hasModel = Boolean(agentSpec?.model?.name?.trim());
+  const hasModel = Boolean(agentSpec && modelSelectionKey(agentSpec.model).trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
   const canManageSession = useActiveSessionCanManage();
   const cancel = useTrueForgeCancel();
@@ -98,7 +99,7 @@ function ComposerBody({
           has_attachments: hasAttachments,
           attachment_count: attachmentCount,
           requires_model: requiresModel,
-          model: agentSpec?.model?.name,
+          model: agentSpec ? modelSelectionKey(agentSpec.model) : undefined,
         },
         { sessionId, ...shellAgent },
       ),
@@ -232,7 +233,7 @@ function MutableDraftComposer({
   const { pending: sandboxPending } = useResolveDraftSandboxEnvironment();
   const { agentSpec } = useTrueForgeAgentSpec();
   const { loaded: modelsLoaded, loading: modelsLoading } = useDraftCatalog();
-  const hasModel = Boolean(agentSpec?.model?.name?.trim());
+  const hasModel = Boolean(agentSpec && modelSelectionKey(agentSpec.model).trim());
   const sendBlockedReason =
     !hasModel && (!modelsLoaded || modelsLoading)
       ? 'Loading models…'

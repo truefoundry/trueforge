@@ -20,7 +20,7 @@ import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 const agentSpecState: { agentSpec: AgentSpec | undefined } = {
-  agentSpec: { model: { name: 'test/model' } },
+  agentSpec: { model: { type: 'fixed', name: 'test/model' } },
 };
 
 const toolResponsesState = vi.hoisted(() => ({
@@ -100,7 +100,7 @@ function renderMutableComposer({
         <ShellModeProvider
           agentConfig={{
             mode: 'AgentComposer',
-            defaultAgentSpec: { model: { name: 'test/model' } },
+            defaultAgentSpec: { model: { type: 'fixed', name: 'test/model' } },
           }}
         >
           <SlotsProvider
@@ -179,7 +179,7 @@ describe('canSubmitComposer', () => {
 
 describe('ComposerContainer', () => {
   beforeEach(() => {
-    agentSpecState.agentSpec = { model: { name: 'test/model' } };
+    agentSpecState.agentSpec = { model: { type: 'fixed', name: 'test/model' } };
     toolResponsesState.pending = [];
     toolResponsesState.respond = vi.fn();
     approvalsState.pending = [];
@@ -190,7 +190,7 @@ describe('ComposerContainer', () => {
       agentSpecState.agentSpec = {
         ...agentSpecState.agentSpec,
         ...patch,
-        model: patch.model ?? agentSpecState.agentSpec?.model ?? { name: '' },
+        model: patch.model ?? agentSpecState.agentSpec?.model ?? { type: 'fixed', name: '' },
         config: patch.config
           ? { ...agentSpecState.agentSpec?.config, ...patch.config }
           : agentSpecState.agentSpec?.config,
@@ -243,7 +243,7 @@ describe('ComposerContainer', () => {
   });
 
   it('disables send when no model is selected in mutable draft', async () => {
-    agentSpecState.agentSpec = { model: { name: '' } };
+    agentSpecState.agentSpec = { model: { type: 'fixed', name: '' } };
     const onNew = vi.fn(async () => {});
     // No ShellModeProvider → treated as requiring a client-side model (draft path).
     renderComposer(onNew);
@@ -390,7 +390,7 @@ describe('ComposerContainer', () => {
         <ShellModeProvider
           agentConfig={{
             mode: 'AgentComposer',
-            defaultAgentSpec: { model: { name: 'test/model' } },
+            defaultAgentSpec: { model: { type: 'fixed', name: 'test/model' } },
           }}
         >
           <RuntimeHarness messages={[]}>
@@ -543,7 +543,7 @@ describe('ComposerContainer', () => {
 
   it('allows send once the draft already names a sandbox environment', async () => {
     agentSpecState.agentSpec = {
-      model: { name: 'test/model' },
+      model: { type: 'fixed', name: 'test/model' },
       config: { sandbox: { environmentName: 'team-base' } },
     };
     const onNew = vi.fn(async () => {});
@@ -595,7 +595,7 @@ describe('ComposerContainer', () => {
   });
 
   it('blocks send with Loading models while the catalog loads', async () => {
-    agentSpecState.agentSpec = { model: { name: '' } };
+    agentSpecState.agentSpec = { model: { type: 'fixed', name: '' } };
     renderMutableComposer({
       listEnvironments: async () => ({ data: [defaultSandboxEnv] }),
     });

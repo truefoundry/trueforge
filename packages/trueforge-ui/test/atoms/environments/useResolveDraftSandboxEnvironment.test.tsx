@@ -83,7 +83,7 @@ describe('useResolveDraftSandboxEnvironment', () => {
   beforeEach(() => {
     updateAgentSpec.mockClear();
     draftSessionId = undefined;
-    agentSpec = { model: { name: 'gpt-4' } };
+    agentSpec = { model: { type: 'fixed', name: 'gpt-4' } };
   });
 
   it('pins a draft that names no environment to the tenant default', async () => {
@@ -97,7 +97,10 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('leaves an environment the user already picked alone', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'python-data' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'python-data' } },
+    };
     const { result } = await renderResolved([readyEnv, defaultEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
@@ -105,7 +108,10 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('repoints a remembered environment that left the catalog to the default', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'gone-env' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'gone-env' } },
+    };
     renderResolve([readyEnv, defaultEnv]);
 
     await waitFor(() => {
@@ -116,7 +122,10 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('repoints a picked environment that an admin has disabled to the default', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'python-data' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'python-data' } },
+    };
     renderResolve([{ ...readyEnv, enabled: false }, defaultEnv]);
 
     await waitFor(() => {
@@ -127,14 +136,20 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('keeps a picked environment that is still building', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'python-data' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'python-data' } },
+    };
     await renderResolved([{ ...readyEnv, status: 'pending' }, defaultEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
   it('keeps a picked environment whose last build failed', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'python-data' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'python-data' } },
+    };
     await renderResolved([{ ...readyEnv, status: 'failed' }, defaultEnv]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
@@ -151,7 +166,10 @@ describe('useResolveDraftSandboxEnvironment', () => {
   });
 
   it('leaves a draft already naming the still-building default alone', async () => {
-    agentSpec = { model: { name: 'gpt-4' }, config: { sandbox: { enabled: true, environmentName: 'team-base' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'gpt-4' },
+      config: { sandbox: { enabled: true, environmentName: 'team-base' } },
+    };
     await renderResolved([readyEnv, { ...defaultEnv, status: 'pending' }]);
 
     expect(updateAgentSpec).not.toHaveBeenCalled();
@@ -201,7 +219,7 @@ describe('useResolveDraftSandboxEnvironment', () => {
     expect(result.current.resolve.pending).toBe(true);
 
     agentSpec = {
-      model: { name: 'gpt-4' },
+      model: { type: 'fixed', name: 'gpt-4' },
       config: { sandbox: { environmentName: 'team-base' } },
     };
     rerender();

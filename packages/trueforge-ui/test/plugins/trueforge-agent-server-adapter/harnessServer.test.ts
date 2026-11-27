@@ -13,7 +13,7 @@ const session = {
   agent: {
     type: 'inline',
     spec: {
-      model: { name: 'test/model' },
+      model: { type: 'fixed', name: 'test/model' },
       mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
       skills: [{ name: 'review' }],
     },
@@ -121,7 +121,7 @@ const fetchMock: typeof fetch = async (input, init) => {
 describe('createHarnessChatServer', () => {
   it('forwards gateway-shaped mounts without synthesizing ids', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
-    const spec: HarnessAgentSpec = { model: { name: 'test/model' } };
+    const spec: HarnessAgentSpec = { model: { type: 'fixed', name: 'test/model' } };
 
     const created = await server.createSession({ agentSpec: spec });
 
@@ -137,7 +137,7 @@ describe('createHarnessChatServer', () => {
 
     await server.createSession({
       agentSpec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         skills: [{ id: skillName, name: 'echo', preload: true }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
@@ -147,7 +147,7 @@ describe('createHarnessChatServer', () => {
     assert.ok(sent !== null && typeof sent === 'object' && 'agent' in sent);
     assert.deepEqual(sent.agent, {
       spec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
         skills: [{ name: skillName, preload: true }],
       },
@@ -156,19 +156,22 @@ describe('createHarnessChatServer', () => {
 
   it('defaults skill preload to false when omitted', () => {
     const ui = toUiAgentSpec({
-      model: { name: 'test/model' },
+      model: { type: 'fixed', name: 'test/model' },
       skills: [{ name: 'agent-skill:acme/team-a/echo:3' }],
     });
     assert.deepEqual(ui.skills?.[0], { name: 'agent-skill:acme/team-a/echo:3', preload: false });
-    assert.deepEqual(toHarnessAgentSpec({ model: { name: 'test/model' }, skills: [{ name: 'echo' }] }).skills?.[0], {
-      name: 'echo',
-      preload: false,
-    });
+    assert.deepEqual(
+      toHarnessAgentSpec({ model: { type: 'fixed', name: 'test/model' }, skills: [{ name: 'echo' }] }).skills?.[0],
+      {
+        name: 'echo',
+        preload: false,
+      },
+    );
   });
 
   it('preserves sandbox environmentName on UI and harness agent specs', () => {
     const ui = toUiAgentSpec({
-      model: { name: 'test/model' },
+      model: { type: 'fixed', name: 'test/model' },
       config: {
         sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
         webSearch: { enabled: true },
@@ -181,7 +184,7 @@ describe('createHarnessChatServer', () => {
     });
     assert.deepEqual(
       toHarnessAgentSpec({
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         config: {
           sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
           webSearch: { enabled: true },

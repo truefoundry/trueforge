@@ -50,7 +50,7 @@ beforeAll(() => {
 
 describe('AgentConfigEditors', () => {
   it('edits instructions and initial user messages in a drawer', () => {
-    const baseSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const baseSpec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const spec = withInitialUserMessages({
       spec: baseSpec,
       messages: [{ type: 'user.message', content: 'Existing message' }],
@@ -100,7 +100,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('does not persist blank initial user messages', () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
 
     render(
@@ -128,7 +128,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('discards instruction changes when the drawer closes without saving', () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' }, instructions: 'Original' };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' }, instructions: 'Original' };
     const onInstructionsSave = vi.fn();
     const onChange = vi.fn();
     const onClose = vi.fn();
@@ -163,7 +163,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="model"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[
             {
               id: 'openai/gpt',
@@ -186,7 +186,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('uses On and Off controls with sliders for model settings', () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
     render(
       <SlotsProvider>
@@ -224,6 +224,7 @@ describe('AgentConfigEditors', () => {
   it('explicitly clears a model parameter when its toggle is disabled', () => {
     const spec: AgentSpec = {
       model: {
+        type: 'fixed',
         name: 'openai/gpt',
         params: { maxTokens: 4096, temperature: 0.4 },
       },
@@ -266,14 +267,14 @@ describe('AgentConfigEditors', () => {
 
   it('shows playground fallbacks and a support warning when the model omits parameters', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt', params: { maxTokens: 25000, reasoningEffort: 'xhigh' } },
+      model: { type: 'fixed', name: 'openai/gpt', params: { maxTokens: 25000, reasoningEffort: 'xhigh' } },
     };
     const onChange = vi.fn();
     const { rerender } = render(
       <SlotsProvider>
         <AgentConfigEditors
           editor="model-settings"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[
             {
               id: 'openai/gpt',
@@ -299,10 +300,10 @@ describe('AgentConfigEditors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens on' }));
     fireEvent.click(screen.getByRole('button', { name: 'Turn Reasoning Effort on' }));
     expect(onChange).toHaveBeenNthCalledWith(1, {
-      model: { name: 'openai/gpt', params: { maxTokens: 25000 } },
+      model: { type: 'fixed', name: 'openai/gpt', params: { maxTokens: 25000 } },
     });
     expect(onChange).toHaveBeenNthCalledWith(2, {
-      model: { name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
+      model: { type: 'fixed', name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
     });
 
     rerender(
@@ -339,6 +340,7 @@ describe('AgentConfigEditors', () => {
   it('edits the complete parameter object in JSON view and rejects invalid JSON', () => {
     const spec: AgentSpec = {
       model: {
+        type: 'fixed',
         name: 'openai/gpt',
         params: { maxTokens: 4096 },
       },
@@ -392,6 +394,7 @@ describe('AgentConfigEditors', () => {
   it('adds typed custom parameters without replacing dedicated controls', () => {
     const spec: AgentSpec = {
       model: {
+        type: 'fixed',
         name: 'openai/gpt',
         params: { maxTokens: 4096 },
       },
@@ -458,7 +461,10 @@ describe('AgentConfigEditors', () => {
     const params = Object.fromEntries([['__proto__', 'initial']]);
     render(
       <SlotsProvider>
-        <AgentModelSettingsContent spec={{ model: { name: 'openai/gpt', params } }} onChange={onChange} />
+        <AgentModelSettingsContent
+          spec={{ model: { type: 'fixed', name: 'openai/gpt', params: params } }}
+          onChange={onChange}
+        />
       </SlotsProvider>,
     );
 
@@ -473,7 +479,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('opens runtime configuration in a right-side drawer', () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     render(
       <SlotsProvider>
         <AgentConfigEditors
@@ -504,7 +510,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="runtime"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[]}
           skills={[]}
@@ -526,7 +532,7 @@ describe('AgentConfigEditors', () => {
 
   it('retains nested runtime values while their parent is disabled', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       config: {
         sandbox: { enabled: false, fileDownloads: false },
         contextManagement: {
@@ -585,7 +591,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="runtime"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[]}
           skills={[]}
@@ -605,7 +611,7 @@ describe('AgentConfigEditors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Compaction threshold mode' }));
     fireEvent.click(screen.getByRole('option', { name: 'Custom' }));
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       config: {
         contextManagement: {
           compaction: {
@@ -620,7 +626,7 @@ describe('AgentConfigEditors', () => {
 
   it('clears the compaction trigger when the threshold mode is set to Auto', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       config: {
         contextManagement: {
           compaction: {
@@ -676,7 +682,7 @@ describe('AgentConfigEditors', () => {
         <AgentConfigEditors
           editor="mcp"
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [
               { id: 'slack', name: 'Slack', enableTools: ['@all'] },
               { id: 'github', name: 'GitHub', enableTools: ['@all'] },
@@ -705,7 +711,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="mcp"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[
             { id: 'github', name: 'GitHub', authenticated: true },
@@ -735,7 +741,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="mcp"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[{ id: 'broken', name: 'Broken MCP', authenticated: true }]}
           skills={[]}
@@ -762,7 +768,7 @@ describe('AgentConfigEditors', () => {
         <AgentConfigEditors
           editor="mcp"
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [{ id: 'off-page', name: 'Off Page', enableTools: ['@all'] }],
           }}
           models={[]}
@@ -785,7 +791,7 @@ describe('AgentConfigEditors', () => {
 
   it('loads MCP tools lazily and preserves unrelated mount selectors', async () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         {
           id: 'github',
@@ -839,7 +845,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('opens MCP rows without selecting them and selects through tools', async () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
     const loadMcpTools = vi.fn(async () => [
       { id: 'messages.list', name: 'messages.list', description: 'List messages' },
@@ -875,7 +881,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('shows connect empty state for unauthenticated connectors', async () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
 
     render(
@@ -907,7 +913,7 @@ describe('AgentConfigEditors', () => {
     const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
     const props = {
       editor: 'mcp' as const,
-      spec: { model: { name: 'openai/gpt' } } satisfies AgentSpec,
+      spec: { model: { type: 'fixed', name: 'openai/gpt' } } satisfies AgentSpec,
       models: [],
       skills: [],
       loading: false,
@@ -950,7 +956,7 @@ describe('AgentConfigEditors', () => {
         <SlotsProvider>
           <AgentConfigEditors
             editor="mcp"
-            spec={{ model: { name: 'openai/gpt' } }}
+            spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
             models={[]}
             connectors={connectors}
             skills={[]}
@@ -993,7 +999,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="mcp"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[{ id: 'private', name: 'Private', authenticated: false }]}
           skills={[]}
@@ -1019,7 +1025,7 @@ describe('AgentConfigEditors', () => {
         <SlotsProvider>
           <AgentConfigEditors
             editor="mcp"
-            spec={{ model: { name: 'openai/gpt' } }}
+            spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
             models={[]}
             connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
             skills={[]}
@@ -1049,7 +1055,7 @@ describe('AgentConfigEditors', () => {
         <SlotsProvider>
           <AgentConfigEditors
             editor="mcp"
-            spec={{ model: { name: 'openai/gpt' } }}
+            spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
             models={[]}
             connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
             skills={[]}
@@ -1082,7 +1088,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="mcp"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[
             { id: 'first', name: 'First', authenticated: true },
@@ -1114,7 +1120,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('mounts an unauthenticated connector with Connect During Chat', async () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
 
     render(
@@ -1144,7 +1150,7 @@ describe('AgentConfigEditors', () => {
 
   it('groups selected tools across MCP servers and summarizes all-tools mounts', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         { id: 'github', name: 'GitHub', enableTools: ['@all'] },
         { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
@@ -1182,7 +1188,7 @@ describe('AgentConfigEditors', () => {
 
   it('removes all tools for an MCP from the selected-tools list', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         { id: 'github', name: 'GitHub', enableTools: ['@all'] },
         { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
@@ -1226,7 +1232,7 @@ describe('AgentConfigEditors', () => {
         <AgentConfigEditors
           editor="mcp"
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [
               { id: 'github', name: 'GitHub', enableTools: ['@all'] },
               { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
@@ -1254,7 +1260,7 @@ describe('AgentConfigEditors', () => {
 
   it('shows Selected Tools (All) when every mount enables all tools', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         { id: 'github', name: 'GitHub', enableTools: ['@all'] },
         { id: 'slack', name: 'Slack', enableTools: ['@all'] },
@@ -1291,7 +1297,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="mcp"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[{ id: 'github', name: 'GitHub', authenticated: true }]}
           skills={[]}
@@ -1310,7 +1316,7 @@ describe('AgentConfigEditors', () => {
 
   it('deselects an MCP server when all of its tools are disabled', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['@all'] }],
     };
     const onChange = vi.fn();
@@ -1337,11 +1343,11 @@ describe('AgentConfigEditors', () => {
 
   it('keeps the opened MCP independent from connector selection', async () => {
     const githubSpec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'github', name: 'GitHub' }],
     };
     const slackSpec: AgentSpec = {
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
     };
     const loadMcpTools = vi.fn(async () => [{ id: 'issues.list', name: 'issues.list', description: 'List issues' }]);
@@ -1386,7 +1392,7 @@ describe('AgentConfigEditors', () => {
         <AgentConfigEditors
           editor="mcp"
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [
               { id: 'github', name: 'GitHub', enableTools: ['@all'] },
               { id: 'slack', name: 'Slack', enableTools: ['@all'] },
@@ -1430,7 +1436,7 @@ describe('AgentConfigEditors', () => {
         <AgentConfigEditors
           editor="mcp"
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [
               { id: 'github', name: 'GitHub', enableTools: ['@all'] },
               { id: 'slack', name: 'Slack', enableTools: ['@all'] },
@@ -1459,7 +1465,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('enables sandbox when a skill is added', () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
 
     render(
@@ -1491,7 +1497,7 @@ describe('AgentConfigEditors', () => {
       { id: 'alpha', name: 'Alpha' },
       { id: 'beta', name: 'Beta' },
     ];
-    const initialSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const initialSpec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const selectedSpec: AgentSpec = {
       ...initialSpec,
       skills: [{ id: 'beta', name: 'Beta' }],
@@ -1523,7 +1529,7 @@ describe('AgentConfigEditors', () => {
   });
 
   it('loads registry versions lazily and attaches the chosen FQN', async () => {
-    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
     const onChange = vi.fn();
     const loadVersions = vi.fn(async () => [
       {
@@ -1609,7 +1615,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="skills"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[]}
           skills={[skill]}
@@ -1655,7 +1661,7 @@ describe('AgentConfigEditors', () => {
       <SlotsProvider>
         <AgentConfigEditors
           editor="skills"
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           models={[]}
           connectors={[]}
           skills={[skill]}

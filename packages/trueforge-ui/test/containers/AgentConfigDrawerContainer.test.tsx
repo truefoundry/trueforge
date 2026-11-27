@@ -19,9 +19,10 @@ vi.mock('@/atoms/MonacoEditorCore.js', () => ({
 const flushAgentSpec = vi.fn(async () => undefined);
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => ({
+  ...(await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>()),
   useTrueForgeAgentSpec: () => ({
-    agentSpec: { model: { name: 'openai/gpt-4.1' } },
+    agentSpec: { model: { type: 'fixed', name: 'openai/gpt-4.1' } },
     draftSessionId: 'draft-1',
   }),
   useTrueForgeFlushAgentSpec: () => () => flushAgentSpec(),
@@ -131,7 +132,7 @@ describe('AgentConfigDrawerContainer', () => {
     fireEvent.click(within(runtimeDrawer).getByRole('switch', { name: 'Generative UI' }));
 
     expect(updateAgentSpec).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       config: { generativeUi: { enabled: false } },
       instructions: undefined,
     });
@@ -160,7 +161,7 @@ describe('AgentConfigDrawerContainer', () => {
 
     expect(updateAgentSpec).toHaveBeenCalledOnce();
     expect(updateAgentSpec).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       instructions: 'Updated instructions',
       messages: [{ type: 'user.message', content: 'Start here' }],
     });

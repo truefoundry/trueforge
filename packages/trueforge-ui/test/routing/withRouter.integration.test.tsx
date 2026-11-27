@@ -16,7 +16,8 @@ const threadState = {
   setThreadId: (_id: string) => {},
 };
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => ({
+  ...(await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>()),
   trueForgeAttachmentAdapter: {},
   useTrueForgeAgentRuntime: () => {
     const [threadId, setThreadId] = useState(threadState.threadId);
@@ -51,7 +52,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
     loadMore: vi.fn(),
   }),
   useTrueForgeAgentSpec: () => ({
-    agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    agentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
   }),
   useTrueForgeFlushAgentSpec: () => async () => {},
   useTrueForgeAdoptAgentSpec: () => vi.fn(),

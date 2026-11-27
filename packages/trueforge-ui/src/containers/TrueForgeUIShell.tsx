@@ -27,7 +27,7 @@ import { ServerProvider } from '../server/ServerContext.js';
 import { createSessionListCache, withSessionListCache } from '../server/sessionListCache.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
-import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
+import type { AgentSpec, AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
@@ -222,11 +222,11 @@ function ChatProviderFromShell({
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
-  const draftDefaultAgentSpec = useMemo(() => {
+  const draftDefaultAgentSpec = useMemo<AgentSpec>(() => {
     if (mode.status === 'active' && mode.isMutable) {
-      return mode.agentSpec ?? { model: { name: 'openai-main/gpt-4.1' } };
+      return mode.agentSpec ?? { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } };
     }
-    return { model: { name: 'openai-main/gpt-4.1' } };
+    return { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } };
     // runtimeKey is the remount boundary for mutable chats.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on runtimeKey only
   }, [runtimeKey]);
@@ -237,7 +237,7 @@ function ChatProviderFromShell({
     if (mode.status === 'idle') {
       return {
         mode: 'draft',
-        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        defaultAgentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
       };
     }
     // Access failures keep a pending id for the URL but must not bind named runtime to it.
@@ -254,7 +254,7 @@ function ChatProviderFromShell({
         // Active immutable without identity should not happen; keep chrome mounted.
         return {
           mode: 'draft',
-          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          defaultAgentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
         };
       }
       return { mode: 'named', agentName };

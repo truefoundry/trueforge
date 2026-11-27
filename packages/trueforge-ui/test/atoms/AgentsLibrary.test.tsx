@@ -62,7 +62,7 @@ function mockServer(
     agentId: string;
     description?: string;
     agentSpec?: {
-      model: { name: string };
+      model: { type: 'fixed'; name: string };
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -194,7 +194,7 @@ describe('AgentsLibrary', () => {
         name: 'alpha-agent',
         agentId: 'alpha-agent',
         description: 'Alpha handles triage.',
-        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
       },
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
@@ -233,7 +233,7 @@ describe('AgentsLibrary', () => {
               agentId: 'alpha-agent',
               description: 'Alpha handles triage.',
               agentSpec: {
-                model: { name: 'openai/gpt-4.1' },
+                model: { type: 'fixed' as const, name: 'openai/gpt-4.1' },
                 skills: [{ id: 's1', name: 'Skill' }],
                 mcpServers: [{ id: 'm1', name: 'Connector' }],
               },
@@ -280,13 +280,13 @@ describe('AgentsLibrary', () => {
         name: 'verbose-agent',
         agentId: 'verbose-agent',
         description: longDescription,
-        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
       },
       {
         name: 'echo-agent',
         agentId: 'echo-agent',
         description: 'echo-agent',
-        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
       },
     ]);
 
@@ -308,7 +308,10 @@ describe('AgentsLibrary', () => {
       {
         name: 'writer',
         agentId: 'writer-id',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' }, skills: [{ id: 's1', name: 'Skill' }] },
+        agentSpec: {
+          model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
+          skills: [{ id: 's1', name: 'Skill' }],
+        },
       },
       { name: 'try-only', agentId: 'try-only' },
     ]);
@@ -342,7 +345,7 @@ describe('AgentsLibrary', () => {
           {
             name: 'shared-agent',
             agentId: 'shared-id',
-            agentSpec: { model: { name: 'openai/gpt-5' } },
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-5' } },
           },
         ],
       })),
@@ -383,7 +386,7 @@ describe('AgentsLibrary', () => {
           {
             name: 'shared-agent',
             agentId: 'shared-id',
-            agentSpec: { model: { name: 'openai/gpt-5' } },
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-5' } },
           },
         ],
       })),
@@ -421,7 +424,7 @@ describe('AgentsLibrary', () => {
             name: 'writer',
             agentId: 'writer-id',
             description: 'Writes release notes.',
-            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
           },
         ],
       })),
@@ -449,7 +452,7 @@ describe('AgentsLibrary', () => {
       expect(saveAgent).toHaveBeenCalledWith({
         agentName: 'writer-clone',
         description: 'Writes release notes.',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
         intent: 'create',
       });
     });
@@ -467,7 +470,7 @@ describe('AgentsLibrary', () => {
           {
             name: 'writer',
             agentId: 'writer-id',
-            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
           },
         ],
       })),
@@ -507,7 +510,7 @@ describe('AgentsLibrary', () => {
         name: 'algo-art',
         agentId: 'algo-art',
         agentSpec: {
-          model: { name: 'openai/gpt-5-5' },
+          model: { type: 'fixed' as const, name: 'openai/gpt-5-5' },
           skills: [{ id: 's1', name: 'paint' }],
           mcpServers: [{ id: 'm1', name: 'github' }],
         },
@@ -515,7 +518,7 @@ describe('AgentsLibrary', () => {
       {
         name: 'model-only',
         agentId: 'model-only',
-        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
       },
       { name: 'bare', agentId: 'bare' },
     ]);
@@ -546,7 +549,7 @@ describe('AgentsLibrary', () => {
       {
         name: 'writer',
         agentId: 'writer',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       },
     ]);
 
@@ -1039,7 +1042,13 @@ describe('AgentsLibraryButton', () => {
     }));
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => ({
-        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+        data: [
+          {
+            name: 'metrics-agent',
+            agentId: 'metrics-agent',
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
+          },
+        ],
       })),
       sessions: createMockAgentSessionsServer({ listSessions }),
       metrics: createMockAgentMetricsServer({ getMeters, getChartData }),
@@ -1101,7 +1110,13 @@ describe('AgentsLibraryButton', () => {
     ]);
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => ({
-        data: [{ name: 'metrics-agent', agentId: 'metrics-agent', agentSpec: { model: { name: 'openai/gpt-4.1' } } }],
+        data: [
+          {
+            name: 'metrics-agent',
+            agentId: 'metrics-agent',
+            agentSpec: { model: { type: 'fixed' as const, name: 'openai/gpt-4.1' } },
+          },
+        ],
       })),
       metrics: createMockAgentMetricsServer({ getMeters }),
     });

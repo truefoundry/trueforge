@@ -1,6 +1,11 @@
 'use client';
 
-import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  fixedModelName,
+  modelParams,
+  useTrueForgeAgentSpec,
+  useTrueForgeUpdateAgentSpec,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect, useRef } from 'react';
 
 import {
@@ -18,10 +23,11 @@ import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
-import { AUTO_MODEL, AUTO_MODEL_PATCH, keepsAutoModel } from './autoModel.js';
+import { AUTO_MODEL, keepsAutoModel, modelSelectionKey } from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort } from './reasoningEffort.js';
 import { skillFamilyId } from './SkillVersionSelector.js';
+import { useAutoModel } from './useAutoModel.js';
 
 function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
@@ -87,7 +93,7 @@ export function reconcileDraftSpecPreferences({
   isAutoModelKept: boolean;
 }): Partial<AgentSpec> {
   const update: Partial<AgentSpec> = {};
-  const selectedModel = agentSpec.model.name.trim();
+  const selectedModel = modelSelectionKey(agentSpec.model).trim();
   const modelAvailable =
     selectedModel === AUTO_MODEL ? isAutoModelKept : models.some(model => model.name === selectedModel);
   if (!modelAvailable) {
@@ -95,7 +101,7 @@ export function reconcileDraftSpecPreferences({
     if (fallback !== undefined) {
       update.model = modelPatchWithReasoningEffort(
         fallback.name,
-        agentSpec.model.params,
+        modelParams(agentSpec.model),
         fallback.properties.reasoningEfforts,
       );
     }
@@ -232,6 +238,7 @@ export function DraftSpecPreferenceBridge() {
   // Capabilities omit memory when no provider is configured, which means unavailable.
   const memoryEnabled = capabilities == null ? undefined : (capabilities.memory?.enabled ?? false);
   const isAutoModelKept = keepsAutoModel(capabilities);
+  const autoModel = useAutoModel();
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const prevMemoryEnabledRef = useRef(memoryEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
@@ -257,7 +264,7 @@ export function DraftSpecPreferenceBridge() {
       previousModelNameRef.current = null;
       return;
     }
-    const selected = models.find(model => model.name === agentSpec?.model.name);
+    const selected = models.find(model => model.name === (agentSpec && fixedModelName(agentSpec.model)));
     if (agentSpec == null || selected === undefined) return;
     const previousName = previousModelNameRef.current;
     previousModelNameRef.current = selected.name;
@@ -267,11 +274,13 @@ export function DraftSpecPreferenceBridge() {
     if (previousName === null || previousName === selected.name) return;
     if (
       hasReasoningEfforts(selected.properties.reasoningEfforts) ||
-      agentSpec.model.params?.reasoningEffort === undefined
+      modelParams(agentSpec.model)?.reasoningEffort === undefined
     ) {
       return;
     }
-    updateAgentSpec({ model: modelPatchWithReasoningEffort(selected.name, agentSpec.model.params, undefined) });
+    updateAgentSpec({
+      model: modelPatchWithReasoningEffort(selected.name, modelParams(agentSpec.model), undefined),
+    });
   }, [agentSpec, canReconcileLiveSpec, isMutableDraft, models, updateAgentSpec]);
 
   useEffect(() => {
@@ -356,15 +365,17 @@ export function DraftSpecPreferenceBridge() {
     // One-time: the first time Auto is enabled for this user, switch the New Chat draft to it.
     if (!isPlainDraft || preferenceKind !== 'chat' || editsStoredSpec) return;
     if (!canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
-    if (capabilities?.auto.status !== 'enabled' || autoModelDefaultAppliedRef.current) return;
+    if (capabilities?.auto.status !== 'enabled' || autoModel === undefined || autoModelDefaultAppliedRef.current)
+      return;
     if (!chatAutoModelDefaultPending()) return;
     autoModelDefaultAppliedRef.current = true;
-    markChatAutoModelDefaulted(agentSpec);
-    if (agentSpec.model.name !== AUTO_MODEL) {
-      updateAgentSpec({ model: AUTO_MODEL_PATCH });
+    markChatAutoModelDefaulted(agentSpec, autoModel);
+    if (agentSpec.model.type !== 'auto') {
+      updateAgentSpec({ model: autoModel });
     }
   }, [
     agentSpec,
+    autoModel,
     canReconcileLiveSpec,
     capabilities?.auto.status,
     editsStoredSpec,

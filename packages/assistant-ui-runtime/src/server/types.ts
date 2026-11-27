@@ -121,10 +121,20 @@ export interface ModelParams {
   parallelToolCalls?: boolean;
 }
 
-export interface Model {
+/** A single model, always used as given. */
+export interface FixedModel {
+  type: 'fixed';
   name: string;
   params?: ModelParams;
 }
+
+/** The server picks among `candidateModels` (account/model names) for each turn. */
+export interface AutoModel {
+  type: 'auto';
+  candidateModels: string[];
+}
+
+export type Model = FixedModel | AutoModel;
 
 export interface AgentCapabilityConfig {
   enabled?: boolean;

@@ -34,7 +34,7 @@ const models: ModelSelection[] = [
   },
 ];
 
-const spec: AgentSpec = { model: { name: 'openai/gpt-4o' } };
+const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt-4o' } };
 
 function ModelEditor() {
   const [query, setQuery] = useState('');

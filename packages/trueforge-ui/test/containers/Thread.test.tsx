@@ -11,7 +11,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeCancel: () => vi.fn(),
   useTrueForgeToolResponses: () => ({ pending: [] }),
   useTrueForgeApprovals: () => ({ pending: [] }),
-  useTrueForgeAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
+  useTrueForgeAgentSpec: () => ({ agentSpec: { model: { type: 'fixed', name: 'test/model' } } }),
 }));
 
 function WelcomeOverride({ heading }: WelcomeScreenProps) {

@@ -59,7 +59,7 @@ function deferred<T>() {
 describe('DraftCatalogProvider', () => {
   it('does not enable sandbox merely because the capability is available for New Agent', () => {
     const update = reconcileDraftSandbox({
-      agentSpec: { model: { name: 'model' } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'model' } },
       sandboxEnabled: true,
       kind: 'agent',
     });
@@ -69,7 +69,7 @@ describe('DraftCatalogProvider', () => {
 
   it('enables sandbox on New Chat when the capability is available', () => {
     const update = reconcileDraftSandbox({
-      agentSpec: { model: { name: 'model' } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'model' } },
       sandboxEnabled: true,
       kind: 'chat',
     });
@@ -81,7 +81,7 @@ describe('DraftCatalogProvider', () => {
 
   it('disables sandbox on New Chat when the capability becomes unavailable', () => {
     const update = reconcileDraftSandbox({
-      agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } },
       sandboxEnabled: false,
       kind: 'chat',
     });
@@ -94,14 +94,14 @@ describe('DraftCatalogProvider', () => {
   it('does not update an active draft whose sandbox already matches capabilities', () => {
     expect(
       reconcileDraftSandbox({
-        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } },
         sandboxEnabled: true,
         kind: 'agent',
       }),
     ).toEqual({});
     expect(
       reconcileDraftSandbox({
-        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } },
         sandboxEnabled: true,
         kind: 'chat',
       }),
@@ -109,7 +109,7 @@ describe('DraftCatalogProvider', () => {
   });
 
   it('does not update an active draft while sandbox capabilities are unavailable', () => {
-    const agentSpec = { model: { name: 'model' }, config: { sandbox: { enabled: true } } };
+    const agentSpec = { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } };
 
     expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined, kind: 'agent' })).toEqual({});
     expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null, kind: 'agent' })).toEqual({});
@@ -120,7 +120,7 @@ describe('DraftCatalogProvider', () => {
   it('prunes unavailable remembered choices and falls back to the live model catalog', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'removed/model' },
+        model: { type: 'fixed' as const, name: 'removed/model' },
         skills: [{ name: 'Available skill' }, { name: 'Removed skill' }],
         mcpServers: [{ name: 'Available MCP' }, { name: 'Removed MCP' }],
       },
@@ -139,16 +139,44 @@ describe('DraftCatalogProvider', () => {
     });
 
     expect(update).toEqual({
-      model: { name: 'live/model', params: { reasoningEffort: 'low' } },
+      model: { type: 'fixed' as const, name: 'live/model', params: { reasoningEffort: 'low' } },
       skills: [{ name: 'Available skill' }],
       mcpServers: [{ name: 'Available MCP' }],
+    });
+  });
+
+  describe('Auto model', () => {
+    const live: ModelSelection = {
+      id: 'live/model',
+      name: 'live/model',
+      provider: { name: 'Live' },
+      properties: {},
+    };
+    const reconcile = (kept: boolean) =>
+      reconcileDraftSpecPreferences({
+        agentSpec: { model: { type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] } },
+        models: [live],
+        skills: [],
+        connectors: [],
+        skillsEnabled: true,
+        isAutoModelKept: kept,
+      });
+
+    it('keeps an Auto draft while Auto can be picked', () => {
+      expect(reconcile(true)).toEqual({});
+    });
+
+    it('falls back to a catalog model once Auto can no longer be picked', () => {
+      expect(reconcile(false)).toEqual({
+        model: { type: 'fixed', name: 'live/model' },
+      });
     });
   });
 
   it('prunes MCP mounts missing from the complete connector catalog', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         mcpServers: [{ name: 'Available MCP' }, { name: 'Removed MCP' }],
       },
       models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
@@ -164,7 +192,7 @@ describe('DraftCatalogProvider', () => {
   it('clears remembered skills when skills are unavailable', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         skills: [{ name: 'Skill' }],
       },
       models: [],
@@ -180,7 +208,7 @@ describe('DraftCatalogProvider', () => {
   it('restores the catalog display name for post-turn FQN skill mounts', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         skills: [{ name: 'agent-skill:acme/team/echo:3', preload: false }],
       },
       models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
@@ -199,7 +227,7 @@ describe('DraftCatalogProvider', () => {
     const skills = [{ name: 'agent-skill:acme/team/echo:2' }];
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         skills,
       },
       models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
@@ -215,7 +243,7 @@ describe('DraftCatalogProvider', () => {
   it('still prunes skill mounts missing from the catalog', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         skills: [{ name: 'agent-skill:acme/team/echo:3' }, { name: 'agent-skill:acme/team/gone:1' }],
       },
       models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
@@ -234,7 +262,7 @@ describe('DraftCatalogProvider', () => {
     const emptySkills: object[] = [];
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         skills: emptySkills,
       },
       models: [],

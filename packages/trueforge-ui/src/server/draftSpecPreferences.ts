@@ -1,7 +1,6 @@
 import { readDraftTrueforgeEnabled } from '@truefoundry/trueforge-assistant-ui-runtime/server';
 
-import { AUTO_MODEL_PATCH } from '../atoms/draft/autoModel.js';
-import type { AgentRuntimeConfig, AgentSpec } from './types.js';
+import type { AgentRuntimeConfig, AgentSpec, Model } from './types.js';
 
 /** @deprecated Migrated into chat/agent keys on first read. */
 export const DRAFT_SPEC_PREFERENCES_STORAGE_KEY = 'tfy-aui-draft-spec-preferences';
@@ -25,13 +24,22 @@ function isMountList(value: unknown): boolean {
   return Array.isArray(value) && value.every(isObject);
 }
 
+/** Specs stored before models had a `type` fail this check and are dropped. */
+function isModel(model: unknown): boolean {
+  if (!isObject(model)) return false;
+  const type = Reflect.get(model, 'type');
+  if (type === 'auto') {
+    const candidateModels = Reflect.get(model, 'candidateModels');
+    return Array.isArray(candidateModels) && candidateModels.every(name => typeof name === 'string');
+  }
+  if (type !== 'fixed' || typeof Reflect.get(model, 'name') !== 'string') return false;
+  const params = Reflect.get(model, 'params');
+  return params === undefined || isObject(params);
+}
+
 function isAgentSpec(value: unknown): value is AgentSpec {
   if (!isObject(value)) return false;
-  const model = Reflect.get(value, 'model');
-  if (!isObject(model) || typeof Reflect.get(model, 'name') !== 'string') return false;
-
-  const params = Reflect.get(model, 'params');
-  if (params !== undefined && !isObject(params)) return false;
+  if (!isModel(Reflect.get(value, 'model'))) return false;
 
   const skills = Reflect.get(value, 'skills');
   if (skills !== undefined && !isMountList(skills)) return false;
@@ -421,14 +429,14 @@ export function chatAutoModelDefaultPending(): boolean {
   return entry == null || entry.autoModelDefaulted !== true;
 }
 
-/** Persist Auto as the New Chat model and mark the one-time default as applied. */
-export function markChatAutoModelDefaulted(spec: AgentSpec): void {
+/** Persist `autoModel` as the New Chat model and mark the one-time default as applied. */
+export function markChatAutoModelDefaulted(spec: AgentSpec, autoModel: Model): void {
   if (typeof window === 'undefined') return;
   try {
     const stored: StoredDraftSpecPreferences = {
       version: 1,
       autoModelDefaulted: true,
-      spec: selectChatDraftSpecPreferences({ ...spec, model: AUTO_MODEL_PATCH }),
+      spec: selectChatDraftSpecPreferences({ ...spec, model: autoModel }),
     };
     window.localStorage.setItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY, JSON.stringify(stored));
   } catch {

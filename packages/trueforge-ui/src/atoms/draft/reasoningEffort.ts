@@ -1,4 +1,4 @@
-import type { Model, ModelParams, ModelSelection } from '../../server/types.js';
+import type { FixedModel, ModelParams, ModelSelection } from '../../server/types.js';
 
 type ReasoningEfforts = ModelSelection['properties']['reasoningEfforts'];
 
@@ -78,14 +78,15 @@ export function modelPatchWithReasoningEffort(
   name: string,
   existingParams: ModelParams | undefined,
   efforts: ReasoningEfforts,
-): Model {
+): FixedModel {
   const nextEffort = resolveReasoningEffort(efforts, existingParams?.reasoningEffort);
   if (nextEffort === undefined) {
-    if (!existingParams) return { name };
+    if (!existingParams) return { type: 'fixed', name };
     const { reasoningEffort: _cleared, ...rest } = existingParams;
-    return { name, params: { ...rest, reasoningEffort: undefined } };
+    return { type: 'fixed', name, params: { ...rest, reasoningEffort: undefined } };
   }
   return {
+    type: 'fixed',
     name,
     params: { ...existingParams, reasoningEffort: nextEffort },
   };

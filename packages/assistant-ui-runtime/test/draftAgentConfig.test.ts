@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeAgentSpec } from '../src/draft/agentSpec.js';
+import { fixedModelName, mergeAgentSpec, modelParams } from '../src/draft/agentSpec.js';
 import type { AgentChatServer } from '../src/server/index.js';
 import type { AgentSpec } from '../src/server/types.js';
 import { resolveTrueForgeAgentConfig, resolveTrueForgeAgentRuntimeOptions } from '../src/types.js';
@@ -26,7 +26,7 @@ describe('resolveTrueForgeAgentConfig', () => {
   });
 
   it('returns draft config unchanged', () => {
-    const spec = { model: { name: 'openai/gpt-4o' } };
+    const spec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt-4o' } };
     expect(
       resolveTrueForgeAgentConfig({
         agent: { mode: 'draft', defaultAgentSpec: spec },
@@ -44,7 +44,7 @@ describe('resolveTrueForgeAgentRuntimeOptions', () => {
   it('accepts draft mode without a private client', () => {
     const resolved = resolveTrueForgeAgentRuntimeOptions({
       server,
-      agent: { mode: 'draft', defaultAgentSpec: { model: { name: 'x' } } },
+      agent: { mode: 'draft', defaultAgentSpec: { model: { type: 'fixed', name: 'x' } } },
     });
     expect(resolved.server).toBe(server);
     expect(resolved.agent.mode).toBe('draft');
@@ -62,8 +62,9 @@ describe('resolveTrueForgeAgentRuntimeOptions', () => {
 
 describe('mergeAgentSpec', () => {
   it('deep-merges model params', () => {
-    const base = {
+    const base: AgentSpec = {
       model: {
+        type: 'fixed',
         name: 'anthropic/claude-sonnet-4-6',
         params: { maxTokens: 1024, reasoningEffort: 'medium' },
       },
@@ -71,12 +72,12 @@ describe('mergeAgentSpec', () => {
     const next = mergeAgentSpec(base, {
       model: { params: { reasoningEffort: 'high' } },
     });
-    expect(next.model.params).toEqual({ maxTokens: 1024, reasoningEffort: 'high' });
+    expect(modelParams(next.model)).toEqual({ maxTokens: 1024, reasoningEffort: 'high' });
   });
 
   it('replaces mcpServers array wholesale', () => {
     const base: AgentSpec = {
-      model: { name: 'openai/gpt-4o' },
+      model: { type: 'fixed', name: 'openai/gpt-4o' },
       mcpServers: [{ id: 'github', name: 'github' }],
     };
     const next = mergeAgentSpec(base, {
@@ -87,7 +88,7 @@ describe('mergeAgentSpec', () => {
 
   it('replaces skills array wholesale', () => {
     const base: AgentSpec = {
-      model: { name: 'openai/gpt-4o' },
+      model: { type: 'fixed', name: 'openai/gpt-4o' },
       skills: [{ id: 'skill-a', name: 'skill-a' }],
     };
     const next = mergeAgentSpec(base, {
@@ -98,15 +99,41 @@ describe('mergeAgentSpec', () => {
 
   it('model partial update does not clear mcpServers or skills', () => {
     const base: AgentSpec = {
-      model: { name: 'openai/gpt-4o', params: { maxTokens: 1024 } },
+      model: { type: 'fixed', name: 'openai/gpt-4o', params: { maxTokens: 1024 } },
       mcpServers: [{ id: 'github', name: 'github' }],
       skills: [{ id: 'skill-a', name: 'skill-a' }],
     };
     const next = mergeAgentSpec(base, {
-      model: { name: 'anthropic/claude-sonnet-4-6' },
+      model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
     });
-    expect(next.model.name).toBe('anthropic/claude-sonnet-4-6');
+    expect(fixedModelName(next.model)).toBe('anthropic/claude-sonnet-4-6');
+    expect(modelParams(next.model)).toEqual({ maxTokens: 1024 });
     expect(next.mcpServers).toEqual(base.mcpServers);
     expect(next.skills).toEqual(base.skills);
+  });
+  it('replaces a fixed model with Auto and its candidates', () => {
+    const base: AgentSpec = {
+      model: { type: 'fixed', name: 'openai/gpt-4o', params: { maxTokens: 1024 } },
+    };
+    const next = mergeAgentSpec(base, {
+      model: { type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] },
+    });
+    expect(next.model).toEqual({ type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] });
+  });
+
+  it('switches from Auto to a fixed model without inventing parameters', () => {
+    const base: AgentSpec = {
+      model: { type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] },
+    };
+    const next = mergeAgentSpec(base, { model: { type: 'fixed', name: 'openai/gpt-4o' } });
+    expect(next.model).toEqual({ type: 'fixed', name: 'openai/gpt-4o', params: undefined });
+  });
+
+  it('keeps Auto when a parameter patch arrives', () => {
+    const base: AgentSpec = {
+      model: { type: 'auto', candidateModels: ['a/one', 'a/two', 'a/three', 'a/four'] },
+    };
+    const next = mergeAgentSpec(base, { model: { params: { maxTokens: 10 } } });
+    expect(next.model).toEqual(base.model);
   });
 });

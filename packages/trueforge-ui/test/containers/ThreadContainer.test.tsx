@@ -18,7 +18,7 @@ function EditAgentBootstrap({ children }: { children: ReactNode }) {
       isMutable: true,
       agentId: 'writer',
       agentName: 'writer',
-      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      agentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
     });
   }, [shell]);
   return children;

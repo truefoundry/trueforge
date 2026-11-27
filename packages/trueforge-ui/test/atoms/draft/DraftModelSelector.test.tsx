@@ -13,7 +13,8 @@ import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 let agentSpec: AgentSpec | undefined;
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => ({
+  ...(await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>()),
   useTrueForgeAgentSpec: () => ({ agentSpec }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
@@ -73,6 +74,7 @@ describe('DraftModelSelector', () => {
   beforeEach(() => {
     agentSpec = {
       model: {
+        type: 'fixed',
         name: 'openai/gpt-4.1',
         params: { maxTokens: 512, reasoningEffort: 'medium' },
       },
@@ -123,7 +125,7 @@ describe('DraftModelSelector', () => {
 
   it('shows the full model name in a tooltip on hover', async () => {
     const longName = 'global.anthropic.claude-sonnet-4-20250514';
-    agentSpec = { model: { name: longName } };
+    agentSpec = { model: { type: 'fixed', name: longName } };
     renderSelector(
       {},
       {
@@ -211,6 +213,7 @@ describe('DraftModelSelector', () => {
 
     expect(updateAgentSpec).toHaveBeenCalledWith({
       model: {
+        type: 'fixed',
         name: 'anthropic/claude-3.7-sonnet',
         params: { maxTokens: 512, reasoningEffort: 'high' },
       },
@@ -222,6 +225,7 @@ describe('DraftModelSelector', () => {
   it('clears sticky reasoningEffort when switching to a model without efforts', async () => {
     agentSpec = {
       model: {
+        type: 'fixed',
         name: 'anthropic/claude-3.7-sonnet',
         params: { maxTokens: 512, reasoningEffort: 'high' },
       },
@@ -235,6 +239,7 @@ describe('DraftModelSelector', () => {
 
     expect(updateAgentSpec).toHaveBeenCalledWith({
       model: {
+        type: 'fixed',
         name: 'openai/gpt-4.1',
         params: { maxTokens: 512, reasoningEffort: undefined },
       },
@@ -266,13 +271,19 @@ describe('DraftModelSelector', () => {
 
     fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Low' }));
     expect(updateAgentSpec).toHaveBeenCalledWith({
-      model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: 'low' } },
+      model: {
+        type: 'fixed',
+        name: 'anthropic/claude-3.7-sonnet',
+        params: { maxTokens: 512, reasoningEffort: 'low' },
+      },
     });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 
   it("shows the selected model's reasoning effort next to its name", async () => {
-    agentSpec = { model: { name: 'anthropic/claude-3.7-sonnet', params: { reasoningEffort: 'high' } } };
+    agentSpec = {
+      model: { type: 'fixed', name: 'anthropic/claude-3.7-sonnet', params: { reasoningEffort: 'high' } },
+    };
     renderSelector();
 
     const trigger = await screen.findByRole('button', { name: 'Select model' });
@@ -288,7 +299,13 @@ describe('DraftModelSelector', () => {
   });
 
   it('clears reasoningEffort when Default is chosen', async () => {
-    agentSpec = { model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: 'high' } } };
+    agentSpec = {
+      model: {
+        type: 'fixed',
+        name: 'anthropic/claude-3.7-sonnet',
+        params: { maxTokens: 512, reasoningEffort: 'high' },
+      },
+    };
     renderSelector();
 
     const trigger = await screen.findByRole('button', { name: 'Select model' });
@@ -298,13 +315,26 @@ describe('DraftModelSelector', () => {
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Default' }));
 
     expect(updateAgentSpec).toHaveBeenCalledWith({
-      model: { name: 'anthropic/claude-3.7-sonnet', params: { maxTokens: 512, reasoningEffort: undefined } },
+      model: {
+        type: 'fixed',
+        name: 'anthropic/claude-3.7-sonnet',
+        params: { maxTokens: 512, reasoningEffort: undefined },
+      },
     });
   });
 
   describe('with Auto available', () => {
+    const tenantCandidates = ['acct/haiku', 'acct/sonnet', 'acct/luna', 'acct/fable'];
     const withAuto: Partial<AgentUIServer> = {
       getModels: async () => models,
+      configuration: {
+        getConfiguration: async () => ({
+          webSearch: { enabled: true },
+          memory: { enabled: true },
+          autoModelRouting: { enabled: true, candidateModels: tenantCandidates },
+        }),
+        updateConfiguration: vi.fn(),
+      },
       getCapabilities: async () => ({
         data: {
           sandbox: { enabled: true, environments: { enabled: true } },
@@ -316,7 +346,7 @@ describe('DraftModelSelector', () => {
       }),
     };
 
-    it('unsets every model param when Auto is selected', async () => {
+    it("selects Auto over the tenant's candidate models", async () => {
       renderSelector({}, withAuto);
 
       const trigger = await screen.findByRole('button', { name: 'Select model' });
@@ -327,18 +357,20 @@ describe('DraftModelSelector', () => {
       fireEvent.click(auto);
 
       expect(updateAgentSpec).toHaveBeenCalledWith({
-        model: {
-          name: 'auto',
-          params: {
-            maxTokens: undefined,
-            reasoningEffort: undefined,
-            temperature: undefined,
-            topP: undefined,
-            topK: undefined,
-            parallelToolCalls: undefined,
-          },
-        },
+        model: { type: 'auto', candidateModels: tenantCandidates },
       });
+    });
+
+    it("keeps Auto disabled until the tenant's candidate models have loaded", async () => {
+      renderSelector(
+        {},
+        { ...withAuto, configuration: { getConfiguration: () => new Promise(() => {}), updateConfiguration: vi.fn() } },
+      );
+
+      const trigger = await screen.findByRole('button', { name: 'Select model' });
+      await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+      fireEvent.click(trigger);
+      expect(await screen.findByRole('option', { name: /Auto/ })).toBeDisabled();
     });
 
     it('shows no empty state when the search only matches Auto', async () => {
@@ -377,18 +409,18 @@ describe('DraftModelSelector', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1'));
     await waitFor(() => {
       expect(updateAgentSpec).toHaveBeenCalledWith({
-        model: { name: 'openai/gpt-4.1' },
+        model: { type: 'fixed', name: 'openai/gpt-4.1' },
       });
     });
   });
 
   it('replaces a stale agentSpec model that is missing from the catalog', async () => {
-    agentSpec = { model: { name: 'openai-main/gpt-4.1' } };
+    agentSpec = { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } };
     renderSelector();
 
     await waitFor(() => {
       expect(updateAgentSpec).toHaveBeenCalledWith({
-        model: { name: 'openai/gpt-4.1' },
+        model: { type: 'fixed', name: 'openai/gpt-4.1' },
       });
     });
   });

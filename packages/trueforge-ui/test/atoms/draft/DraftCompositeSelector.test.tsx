@@ -123,7 +123,7 @@ describe('DraftCompositeSelector', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     draftSessionId = undefined;
     agentSpec = {
-      model: { name: 'openai/gpt-4.1' },
+      model: { type: 'fixed', name: 'openai/gpt-4.1' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
       skills: [{ id: 'research', name: 'Research' }],
     };
@@ -148,7 +148,7 @@ describe('DraftCompositeSelector', () => {
     expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
 
-    agentSpec = { ...agentSpec, model: { name: '  ' } };
+    agentSpec = { ...agentSpec, model: { type: 'fixed', name: '  ' } };
     view.rerender(
       <ServerProvider server={createMockAgentUIServer()}>
         <DraftCatalogProvider>

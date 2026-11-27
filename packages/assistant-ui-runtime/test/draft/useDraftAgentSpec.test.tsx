@@ -4,8 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DraftSessionBridge } from '../../src/draft/draftSessionBridge.js';
 import { useDraftAgentSpec } from '../../src/draft/useDraftAgentSpec.js';
+import type { AgentSpec } from '../../src/server/types.js';
 
-const defaultAgentSpec = { model: { name: 'anthropic/claude-sonnet-4-6' } };
+const defaultAgentSpec: AgentSpec = { model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' } };
 
 async function flushMicrotasks() {
   await act(async () => {
@@ -191,7 +192,7 @@ describe('useDraftAgentSpec', () => {
     act(() => {
       result.current.adoptAgentSpec({
         agentSpec: {
-          model: { name: 'openai/gpt-5' },
+          model: { type: 'fixed', name: 'openai/gpt-5' },
           config: { generativeUi: { enabled: false } },
         },
         updatedAt: '2026-06-30T16:00:00.000Z',
@@ -202,7 +203,7 @@ describe('useDraftAgentSpec', () => {
     });
 
     expect(result.current.agentSpec).toEqual({
-      model: { name: 'openai/gpt-5' },
+      model: { type: 'fixed', name: 'openai/gpt-5' },
       config: { generativeUi: { enabled: false } },
     });
     expect(syncAgentSpec).not.toHaveBeenCalled();
@@ -236,7 +237,7 @@ describe('useDraftAgentSpec', () => {
     act(() => {
       result.current.adoptAgentSpec({
         agentSpec: {
-          model: { name: 'openai/gpt-5' },
+          model: { type: 'fixed', name: 'openai/gpt-5' },
         },
       });
     });
@@ -255,11 +256,14 @@ describe('useDraftAgentSpec', () => {
     await flushMicrotasks();
 
     act(() => {
-      result.current.updateAgentSpec({ model: { name: 'auto' } });
+      result.current.updateAgentSpec({ model: { name: 'openai/gpt-5-mini' } });
       result.current.updateAgentSpec({ instructions: 'be brief' });
     });
 
-    expect(result.current.agentSpec).toEqual({ model: { name: 'auto' }, instructions: 'be brief' });
+    expect(result.current.agentSpec).toEqual({
+      model: { type: 'fixed', name: 'openai/gpt-5-mini' },
+      instructions: 'be brief',
+    });
   });
 
   it('falls back to defaultAgentSpec and does not error when getDraftAgentSpec resolves to null', async () => {
@@ -317,8 +321,8 @@ describe('useDraftAgentSpec', () => {
   });
 
   it('adopts a resumed session spec instead of PATCHing dirty New Chat edits onto it', async () => {
-    const resumedSpec = {
-      model: { name: 'openai/gpt-5-6-terra' },
+    const resumedSpec: AgentSpec = {
+      model: { type: 'fixed', name: 'openai/gpt-5-6-terra' },
       config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
     };
     const syncAgentSpec = vi.fn().mockResolvedValue('2026-06-30T18:00:00.000Z');
@@ -340,7 +344,7 @@ describe('useDraftAgentSpec', () => {
 
     act(() => {
       result.current.updateAgentSpec({
-        model: { name: 'openai/gpt-4.1' },
+        model: { type: 'fixed', name: 'openai/gpt-4.1' },
         config: { sandbox: { enabled: true } },
       });
     });
@@ -358,8 +362,8 @@ describe('useDraftAgentSpec', () => {
   });
 
   it('does not PATCH New Chat seed while a resumed session spec is still loading', async () => {
-    const resumedSpec = {
-      model: { name: 'openai/gpt-5-6-terra' },
+    const resumedSpec: AgentSpec = {
+      model: { type: 'fixed', name: 'openai/gpt-5-6-terra' },
       config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
     };
     let resolveLoad: ((spec: typeof resumedSpec) => void) | undefined;

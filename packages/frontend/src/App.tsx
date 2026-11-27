@@ -152,7 +152,7 @@ export function App() {
             status: 'ready',
             openSettings: capabilities.settings.modelProviders.enabled,
             defaultAgentSpec: {
-              model: { name: '' },
+              model: { type: 'fixed', name: '' },
               config: sandboxConfig,
             },
           });
@@ -164,6 +164,7 @@ export function App() {
           openSettings: false,
           defaultAgentSpec: {
             model: {
+              type: 'fixed',
               name: first.name,
               ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
             },

@@ -36,7 +36,7 @@ afterEach(() => {
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({
     agentSpec: {
-      model: { name: 'live/model' },
+      model: { type: 'fixed', name: 'live/model' },
       mcpServers: [{ name: 'exa' }],
       config: { sandbox: { enabled: true } },
     },
@@ -72,7 +72,7 @@ function Harness() {
             agentId: 'saved',
             agentName: 'saved',
             agentSpec: {
-              model: { name: 'saved/model' },
+              model: { type: 'fixed', name: 'saved/model' },
               mcpServers: [{ name: 'exa' }],
               config: { sandbox: { enabled: true } },
             },
@@ -116,13 +116,13 @@ describe('ResetAgentBuilderButton', () => {
     const mode = JSON.parse(screen.getByTestId('mode').textContent ?? '{}') as {
       isCreateAgent: boolean;
       agentId: string | null;
-      agentSpec: { model: { name: string }; mcpServers?: unknown[]; config?: unknown };
+      agentSpec: { model: { type: 'fixed'; name: string }; mcpServers?: unknown[]; config?: unknown };
     };
     expect(mode).toMatchObject({
       isCreateAgent: true,
       agentId: null,
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed', name: 'live/model' },
         config: { sandbox: { enabled: true } },
       },
     });

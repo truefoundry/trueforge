@@ -42,7 +42,7 @@ afterEach(() => {
   }
 });
 
-const emptySpec: AgentSpec = { model: { name: 'openai/gpt' } };
+const emptySpec: AgentSpec = { model: { type: 'fixed', name: 'openai/gpt' } };
 
 const baseProps = {
   spec: emptySpec,

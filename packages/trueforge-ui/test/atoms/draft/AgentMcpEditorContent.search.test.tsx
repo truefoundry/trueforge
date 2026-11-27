@@ -8,7 +8,7 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 describe('AgentMcpEditorContent tool search', () => {
   it('filters the complete MCP connector list by name and description', () => {
     const props = {
-      spec: { model: { name: 'openai/gpt' } },
+      spec: { model: { type: 'fixed' as const, name: 'openai/gpt' } },
       connectors: [
         { id: 'github', name: 'GitHub', description: 'Source control', authenticated: true },
         { id: 'linear', name: 'Linear', description: 'Issue tracking', authenticated: true },
@@ -48,7 +48,7 @@ describe('AgentMcpEditorContent tool search', () => {
       <SlotsProvider>
         <AgentMcpEditorContent
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed' as const, name: 'openai/gpt' },
             mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'] }],
           }}
           connectors={[
@@ -100,7 +100,7 @@ describe('AgentMcpEditorContent tool search', () => {
     };
     const view = render(
       <SlotsProvider>
-        <AgentMcpEditorContent {...baseProps} spec={{ model: { name: 'openai/gpt' } }} />
+        <AgentMcpEditorContent {...baseProps} spec={{ model: { type: 'fixed' as const, name: 'openai/gpt' } }} />
       </SlotsProvider>,
     );
 
@@ -116,7 +116,7 @@ describe('AgentMcpEditorContent tool search', () => {
         <AgentMcpEditorContent
           {...baseProps}
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed' as const, name: 'openai/gpt' },
             mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'] }],
           }}
         />
@@ -131,7 +131,7 @@ describe('AgentMcpEditorContent tool search', () => {
       <SlotsProvider>
         <AgentMcpEditorContent
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed' as const, name: 'openai/gpt' },
             mcpServers: [{ id: 'parallel', name: 'parallel-web', enableTools: ['@all'] }],
           }}
           connectors={[{ id: 'parallel', name: 'parallel-web', authenticated: true }]}
@@ -168,7 +168,7 @@ describe('AgentMcpEditorContent tool search', () => {
     render(
       <SlotsProvider>
         <AgentMcpEditorContent
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed' as const, name: 'openai/gpt' } }}
           connectors={[{ id: 'parallel', name: 'parallel-web', authenticated: true }]}
           query=""
           activeConnectorId="parallel"

@@ -3,6 +3,7 @@
 import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useAuiState } from '../assistant-ui.js';
+import { modelSelectionKey } from '../atoms/draft/autoModel.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isNewChatView } from '../utils/isNewChatView.js';
 
@@ -49,7 +50,7 @@ export function useSaveAgentVisible(): boolean {
   if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable || !shell.mode.isCreateAgent) {
     return false;
   }
-  return Boolean(agentSpec?.model?.name?.trim());
+  return Boolean(agentSpec && modelSelectionKey(agentSpec.model).trim());
 }
 
 // Clear chat: any active session (Try Agent, New Chat, New Agent, Edit) that has
