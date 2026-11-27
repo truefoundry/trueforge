@@ -1391,21 +1391,12 @@ export interface Artifact {
   /** Stable identifier used in URLs. Must not contain `-`. */
   id: string;
   name: string;
-  /** Latest version. 0 before the first version. */
-  latestVersion: number;
-  /** Latest version's default file to render, relative to the version. Null before the first version. */
-  entryPoint: string | null;
   createdBySubject: Subject;
-  createdBySessionId: string;
-  /** Registry agent of the creating session. Null when the session used an inline agent spec. */
-  createdByAgentId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ListArtifactsParams extends Pick<PageParams, 'limit' | 'pageToken'> {
-  /** Only artifacts created in this session. */
-  createdBySessionId?: string;
   /** Case-insensitive substring match on name. */
   name?: string;
   /**
@@ -1421,7 +1412,7 @@ export interface ArtifactServer<TArtifact extends Artifact = Artifact> {
   getArtifact(req: { id: string }): Promise<TArtifact>;
   updateArtifact(req: { id: string; name: string }): Promise<TArtifact>;
   deleteArtifact(req: { id: string }): Promise<void>;
-  /** Defaults to the latest version and its `entryPoint`. */
+  /** Defaults to the latest version's entry file. */
   readArtifactFile(req: { id: string; version?: number; path?: string }): Promise<Blob>;
 }
 

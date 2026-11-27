@@ -1,5 +1,5 @@
 /**
- * Harness ArtifactServer adapter. Only `list` exists on the API; the other methods reject
+ * Harness ArtifactServer adapter. `list` and rename exist on the API; the other methods reject
  * until their routes land.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
@@ -14,11 +14,7 @@ function toUiArtifact(artifact: TrueForgeApi.Artifact): Artifact {
   return {
     id: artifact.id,
     name: artifact.name,
-    latestVersion: artifact.latestVersion,
-    entryPoint: artifact.entryPoint,
     createdBySubject: artifact.createdBySubject,
-    createdBySessionId: artifact.createdBySessionId,
-    createdByAgentId: artifact.createdByAgentId,
     createdAt: artifact.createdAt.toISOString(),
     updatedAt: artifact.updatedAt.toISOString(),
   };
@@ -31,13 +27,15 @@ export function createArtifactServer(client: TrueForge): ArtifactServer {
       const page = await client.artifacts.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
-        ...(request.createdBySessionId === undefined ? {} : { createdBySessionId: request.createdBySessionId }),
         ...(request.name === undefined || request.name.length === 0 ? {} : { name: request.name }),
       });
       return toListResult(page, toUiArtifact);
     },
     getArtifact: () => unavailable('Get artifact'),
-    updateArtifact: () => unavailable('Rename artifact'),
+    async updateArtifact({ id, name }) {
+      const response = await client.artifacts.update(id, { name });
+      return toUiArtifact(response.data);
+    },
     deleteArtifact: () => unavailable('Delete artifact'),
     readArtifactFile: () => unavailable('Read artifact file'),
   };

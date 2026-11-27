@@ -96,7 +96,6 @@ export const AnalyticsEvents = {
     PAGE_OPENED: 'trueforge.artifact.page_opened',
     PREVIEW_OPENED: 'trueforge.artifact.preview_opened',
     DOWNLOADED: 'trueforge.artifact.downloaded',
-    SHARE_OPENED: 'trueforge.artifact.share_opened',
     EDITED: 'trueforge.artifact.edited',
     DELETED: 'trueforge.artifact.deleted',
   },

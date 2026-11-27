@@ -1,8 +1,8 @@
 import type { Artifact } from '../../server/types.js';
 
-export const NO_ENTRY_POINT_REASON = 'This artifact has no entry file to open.';
+export const SHARE_UNAVAILABLE_REASON = 'Sharing artifacts is not available yet.';
 
-/** Preview cache identity; a new version must not reuse the previous bytes. */
-export function artifactPreviewKey({ id, latestVersion }: Pick<Artifact, 'id' | 'latestVersion'>): string {
-  return `${id}@v${String(latestVersion)}`;
+/** Preview cache identity; `updatedAt` advances on every new version, so stale bytes are not reused. */
+export function artifactPreviewKey({ id, updatedAt }: Pick<Artifact, 'id' | 'updatedAt'>): string {
+  return `${id}@${updatedAt}`;
 }

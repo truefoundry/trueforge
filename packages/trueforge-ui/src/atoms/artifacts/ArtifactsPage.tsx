@@ -15,7 +15,7 @@ import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Artifact, ListArtifactsParams } from '../../server/types.js';
 import { artifactIdFromRef, artifactRef } from '../../utils/artifactRef.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { filenameFromPath, triggerBrowserDownload } from '../../utils/triggerBrowserDownload.js';
+import { triggerBrowserDownload } from '../../utils/triggerBrowserDownload.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { PageHeader } from '../PageHeader.js';
 import SearchInput from '../primitives/SearchInput.js';
@@ -112,15 +112,15 @@ function ArtifactsPageBody() {
 
   const openPreview = useCallback(
     (artifact: Artifact) => {
-      const { entryPoint, id } = artifact;
-      if (entryPoint == null) return;
+      const { id } = artifact;
       track(AnalyticsEvents.Artifact.PREVIEW_OPENED, { artifact_id: id });
       const ref = artifactRef(artifact);
       openedRefRef.current = ref;
       setArtifactRef?.(ref);
       openFilePreview({
         name: artifact.name,
-        path: entryPoint,
+        // The list carries no entry file path; the read route picks it and the blob type drives rendering.
+        path: artifact.name,
         turnId: artifactPreviewKey(artifact),
         load: () => artifactServer.readArtifactFile({ id }),
       });
@@ -175,10 +175,9 @@ function ArtifactsPageBody() {
   });
 
   const downloadArtifact = async (artifact: Artifact) => {
-    if (artifact.entryPoint == null) return;
     try {
       const blob = await artifactServer.readArtifactFile({ id: artifact.id });
-      triggerBrowserDownload(blob, filenameFromPath(artifact.entryPoint));
+      triggerBrowserDownload(blob, artifact.name);
       track(AnalyticsEvents.Artifact.DOWNLOADED, { artifact_id: artifact.id });
     } catch (caught) {
       toaster?.showError(caught);
@@ -227,7 +226,6 @@ function ArtifactsPageBody() {
                 onDownload={artifact => void downloadArtifact(artifact)}
                 onEdit={setEditing}
                 onDelete={setPendingDelete}
-                onShare={artifact => track(AnalyticsEvents.Artifact.SHARE_OPENED, { artifact_id: artifact.id })}
               />
               {hasPageNav ? (
                 <TableTokenPagination

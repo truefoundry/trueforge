@@ -2,7 +2,7 @@
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ArtifactsButton } from '@/atoms/ArtifactsButton.js';
 import { ArtifactsPage } from '@/atoms/artifacts/ArtifactsPage.js';
@@ -15,11 +15,7 @@ const subject = { subjectId: 'user-1', subjectType: 'user', subjectDisplayName: 
 
 function artifact(overrides: Partial<Artifact> & Pick<Artifact, 'id' | 'name'>): Artifact {
   return {
-    latestVersion: 2,
-    entryPoint: 'report.md',
     createdBySubject: subject,
-    createdBySessionId: 'session-1',
-    createdByAgentId: null,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-02T00:00:00.000Z',
     ...overrides,
@@ -27,7 +23,7 @@ function artifact(overrides: Partial<Artifact> & Pick<Artifact, 'id' | 'name'>):
 }
 
 const q4Brief = artifact({ id: 'a1', name: 'Q4 brief' });
-const sample = [q4Brief, artifact({ id: 'a2', name: 'Empty draft', entryPoint: null })];
+const sample = [q4Brief, artifact({ id: 'a2', name: 'Eval results' })];
 
 // FilePreviewProvider reads thread state, so the page needs a runtime like the real layouts give it.
 function WithRuntime({ children }: { children: ReactNode }) {
@@ -53,6 +49,17 @@ function renderWith(artifactServer: ArtifactServer | undefined, ui = <ArtifactsP
     </WithRuntime>,
   );
 }
+
+beforeAll(() => {
+  // jsdom has no <dialog> modal support, which the edit dialog relies on.
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
 
 describe('ArtifactsPage', () => {
   it('lists artifacts with the creator name and without type or version', async () => {
@@ -132,11 +139,27 @@ describe('ArtifactsPage', () => {
     expect(getArtifact).not.toHaveBeenCalled();
   });
 
-  it('does not open a preview for an artifact without an entry file', async () => {
-    const readArtifactFile = vi.fn(async () => new Blob(['x']));
-    renderWith(createMockArtifactServer({ listArtifacts: async () => ({ data: sample }), readArtifactFile }));
-    fireEvent.click(await screen.findByText('Empty draft'));
-    expect(readArtifactFile).not.toHaveBeenCalled();
+  it('renames an artifact from the row menu and refetches the list', async () => {
+    const listArtifacts = vi.fn(async () => ({ data: sample }));
+    const updateArtifact = vi.fn(async ({ id, name }: { id: string; name: string }) => artifact({ id, name }));
+    renderWith(createMockArtifactServer({ listArtifacts, updateArtifact }));
+    await screen.findByText('Q4 brief');
+    const callsBefore = listArtifacts.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Q4 brief' }));
+    fireEvent.click(await screen.findByText('Edit'));
+    fireEvent.change(await screen.findByLabelText('Artifact name'), { target: { value: '  Q4 summary ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(updateArtifact).toHaveBeenCalledWith({ id: 'a1', name: 'Q4 summary' }));
+    await waitFor(() => expect(listArtifacts.mock.calls.length).toBeGreaterThan(callsBefore));
+  });
+
+  it('keeps Share disabled because artifacts carry no session to share', async () => {
+    renderWith(createMockArtifactServer({ listArtifacts: async () => ({ data: sample }) }));
+    await screen.findByText('Q4 brief');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Q4 brief' }));
+    expect(await screen.findByRole('menuitem', { name: 'Share' })).toBeDisabled();
   });
 });
 

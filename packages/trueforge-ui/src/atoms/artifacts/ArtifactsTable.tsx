@@ -1,10 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-
 import { Icon } from '../../icons/Icon.js';
 import type { Artifact } from '../../server/types.js';
-import { useSlot } from '../../theme/SlotsProvider.js';
 import { CreatedByCell } from '../CreatedByCell.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -12,7 +9,7 @@ import { formatRelativeTime } from '../lib/dateFormat.js';
 import { DropdownMenu, DropdownMenuSeparator } from '../primitives/DropdownMenu.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../primitives/Table.js';
 import { RowActionItem } from '../RowActionItem.js';
-import { artifactPreviewKey, NO_ENTRY_POINT_REASON } from './artifactDisplay.js';
+import { artifactPreviewKey, SHARE_UNAVAILABLE_REASON } from './artifactDisplay.js';
 
 export type ArtifactsTableProps = {
   artifacts: Artifact[];
@@ -21,21 +18,9 @@ export type ArtifactsTableProps = {
   onDownload: (artifact: Artifact) => void;
   onEdit: (artifact: Artifact) => void;
   onDelete: (artifact: Artifact) => void;
-  onShare: (artifact: Artifact) => void;
 };
 
-export function ArtifactsTable({
-  artifacts,
-  selectedKey,
-  onOpen,
-  onDownload,
-  onEdit,
-  onDelete,
-  onShare,
-}: ArtifactsTableProps) {
-  const ShareSessionDialog = useSlot('ShareSessionDialog');
-  const [sharing, setSharing] = useState<Artifact | null>(null);
-
+export function ArtifactsTable({ artifacts, selectedKey, onOpen, onDownload, onEdit, onDelete }: ArtifactsTableProps) {
   return (
     <Table className="min-w-160">
       <TableHeader>
@@ -48,7 +33,6 @@ export function ArtifactsTable({
       </TableHeader>
       <TableBody>
         {artifacts.map(artifact => {
-          const noEntryReason = artifact.entryPoint == null ? NO_ENTRY_POINT_REASON : undefined;
           return (
             <TableRow
               key={artifact.id}
@@ -66,7 +50,7 @@ export function ArtifactsTable({
               </TableCell>
               <TableCell className="text-sm text-text-secondary">{formatRelativeTime(artifact.updatedAt)}</TableCell>
               {/* Swallow here so menu clicks do not also open the preview. */}
-              <TableCell className="relative" onClick={event => event.stopPropagation()}>
+              <TableCell onClick={event => event.stopPropagation()}>
                 <DropdownMenu
                   align="end"
                   className="min-w-44"
@@ -81,22 +65,14 @@ export function ArtifactsTable({
                   }
                 >
                   <RowActionItem label="Edit" icon="pencil" reason={undefined} onClick={() => onEdit(artifact)} />
-                  <RowActionItem label="Open" icon="file" reason={noEntryReason} onClick={() => onOpen(artifact)} />
+                  <RowActionItem label="Open" icon="file" reason={undefined} onClick={() => onOpen(artifact)} />
                   <RowActionItem
                     label="Download"
                     icon="download"
-                    reason={noEntryReason}
+                    reason={undefined}
                     onClick={() => onDownload(artifact)}
                   />
-                  <RowActionItem
-                    label="Share"
-                    icon="share"
-                    reason={undefined}
-                    onClick={() => {
-                      onShare(artifact);
-                      setSharing(artifact);
-                    }}
-                  />
+                  <RowActionItem label="Share" icon="share" reason={SHARE_UNAVAILABLE_REASON} onClick={() => {}} />
                   <DropdownMenuSeparator />
                   <RowActionItem
                     label="Delete"
@@ -106,16 +82,6 @@ export function ArtifactsTable({
                     onClick={() => onDelete(artifact)}
                   />
                 </DropdownMenu>
-                {sharing?.id === artifact.id ? (
-                  <ShareSessionDialog
-                    sessionId={artifact.createdBySessionId}
-                    open
-                    onOpenChange={next => {
-                      if (!next) setSharing(null);
-                    }}
-                    trigger={<span aria-hidden className="pointer-events-none absolute size-0" />}
-                  />
-                ) : null}
               </TableCell>
             </TableRow>
           );
