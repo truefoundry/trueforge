@@ -1,4 +1,4 @@
-import { HeadObjectCommand, NotFound, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { ArtifactObject, IObjectStore } from '@truefoundry/trueforge-core/core';
 import type { S3Config } from '../config';
@@ -32,18 +32,26 @@ export class S3ObjectStore implements IObjectStore {
     return { url, headers: { 'content-length': String(size_bytes), 'x-amz-checksum-sha256': sha256_b64 } };
   }
 
-  async verify({ key, size_bytes, sha256_b64 }: ArtifactObject): Promise<boolean> {
-    try {
-      const head = await this.#client.send(
-        new HeadObjectCommand({ Bucket: this.#bucket, Key: this.#key(key), ChecksumMode: 'ENABLED' }),
+  async listObjects({ prefix }: { prefix: string }) {
+    const objects: Pick<ArtifactObject, 'key' | 'size_bytes'>[] = [];
+    const rootLength = this.#key('').length;
+    let continuationToken: string | undefined;
+    do {
+      const page = await this.#client.send(
+        new ListObjectsV2Command({
+          Bucket: this.#bucket,
+          Prefix: this.#key(prefix),
+          ...(continuationToken !== undefined ? { ContinuationToken: continuationToken } : {}),
+        }),
       );
-      return head.ContentLength === size_bytes && head.ChecksumSHA256 === sha256_b64;
-    } catch (error) {
-      if (error instanceof NotFound) {
-        return false;
+      for (const object of page.Contents ?? []) {
+        if (object.Key !== undefined && object.Size !== undefined) {
+          objects.push({ key: object.Key.slice(rootLength), size_bytes: object.Size });
+        }
       }
-      throw error;
-    }
+      continuationToken = page.IsTruncated === true ? page.NextContinuationToken : undefined;
+    } while (continuationToken !== undefined);
+    return objects;
   }
 
   #key(key: string): string {

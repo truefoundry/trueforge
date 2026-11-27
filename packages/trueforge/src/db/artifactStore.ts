@@ -31,9 +31,11 @@ export interface ArtifactVersionRecord {
   created_at: string;
 }
 
-export interface CreateArtifactInput {
+export interface CreateArtifactWithVersionInput {
+  id: string;
   tenant_id: string;
   name: string;
+  files_metadata: ArtifactFilesMetadata;
   created_by_subject: Subject;
   created_by_session_id: string;
   /** The session's registry agent; null for inline-spec sessions. */
@@ -77,8 +79,10 @@ export interface CreateArtifactVersionInput {
 }
 
 export interface IArtifactStore {
-  /** Generates the id. */
-  createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord>;
+  /** Atomically inserts the artifact and its version 1 for files already uploaded for it. */
+  createArtifactWithVersion(
+    input: CreateArtifactWithVersionInput,
+  ): Promise<{ artifact: ArtifactRecord; version: ArtifactVersionRecord }>;
   /** Undefined when the artifact is not in the tenant. */
   getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined>;
   /**

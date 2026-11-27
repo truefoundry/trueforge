@@ -1,4 +1,4 @@
-import { HeadObjectCommand, NotFound, S3Client } from '@aws-sdk/client-s3';
+import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStore } from '../../../src/objectStore/S3ObjectStore';
 
 const SHA256_B64 = 'jNu2+qtXI4r4KfDiYJuqkhR0bqxH82xwinR2S54qVEM=';
@@ -30,39 +30,57 @@ describe('S3ObjectStore', () => {
     const { client, store } = createStore('');
     const send = jest
       .spyOn(client, 'send')
-      .mockImplementation(() => Promise.resolve({ $metadata: {}, ContentLength: 307, ChecksumSHA256: SHA256_B64 }));
+      .mockImplementation(() =>
+        Promise.resolve({ $metadata: {}, Contents: [{ Key: 'artifacts/t1/a1/p1/index.html', Size: 307 }] }),
+      );
 
     const url = new URL((await store.presignPut(OBJECT)).url);
-    await expect(store.verify(OBJECT)).resolves.toBe(true);
+    await expect(store.listObjects({ prefix: 'artifacts/t1/a1/p1/' })).resolves.toEqual([
+      { key: 'artifacts/t1/a1/p1/index.html', size_bytes: 307 },
+    ]);
 
     expect(url.pathname).toBe('/artifacts/t1/a1/p1/index.html');
-    expect(send.mock.calls[0]?.[0]?.input).toMatchObject({ Key: 'artifacts/t1/a1/p1/index.html' });
+    expect(send.mock.calls[0]?.[0]?.input).toMatchObject({ Prefix: 'artifacts/t1/a1/p1/' });
   });
 
-  it.each([
-    { name: 'matches', head: { ContentLength: 307, ChecksumSHA256: SHA256_B64 }, expected: true },
-    { name: 'size differs', head: { ContentLength: 306, ChecksumSHA256: SHA256_B64 }, expected: false },
-    { name: 'checksum missing', head: { ContentLength: 307 }, expected: false },
-  ])('verify: $name', async ({ head, expected }) => {
+  it('lists objects under the prefix across pages, relative to the store prefix', async () => {
     const { client, store } = createStore();
-    const send = jest.spyOn(client, 'send').mockImplementation(() => Promise.resolve({ $metadata: {}, ...head }));
+    const send = jest
+      .spyOn(client, 'send')
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          $metadata: {},
+          IsTruncated: true,
+          NextContinuationToken: 'next',
+          Contents: [{ Key: 'trueforge/artifacts/t1/a1/p1/index.html', Size: 307 }],
+        }),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          $metadata: {},
+          IsTruncated: false,
+          Contents: [{ Key: 'trueforge/artifacts/t1/a1/p1/img/chart.png', Size: 3 }],
+        }),
+      );
 
-    await expect(store.verify(OBJECT)).resolves.toBe(expected);
-    const command = send.mock.calls[0]?.[0];
-    expect(command).toBeInstanceOf(HeadObjectCommand);
-    expect(command?.input).toEqual({
+    await expect(store.listObjects({ prefix: 'artifacts/t1/a1/p1/' })).resolves.toEqual([
+      { key: 'artifacts/t1/a1/p1/index.html', size_bytes: 307 },
+      { key: 'artifacts/t1/a1/p1/img/chart.png', size_bytes: 3 },
+    ]);
+    const [first, second] = send.mock.calls.map(([command]) => command);
+    expect(first).toBeInstanceOf(ListObjectsV2Command);
+    expect(first?.input).toEqual({ Bucket: 'bucket', Prefix: 'trueforge/artifacts/t1/a1/p1/' });
+    expect(second?.input).toEqual({
       Bucket: 'bucket',
-      Key: 'trueforge/artifacts/t1/a1/p1/index.html',
-      ChecksumMode: 'ENABLED',
+      Prefix: 'trueforge/artifacts/t1/a1/p1/',
+      ContinuationToken: 'next',
     });
   });
 
-  it('verify returns false when the object was never uploaded', async () => {
+  it('lists nothing when no object was uploaded', async () => {
     const { client, store } = createStore();
-    jest.spyOn(client, 'send').mockImplementation(() => {
-      throw new NotFound({ message: 'not found', $metadata: {} });
-    });
+    jest.spyOn(client, 'send').mockImplementation(() => Promise.resolve({ $metadata: {}, KeyCount: 0 }));
 
-    await expect(store.verify(OBJECT)).resolves.toBe(false);
+    await expect(store.listObjects({ prefix: 'artifacts/t1/a1/p1/' })).resolves.toEqual([]);
   });
 });

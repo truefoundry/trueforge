@@ -5,12 +5,11 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import { ArtifactFilesMetadataSchema, type ArtifactFilesMetadata } from '../../../schemas/artifact';
-import { newId } from '../../../utils/id';
 import {
   type ArtifactRecord,
   type ArtifactVersionRecord,
-  type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type CreateArtifactWithVersionInput,
   type GetArtifactInput,
   type IArtifactStore,
   type ListArtifactsInput,
@@ -33,6 +32,18 @@ function recordColumns(eb: ExpressionBuilder<Database, 'artifact'>) {
     'created_by_agent_id' as const,
     'created_at' as const,
     'updated_at' as const,
+  ];
+}
+
+function versionColumns(eb: ExpressionBuilder<Database, 'artifact_version'>) {
+  return [
+    'artifact_id' as const,
+    'version' as const,
+    jsonText<ArtifactFilesMetadata>(eb.ref('files_metadata')).as('files_metadata'),
+    jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    'created_by_session_id' as const,
+    'created_by_agent_id' as const,
+    'created_at' as const,
   ];
 }
 
@@ -66,24 +77,42 @@ export class SqliteArtifactStore implements IArtifactStore {
     this.#db = db;
   }
 
-  async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
-    const timestamp = nowIso();
-    const row = await this.#db
-      .insertInto('artifact')
-      .values({
-        id: newId(),
-        name: input.name,
-        tenant_id: input.tenant_id,
-        latest_version: 0,
-        created_by_subject: jsonbBind(input.created_by_subject),
-        created_by_session_id: input.created_by_session_id,
-        created_by_agent_id: input.created_by_agent_id,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .returning(recordColumns)
-      .executeTakeFirstOrThrow();
-    return toArtifactRecord(row);
+  async createArtifactWithVersion(
+    input: CreateArtifactWithVersionInput,
+  ): Promise<{ artifact: ArtifactRecord; version: ArtifactVersionRecord }> {
+    return this.#db.transaction().execute(async db => {
+      const timestamp = nowIso();
+      const artifact = await db
+        .insertInto('artifact')
+        .values({
+          id: input.id,
+          name: input.name,
+          tenant_id: input.tenant_id,
+          latest_version: 1,
+          latest_entry_point: input.files_metadata.entry_point,
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+      const version = await db
+        .insertInto('artifact_version')
+        .values({
+          artifact_id: input.id,
+          version: 1,
+          files_metadata: jsonbBind(input.files_metadata),
+          created_by_subject: jsonbBind(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
+          created_at: timestamp,
+        })
+        .returning(versionColumns)
+        .executeTakeFirstOrThrow();
+      return { artifact: toArtifactRecord(artifact), version: toVersionRecord(version) };
+    });
   }
 
   async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {
@@ -173,15 +202,7 @@ export class SqliteArtifactStore implements IArtifactStore {
           created_by_agent_id: input.created_by_agent_id,
           created_at: timestamp,
         })
-        .returning(eb => [
-          'artifact_id',
-          'version',
-          jsonText<ArtifactFilesMetadata>(eb.ref('files_metadata')).as('files_metadata'),
-          jsonText<Subject>(eb.ref('created_by_subject')).as('created_by_subject'),
-          'created_by_session_id',
-          'created_by_agent_id',
-          'created_at',
-        ])
+        .returning(versionColumns)
         .executeTakeFirstOrThrow();
       await db
         .updateTable('artifact')

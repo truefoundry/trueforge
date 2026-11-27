@@ -250,7 +250,7 @@ export interface TurnsRouterDeps<TTransaction = never> {
   sessions: Sessions<TTransaction>;
   sessionStore: ISessionStore<TTransaction>;
   /** `push_artifact` records; omitted where turns never push artifacts. */
-  artifactStore?: Pick<IArtifactStore, 'getArtifact' | 'createArtifact' | 'createVersion'> | undefined;
+  artifactStore?: Pick<IArtifactStore, 'getArtifact' | 'createArtifactWithVersion' | 'createVersion'> | undefined;
   /** Object store for a tenant's artifacts; omitted where turns never push artifacts. */
   resolveObjectStore?: ResolveObjectStore | undefined;
 }

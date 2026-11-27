@@ -5,12 +5,11 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { ArtifactFilesMetadataSchema } from '../../../schemas/artifact';
-import { newId } from '../../../utils/id';
 import {
   type ArtifactRecord,
   type ArtifactVersionRecord,
-  type CreateArtifactInput,
   type CreateArtifactVersionInput,
+  type CreateArtifactWithVersionInput,
   type GetArtifactInput,
   type IArtifactStore,
   type ListArtifactsInput,
@@ -54,23 +53,41 @@ export class PostgresArtifactStore implements IArtifactStore {
     this.#db = db;
   }
 
-  async createArtifact(input: CreateArtifactInput): Promise<ArtifactRecord> {
-    const row = await this.#db
-      .insertInto('artifact')
-      .values({
-        id: newId(),
-        name: input.name,
-        tenant_id: input.tenant_id,
-        latest_version: 0,
-        created_by_subject: json(input.created_by_subject),
-        created_by_session_id: input.created_by_session_id,
-        created_by_agent_id: input.created_by_agent_id,
-        created_at: now(),
-        updated_at: now(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return toArtifactRecord(row);
+  async createArtifactWithVersion(
+    input: CreateArtifactWithVersionInput,
+  ): Promise<{ artifact: ArtifactRecord; version: ArtifactVersionRecord }> {
+    return this.#db.transaction().execute(async db => {
+      const artifact = await db
+        .insertInto('artifact')
+        .values({
+          id: input.id,
+          name: input.name,
+          tenant_id: input.tenant_id,
+          latest_version: 1,
+          latest_entry_point: input.files_metadata.entry_point,
+          created_by_subject: json(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
+          created_at: now(),
+          updated_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      const version = await db
+        .insertInto('artifact_version')
+        .values({
+          artifact_id: input.id,
+          version: 1,
+          files_metadata: json(input.files_metadata),
+          created_by_subject: json(input.created_by_subject),
+          created_by_session_id: input.created_by_session_id,
+          created_by_agent_id: input.created_by_agent_id,
+          created_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return { artifact: toArtifactRecord(artifact), version: toVersionRecord(version) };
+    });
   }
 
   async getArtifact(input: GetArtifactInput): Promise<ArtifactRecord | undefined> {

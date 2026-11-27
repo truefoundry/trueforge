@@ -44,6 +44,7 @@ import {
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
+import { newId } from '../../../src/utils/id';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -634,9 +635,11 @@ describe('sessions HTTP agent binding', () => {
   it('lists the artifacts of a session', async () => {
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     const { data: session } = (await created.json()) as { data: { id: string } };
-    const artifact = await artifactStore.createArtifact({
+    const { artifact } = await artifactStore.createArtifactWithVersion({
+      id: newId(),
       tenant_id: 'default',
       name: 'Report',
+      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/report-v1' },
       created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
       created_by_session_id: 'another-session',
       created_by_agent_id: null,

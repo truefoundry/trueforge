@@ -16,6 +16,11 @@ const FILES = [
 ];
 
 type CreateVersionInput = Parameters<ScopedArtifactStore['createVersion']>[0];
+type CreateArtifactWithVersionInput = Parameters<ScopedArtifactStore['createArtifactWithVersion']>[0];
+type StoredObjects = Awaited<ReturnType<ArtifactsBackend['objectStore']['listObjects']>>;
+
+const storedFiles = (prefix: string): StoredObjects =>
+  FILES.map(f => ({ key: `${prefix}${f.relative_path}`, size_bytes: f.size_bytes }));
 
 function run<T>(result: T): Promise<ArtifactTransferRun<T>> {
   return Promise.resolve({ result, sandboxInfo: SANDBOX_INFO, sandboxCreated: false });
@@ -25,18 +30,24 @@ function setup(
   options: {
     metadata?: ArtifactDirMetadata;
     uploaded?: ArtifactUploadResult;
-    verified?: boolean;
+    stored?: (prefix: string) => StoredObjects;
     accessDenied?: string;
   } = {},
 ) {
   const uploadRequests: ArtifactUploadRequest[] = [];
   const createdVersions: CreateVersionInput[] = [];
-  const createArtifact = jest.fn(() => Promise.resolve({ id: 'art-new' }));
+  const listedPrefixes: string[] = [];
+  const newArtifact = jest.fn(() => ({ id: 'art-new' }));
+  const createArtifactWithVersion = jest.fn((input: CreateArtifactWithVersionInput) => {
+    createdVersions.push({ artifact_id: input.id, files_metadata: input.files_metadata });
+    return Promise.resolve({ version: 1 });
+  });
   const backend: ArtifactsBackend = {
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(options.accessDenied),
-      createArtifact,
+      newArtifact,
+      createArtifactWithVersion,
       createVersion: input => {
         createdVersions.push(input);
         return Promise.resolve({ version: 2 });
@@ -44,7 +55,10 @@ function setup(
     },
     objectStore: {
       presignPut: input => Promise.resolve({ url: `https://s3.test/${input.key}`, headers: { 'content-length': '1' } }),
-      verify: () => Promise.resolve(options.verified ?? true),
+      listObjects: ({ prefix }) => {
+        listedPrefixes.push(prefix);
+        return Promise.resolve((options.stored ?? storedFiles)(prefix));
+      },
     },
     limits: { max_files: 25, max_total_bytes: 1000 },
   };
@@ -76,7 +90,7 @@ function setup(
       body: JSON.parse(content?.type === 'text' ? content.text : '{}') as Record<string, unknown>,
     };
   };
-  return { call, toolSet, uploadRequests, createdVersions, createArtifact };
+  return { call, toolSet, uploadRequests, createdVersions, listedPrefixes, newArtifact, createArtifactWithVersion };
 }
 
 describe('push_artifact', () => {
@@ -89,8 +103,8 @@ describe('push_artifact', () => {
     expect(listed.result.tools[0]?.description).toContain('At most 25 files and 1000 bytes in total');
   });
 
-  it('creates an artifact, uploads every file and records the version', async () => {
-    const { call, uploadRequests, createdVersions, createArtifact } = setup();
+  it('uploads every file, then creates the artifact with its first version', async () => {
+    const { call, uploadRequests, listedPrefixes, newArtifact, createArtifactWithVersion } = setup();
     const { isError, body } = await call({
       name: 'Q3 report',
       dir: '/home/trueforge/report',
@@ -98,14 +112,15 @@ describe('push_artifact', () => {
     });
 
     expect(isError).toBe(false);
-    expect(body).toEqual({ artifact_id: 'art-new', version: 2, url: '/artifacts/art-new/v2' });
-    expect(createArtifact).toHaveBeenCalledWith({ name: 'Q3 report' });
-    const rootPath = createdVersions[0]?.files_metadata.root_path ?? '';
+    expect(body).toEqual({ artifact_id: 'art-new', version: 1, url: '/artifacts/art-new/v1' });
+    expect(newArtifact).toHaveBeenCalledWith({ name: 'Q3 report' });
+    const rootPath = createArtifactWithVersion.mock.calls[0]?.[0].files_metadata.root_path ?? '';
     expect(rootPath).toMatch(/^artifacts\/t1\/art-new\/[0-9a-f-]+$/);
-    expect(createdVersions[0]?.files_metadata).toEqual({
-      entry_point: 'index.html',
-      total_bytes: 8,
-      root_path: rootPath,
+    expect(listedPrefixes).toEqual([`${rootPath}/`]);
+    expect(createArtifactWithVersion).toHaveBeenCalledWith({
+      id: 'art-new',
+      name: 'Q3 report',
+      files_metadata: { entry_point: 'index.html', total_bytes: 8, root_path: rootPath },
     });
     expect(uploadRequests[0]).toEqual({
       concurrency: 4,
@@ -119,10 +134,16 @@ describe('push_artifact', () => {
   });
 
   it('adds a version to an existing artifact', async () => {
-    const { call, createArtifact, createdVersions } = setup();
-    const { isError } = await call({ artifact_id: 'art-1', dir: '/home/trueforge/report', entry_point: 'index.html' });
+    const { call, newArtifact, createArtifactWithVersion, createdVersions } = setup();
+    const { isError, body } = await call({
+      artifact_id: 'art-1',
+      dir: '/home/trueforge/report',
+      entry_point: 'index.html',
+    });
     expect(isError).toBe(false);
-    expect(createArtifact).not.toHaveBeenCalled();
+    expect(body).toMatchObject({ artifact_id: 'art-1', version: 2 });
+    expect(newArtifact).not.toHaveBeenCalled();
+    expect(createArtifactWithVersion).not.toHaveBeenCalled();
     expect(createdVersions[0]?.artifact_id).toBe('art-1');
   });
 
@@ -154,7 +175,24 @@ describe('push_artifact', () => {
       { name: 'R' },
       'Upload failed: index.html: SignatureDoesNotMatch',
     ],
-    ['verify mismatch', { verified: false }, { name: 'R' }, 'Upload verification failed'],
+    [
+      'missing object',
+      { stored: prefix => storedFiles(prefix).slice(1) },
+      { name: 'R' },
+      'Upload verification failed: index.html',
+    ],
+    [
+      'size mismatch',
+      { stored: prefix => storedFiles(prefix).map(o => ({ ...o, size_bytes: o.size_bytes + 1 })) },
+      { name: 'R' },
+      'Upload verification failed: index.html, img/chart.png',
+    ],
+    [
+      'unexpected object',
+      { stored: prefix => [...storedFiles(prefix), { key: `${prefix}extra.js`, size_bytes: 1 }] },
+      { name: 'R' },
+      'Upload verification failed: unexpected objects',
+    ],
   ])('fails on %s', async (_name, options, args, expected) => {
     const { call, createdVersions } = setup(options);
     const { isError, body } = await call({ dir: '/home/trueforge/report', entry_point: 'index.html', ...args });

@@ -161,12 +161,13 @@ describe('builtinsFromSpec artifacts', () => {
     tenantId: 't1',
     store: {
       checkPushAccess: () => Promise.resolve(undefined),
-      createArtifact: () => Promise.resolve({ id: 'a1' }),
+      newArtifact: () => ({ id: 'a1' }),
+      createArtifactWithVersion: () => Promise.resolve({ version: 1 }),
       createVersion: () => Promise.resolve({ version: 1 }),
     },
     objectStore: {
       presignPut: () => Promise.resolve({ url: 'https://s3.test/a', headers: {} }),
-      verify: () => Promise.resolve(true),
+      listObjects: () => Promise.resolve([]),
     },
     limits: { max_files: 1, max_total_bytes: 1 },
   };

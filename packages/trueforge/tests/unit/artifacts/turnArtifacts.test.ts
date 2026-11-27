@@ -7,8 +7,9 @@ import type { ArtifactRecord, ArtifactVersionRecord } from '../../../src/db/arti
 const SUBJECT: Subject = { subject_id: 'u1', subject_type: 'user', subject_display_name: 'User' };
 const OBJECT_STORE: IObjectStore = {
   presignPut: () => Promise.resolve({ url: 'https://s3.test/a', headers: {} }),
-  verify: () => Promise.resolve(true),
+  listObjects: () => Promise.resolve([]),
 };
+const FILES_METADATA = { entry_point: 'index.html', total_bytes: 5, root_path: 'artifacts/t1/art-new/p1' };
 const ARTIFACTS_CONFIG: ArtifactsConfig = { tenants: { t1: { enabled: 'on' } }, max_files: 5, max_total_bytes: 100 };
 
 function artifactRecord(overrides: Partial<ArtifactRecord> = {}): ArtifactRecord {
@@ -28,7 +29,16 @@ function artifactRecord(overrides: Partial<ArtifactRecord> = {}): ArtifactRecord
 }
 
 function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore | undefined } = {}) {
-  const createArtifact = jest.fn(() => Promise.resolve(artifactRecord({ id: 'art-new', latest_version: 0 })));
+  const version: ArtifactVersionRecord = {
+    artifact_id: 'art-new',
+    version: 1,
+    files_metadata: FILES_METADATA,
+    created_by_subject: SUBJECT,
+    created_by_session_id: 's1',
+    created_by_agent_id: 'agent-1',
+    created_at: '2026-11-26T00:00:00.000Z',
+  };
+  const createArtifactWithVersion = jest.fn(() => Promise.resolve({ artifact: artifactRecord(), version }));
   const createVersion = jest.fn((): Promise<ArtifactVersionRecord | undefined> => Promise.resolve(undefined));
   const backend = resolveTurnArtifactsBackend({
     tenant_id: 't1',
@@ -37,13 +47,13 @@ function setup(options: { existing?: ArtifactRecord; objectStore?: IObjectStore 
     subject: SUBJECT,
     artifactStore: {
       getArtifact: ({ id }) => Promise.resolve(options.existing?.id === id ? options.existing : undefined),
-      createArtifact,
+      createArtifactWithVersion,
       createVersion,
     },
     resolveObjectStore: () => ('objectStore' in options ? options.objectStore : OBJECT_STORE),
     artifactsConfig: ARTIFACTS_CONFIG,
   });
-  return { backend, createArtifact, createVersion };
+  return { backend, createArtifactWithVersion, createVersion };
 }
 
 describe('resolveTurnArtifactsBackend', () => {
@@ -69,25 +79,33 @@ describe('resolveTurnArtifactsBackend', () => {
   });
 
   it('creates artifacts and versions bound to the session', async () => {
-    const { backend, createArtifact, createVersion } = setup();
-    const files_metadata = { entry_point: 'index.html', total_bytes: 5, root_path: 'artifacts/t1/art-new/p1' };
+    const { backend, createArtifactWithVersion, createVersion } = setup();
+    const files_metadata = FILES_METADATA;
+    const id = backend?.store.newArtifact({ name: 'Q3 report' }).id ?? '';
 
-    await expect(backend?.store.createArtifact({ name: '  Q3   report ' })).resolves.toMatchObject({ id: 'art-new' });
-    await backend?.store.createVersion({ artifact_id: 'art-new', files_metadata });
+    expect(id).toMatch(/^[0-9a-z]{26}$/);
+    await expect(
+      backend?.store.createArtifactWithVersion({ id, name: '  Q3   report ', files_metadata }),
+    ).resolves.toMatchObject({ version: 1 });
+    await backend?.store.createVersion({ artifact_id: id, files_metadata });
 
     const createdBy = { created_by_subject: SUBJECT, created_by_session_id: 's1', created_by_agent_id: 'agent-1' };
-    expect(createArtifact).toHaveBeenCalledWith({ tenant_id: 't1', name: 'Q3 report', ...createdBy });
-    expect(createVersion).toHaveBeenCalledWith({
+    expect(createArtifactWithVersion).toHaveBeenCalledWith({
+      id,
       tenant_id: 't1',
-      artifact_id: 'art-new',
+      name: 'Q3 report',
       files_metadata,
       ...createdBy,
     });
+    expect(createVersion).toHaveBeenCalledWith({ tenant_id: 't1', artifact_id: id, files_metadata, ...createdBy });
   });
 
   it('rejects an invalid artifact name', async () => {
-    const { backend, createArtifact } = setup();
-    await expect(backend?.store.createArtifact({ name: 'a/b' })).rejects.toThrow('Invalid artifact name');
-    expect(createArtifact).not.toHaveBeenCalled();
+    const { backend, createArtifactWithVersion } = setup();
+    expect(() => backend?.store.newArtifact({ name: 'a/b' })).toThrow('Invalid artifact name');
+    await expect(
+      backend?.store.createArtifactWithVersion({ id: 'x', name: 'a/b', files_metadata: FILES_METADATA }),
+    ).rejects.toThrow('Invalid artifact name');
+    expect(createArtifactWithVersion).not.toHaveBeenCalled();
   });
 });

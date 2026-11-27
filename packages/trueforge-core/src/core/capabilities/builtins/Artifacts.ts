@@ -106,11 +106,13 @@ class ArtifactTools extends LocalToolMCP {
       }
 
       let artifactId = input.artifact_id;
+      let newName: string | undefined;
       if (artifactId === undefined) {
         if (input.name === undefined) {
           return failure('name is required when artifact_id is omitted.', metadata);
         }
-        artifactId = (await backend.store.createArtifact({ name: input.name })).id;
+        newName = input.name;
+        artifactId = backend.store.newArtifact({ name: newName }).id;
       }
       const pushId = randomUUID();
       const rootPath = `artifacts/${backend.tenantId}/${artifactId}/${pushId}`;
@@ -137,24 +139,24 @@ class ArtifactTools extends LocalToolMCP {
         return failure(`Upload failed: ${failed.join('; ')}`, metadata);
       }
 
-      const verified = await Promise.all(
-        check.files.map(file =>
-          backend.objectStore.verify({
-            key: keyOf(file.relative_path),
-            size_bytes: file.size_bytes,
-            sha256_b64: file.sha256_b64,
-          }),
-        ),
+      // The presigned PUTs are the only writers under this fresh prefix and S3 rejects a body that does not
+      // match the signed size and sha256, so the expected keys at the expected sizes mean the approved bytes.
+      const stored = new Map(
+        (await backend.objectStore.listObjects({ prefix: `${rootPath}/` })).map(o => [o.key, o.size_bytes]),
       );
-      const mismatched = check.files.filter((_, i) => !verified[i]).map(f => f.relative_path);
+      const mismatched = [
+        ...check.files.filter(f => stored.get(keyOf(f.relative_path)) !== f.size_bytes).map(f => f.relative_path),
+        ...(stored.size > check.files.length ? ['unexpected objects'] : []),
+      ];
       if (mismatched.length > 0) {
         return failure(`Upload verification failed: ${mismatched.join(', ')}`, metadata);
       }
 
-      const version = await backend.store.createVersion({
-        artifact_id: artifactId,
-        files_metadata: { entry_point: input.entry_point, total_bytes: check.total_bytes, root_path: rootPath },
-      });
+      const files_metadata = { entry_point: input.entry_point, total_bytes: check.total_bytes, root_path: rootPath };
+      const version =
+        newName === undefined
+          ? await backend.store.createVersion({ artifact_id: artifactId, files_metadata })
+          : await backend.store.createArtifactWithVersion({ id: artifactId, name: newName, files_metadata });
       if (version === undefined) {
         return failure(`Artifact not found: ${artifactId}`, metadata);
       }

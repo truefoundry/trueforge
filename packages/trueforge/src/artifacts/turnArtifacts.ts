@@ -5,6 +5,15 @@ import type { ArtifactsConfig } from '../config';
 import type { IArtifactStore } from '../db/artifactStore';
 import type { ResolveObjectStore } from '../resolvers';
 import { ArtifactNameSchema } from '../schemas/artifact';
+import { newId } from '../utils/id';
+
+function parseName(name: string): string {
+  const parsed = ArtifactNameSchema.safeParse(name);
+  if (!parsed.success) {
+    throw new Error(`Invalid artifact name: ${z.prettifyError(parsed.error)}`);
+  }
+  return parsed.data;
+}
 
 /**
  * `push_artifact` backend for one turn, or undefined when artifacts are off for the tenant. Records
@@ -16,7 +25,7 @@ export function resolveTurnArtifactsBackend(input: {
   /** The session's registry agent; null for inline-spec sessions. */
   agent_id: string | null;
   subject: Subject;
-  artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifact' | 'createVersion'>;
+  artifactStore: Pick<IArtifactStore, 'getArtifact' | 'createArtifactWithVersion' | 'createVersion'>;
   resolveObjectStore: ResolveObjectStore;
   artifactsConfig: ArtifactsConfig | undefined;
 }): ArtifactsBackend | undefined {
@@ -41,12 +50,19 @@ export function resolveTurnArtifactsBackend(input: {
         }
         return undefined;
       },
-      createArtifact: async ({ name }) => {
-        const parsed = ArtifactNameSchema.safeParse(name);
-        if (!parsed.success) {
-          throw new Error(`Invalid artifact name: ${z.prettifyError(parsed.error)}`);
-        }
-        return await artifactStore.createArtifact({ tenant_id, name: parsed.data, ...createdBy });
+      newArtifact: ({ name }) => {
+        parseName(name);
+        return { id: newId() };
+      },
+      createArtifactWithVersion: async ({ id, name, files_metadata }) => {
+        const { version } = await artifactStore.createArtifactWithVersion({
+          id,
+          tenant_id,
+          name: parseName(name),
+          files_metadata,
+          ...createdBy,
+        });
+        return version;
       },
       createVersion: ({ artifact_id, files_metadata }) =>
         artifactStore.createVersion({ tenant_id, artifact_id, files_metadata, ...createdBy }),
