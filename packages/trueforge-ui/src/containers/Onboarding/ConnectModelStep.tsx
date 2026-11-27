@@ -101,7 +101,7 @@ export function ConnectModelStep({ connectedType, onConnected }: ConnectModelSte
 
       <SelectableList
         aria-label="Model providers"
-        className="border-border bg-card-bg h-56 max-h-56 rounded-[0.625rem] border p-1"
+        className="border-border bg-card-bg h-56 shrink-0 rounded-[0.625rem] border p-1"
         items={providers ?? []}
         selectedKey={selectedType}
         getKey={entry => entry.type}

@@ -34,7 +34,7 @@ export function OnboardingFrame({ title, stepper, children }: OnboardingFramePro
         <h1 className="text-text-primary text-2xl leading-[1.875rem] font-semibold">{title}</h1>
         <div className="flex flex-col gap-4">
           {stepper}
-          <div className="border-border bg-card-bg flex flex-col gap-[1.6875rem] rounded-2xl border px-7 pt-7 pb-5">
+          <div className="border-border bg-card-bg flex h-[34rem] flex-col gap-[1.6875rem] overflow-hidden rounded-2xl border px-7 pt-7 pb-5">
             <div
               aria-hidden
               className="relative -mx-7 -mt-7 -mb-[0.0625rem] h-[6.25rem] shrink-0 overflow-hidden rounded-t-[0.9375rem] bg-black"
@@ -47,7 +47,7 @@ export function OnboardingFrame({ title, stepper, children }: OnboardingFramePro
               />
               <TrueForgeLogoDark className="absolute top-1/2 left-7 h-5 w-[7.675rem] -translate-y-1/2" />
             </div>
-            {children}
+            <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
           </div>
         </div>
       </div>

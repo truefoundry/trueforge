@@ -186,7 +186,7 @@ export function ConnectMcpStep({ onBack, onSkip, onDone }: ConnectMcpStepProps) 
       <SearchInput query={query} setQuery={setQuery} placeholder="Search connectors" />
 
       <div
-        className="border-border bg-card-bg flex h-48 flex-col overflow-y-auto rounded-xl border p-1"
+        className="border-border bg-card-bg flex h-56 shrink-0 flex-col overflow-y-auto rounded-xl border p-1"
         aria-label="Connectors"
       >
         {!catalogLoaded ? (
