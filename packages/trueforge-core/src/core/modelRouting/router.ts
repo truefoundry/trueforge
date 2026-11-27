@@ -6,9 +6,6 @@ import { classificationRequest, readClassification } from './classification';
 import { ROUTING_CLUSTERS } from './clusters';
 import type { RoutingCategory, RoutingQuestion } from './question';
 
-/** Spec model name that asks the harness to route the root thread's model on every turn. */
-export const AUTO_MODEL = 'auto';
-
 /** One of the models the user has access to. */
 export interface RoutableModel {
   /** `provider/model`, as the harness resolves it. */
@@ -72,6 +69,8 @@ export interface ModelRouterDeps {
   question: RoutingQuestion;
   /** The models the user has access to; called at most once per router. */
   listModels: () => Promise<RoutableModel[]>;
+  /** The tenant's allowed models (`provider/model`). A fixed-model agent's subagents route among these. */
+  candidateModels: readonly string[];
 }
 
 export interface RouteInput {
@@ -82,6 +81,8 @@ export interface RouteInput {
   instructions: string;
   /** The categories the classifier may choose from; an answer outside them picks nothing. */
   categories: readonly RoutingCategory[];
+  /** The models (`provider/model`) it may be routed to. None routes nowhere. */
+  candidateModels: readonly string[];
 }
 
 interface Outcome {
@@ -110,7 +111,8 @@ export function createModelRouter(
         throw error;
       });
       // Awaited together so a model-list failure is handled while the classifier is still starting.
-      const [userModels, classifier] = await Promise.all([models, deps.classifier()]);
+      const [allModels, classifier] = await Promise.all([models, deps.classifier()]);
+      const userModels = allModels.filter(model => route.candidateModels.includes(model.name));
       const request = classificationRequest({
         input: route.input,
         question: deps.question,

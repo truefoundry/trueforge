@@ -23,7 +23,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import type { ModelParams } from '../../src/core/llm/model';
+import type { Model, ModelParams } from '../../src/core/llm/model';
 import type { ModelRouterDeps } from '../../src/core/modelRouting/router';
 import type { ModelSnapshot } from '../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
@@ -43,7 +43,7 @@ export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
-    model?: { name: string; params?: { temperature?: number; reasoning_effort?: string } };
+    model?: Model;
     config?: {
       iteration_limit?: number;
       sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
@@ -61,7 +61,7 @@ export function makeAgentSpec(
   } = {},
 ): AgentSpec {
   return AgentSpecSchema.parse({
-    model: overrides.model ?? { name: 'test-provider/test-model' },
+    model: overrides.model ?? { type: 'fixed', name: 'test-provider/test-model' },
     instructions: overrides.instructions ?? 'You are a test agent.',
     config: {
       iteration_limit: 5,
@@ -172,6 +172,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     },
     createTracing: () => base.createTracing(),
     autoModelRouterAvailable: base.autoModelRouterAvailable,
+    routingCandidateModels: base.routingCandidateModels,
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => {
       if (options.failResolveWith) {

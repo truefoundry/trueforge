@@ -41,7 +41,7 @@ function hasCompactionProcessor(capabilities: ReturnType<typeof builtinsFromSpec
 describe('builtinsFromSpec compaction', () => {
   it('enables compaction by default', () => {
     const capabilities = runBuiltins({
-      spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
+      spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'provider/model' } }),
     });
     expect(hasCompactionProcessor(capabilities)).toBe(true);
   });
@@ -49,7 +49,7 @@ describe('builtinsFromSpec compaction', () => {
   it('disables compaction from the context-management Agent Spec setting', () => {
     const capabilities = runBuiltins({
       spec: AgentSpecSchema.parse({
-        model: { name: 'provider/model' },
+        model: { type: 'fixed', name: 'provider/model' },
         config: { context_management: { compaction: { enabled: false } } },
       }),
     });
@@ -60,7 +60,7 @@ describe('builtinsFromSpec compaction', () => {
 describe('builtinsFromSpec generative_ui', () => {
   it('enables OpenUI with preload false when generative_ui is omitted', () => {
     const capabilities = runBuiltins({
-      spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
+      spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'provider/model' } }),
     });
     expect(hasOpenUITool(capabilities)).toBe(true);
     const openUICap = capabilities.find(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_NAME));
@@ -71,7 +71,7 @@ describe('builtinsFromSpec generative_ui', () => {
   it('disables OpenUI when generative_ui.enabled is false', () => {
     const capabilities = runBuiltins({
       spec: AgentSpecSchema.parse({
-        model: { name: 'provider/model' },
+        model: { type: 'fixed', name: 'provider/model' },
         config: { generative_ui: { enabled: false } },
       }),
     });
@@ -80,7 +80,7 @@ describe('builtinsFromSpec generative_ui', () => {
 
   it('never enables OpenUI on child threads', () => {
     const capabilities = runBuiltins({
-      spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
+      spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'provider/model' } }),
       isChild: true,
     });
     expect(hasOpenUITool(capabilities)).toBe(false);
@@ -88,7 +88,7 @@ describe('builtinsFromSpec generative_ui', () => {
 
   it('registers get_openui_instructions for root threads', async () => {
     const capabilities = runBuiltins({
-      spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
+      spec: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'provider/model' } }),
     });
     const toolSet = capabilities
       .flatMap(cap => [...(cap.systemToolSets ?? [])])
@@ -111,7 +111,7 @@ describe('builtinsFromSpec web_search', () => {
   it('omits web search tools when the provider is missing', () => {
     const capabilities = runBuiltins({
       spec: AgentSpecSchema.parse({
-        model: { name: 'provider/model' },
+        model: { type: 'fixed', name: 'provider/model' },
         config: { web_search: { enabled: true } },
       }),
     });
@@ -121,7 +121,7 @@ describe('builtinsFromSpec web_search', () => {
   it('omits web search tools when enabled is false', () => {
     const capabilities = runBuiltins({
       spec: AgentSpecSchema.parse({
-        model: { name: 'provider/model' },
+        model: { type: 'fixed', name: 'provider/model' },
         config: { web_search: { enabled: false } },
       }),
       webSearchProvider: provider,
@@ -132,7 +132,7 @@ describe('builtinsFromSpec web_search', () => {
   it('registers web_search and web_fetch with instruction guidance when enabled', async () => {
     const capabilities = runBuiltins({
       spec: AgentSpecSchema.parse({
-        model: { name: 'provider/model' },
+        model: { type: 'fixed', name: 'provider/model' },
         config: { web_search: { enabled: true } },
       }),
       webSearchProvider: provider,

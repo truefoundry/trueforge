@@ -32,6 +32,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   readonly logger: Logger;
   /** Whether model routing is available for this turn's tenant. A spec whose model is `auto` needs it. */
   readonly autoModelRouterAvailable: boolean;
+  /** The tenant's allowed models for routing (`provider/model`); empty when routing is off. */
+  readonly routingCandidateModels: readonly string[];
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**

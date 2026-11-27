@@ -18,7 +18,8 @@ export const ModelParamsSchema = z
   )
   .openapi('ModelParams');
 
-export const ModelSchema = z
+/** A model FQN and the call parameters used with it. */
+export const ModelDefinitionSchema = z
   .object({
     name: z
       .string()
@@ -26,7 +27,68 @@ export const ModelSchema = z
       .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('Model');
+  .openapi('ModelDefinition');
+
+export const FixedModelSchema = z
+  .object({
+    type: z.literal('fixed').describe('Run every turn on the model named in `name`.'),
+    ...ModelDefinitionSchema.shape,
+  })
+  .strict()
+  .openapi('FixedModel');
+
+/** Fewest models an auto spec may name, so every routing category can have one. */
+export const MIN_AUTO_CANDIDATE_MODELS = 4;
+
+export const MAX_AUTO_CANDIDATE_MODELS = 10;
+
+/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return undefined;
+  }
+  if (name.includes('/', slash + 1)) {
+    return undefined;
+  }
+  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
+}
+
+/** The `type` of a spec model that routes each turn among its candidate models. */
+export const AUTO_MODEL = 'auto';
+
+export const AutoModelSchema = z
+  .object({
+    type: z.literal(AUTO_MODEL).describe('Route each turn to the cheapest candidate model that suits the task.'),
+    candidate_models: z
+      .array(z.string().refine(name => parseModelFqn(name) !== undefined, 'Use the full model name, account/model.'))
+      .min(
+        MIN_AUTO_CANDIDATE_MODELS,
+        `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
+      )
+      .max(
+        MAX_AUTO_CANDIDATE_MODELS,
+        `model.candidate_models takes at most ${String(MAX_AUTO_CANDIDATE_MODELS)} models`,
+      )
+      .refine(names => new Set(names).size === names.length, {
+        message: 'model.candidate_models must not contain duplicates',
+      })
+      .describe(
+        `Full names (account/model) of ${String(MIN_AUTO_CANDIDATE_MODELS)} to ${String(MAX_AUTO_CANDIDATE_MODELS)} models the router may choose from, covering every routing category.`,
+      ),
+  })
+  .strict()
+  .openapi('AutoModel');
+
+export const ModelSchema = z.discriminatedUnion('type', [FixedModelSchema, AutoModelSchema]).openapi('Model');
 
 export type ModelParams = z.infer<typeof ModelParamsSchema>;
+export type ModelDefinition = z.infer<typeof ModelDefinitionSchema>;
+export type FixedModel = z.infer<typeof FixedModelSchema>;
+export type AutoModel = z.infer<typeof AutoModelSchema>;
 export type Model = z.infer<typeof ModelSchema>;
+
+/** Every model FQN the spec may run a turn on: the fixed model, or all auto candidates. */
+export function modelNames(model: Model): readonly string[] {
+  return model.type === 'fixed' ? [model.name] : model.candidate_models;
+}

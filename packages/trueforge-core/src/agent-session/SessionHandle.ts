@@ -3,6 +3,7 @@
  */
 import { AgentHarnessError } from '../core/errors';
 import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
+import { AUTO_MODEL } from '../core/llm/model';
 import { routingConversation } from '../core/modelRouting/conversation';
 import {
   CONVERSATION_ROUTING_INSTRUCTIONS,
@@ -10,7 +11,7 @@ import {
   SUBAGENT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
 } from '../core/modelRouting/question';
-import { AUTO_MODEL, type RouteInput } from '../core/modelRouting/router';
+import type { RouteInput } from '../core/modelRouting/router';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { modelSnapshotFromAgent } from '../core/runtime/AgentModel';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -464,7 +465,7 @@ export class SessionHandle<
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
     const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
-    if (spec.model.name === AUTO_MODEL && !input.resolver.autoModelRouterAvailable) {
+    if (spec.model.type === AUTO_MODEL && !input.resolver.autoModelRouterAvailable) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto mode is turned off for this tenant');
     }
     const sandbox = await input.resolver.resolveSandbox({
@@ -532,7 +533,7 @@ export class SessionHandle<
     });
 
     const mainThreadModel: ModelSnapshot | null =
-      spec.model.name === AUTO_MODEL
+      spec.model.type === AUTO_MODEL
         ? null
         : { name: spec.model.name, effort: spec.model.params?.reasoning_effort ?? null };
     return { orchestrator, agentThreads, mainThreadModel };
@@ -743,16 +744,18 @@ export class SessionHandle<
     const previousThread = input.previous?.snapshot.threads[threadId];
     const saved = previousThread?.model ?? undefined;
     if (input.isRoot) {
-      const routes = spec.model.name === AUTO_MODEL && !input.resuming;
+      const { model: specModel } = spec;
+      const routes = specModel.type === AUTO_MODEL && !input.resuming;
       const routingInput: RouteInput | undefined = routes
         ? {
             threadId: MAIN_THREAD_ID,
             input: routingConversation(previousThread?.context ?? [], input.userMessage ?? []),
             instructions: CONVERSATION_ROUTING_INSTRUCTIONS,
             categories: ROOT_ROUTING_CATEGORIES,
+            candidateModels: specModel.candidate_models,
           }
         : undefined;
-      const model = spec.model.name === AUTO_MODEL && input.resuming ? saved : undefined;
+      const model = specModel.type === AUTO_MODEL && input.resuming ? saved : undefined;
       return () => resolver.resolveModel({ spec, model, routingInput });
     }
     const requested = request?.model === undefined ? undefined : { name: request.model, effort: null };
@@ -766,6 +769,7 @@ export class SessionHandle<
         input: `Name: ${request.name}\n\nTask:\n${request.input}`,
         instructions: TASK_ROUTING_INSTRUCTIONS,
         categories: SUBAGENT_ROUTING_CATEGORIES,
+        candidateModels: spec.model.type === AUTO_MODEL ? spec.model.candidate_models : resolver.routingCandidateModels,
       };
       return () => resolver.resolveModel({ spec, model: requested ?? input.rootModel, routingInput });
     }

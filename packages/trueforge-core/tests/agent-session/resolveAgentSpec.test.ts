@@ -93,6 +93,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     });
     const spec = AgentSpecSchema.parse({
       model: {
+        type: 'fixed',
         name: 'provider/model',
         ...(agentModelParams === undefined ? {} : { params: agentModelParams }),
       },
@@ -135,7 +136,11 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model', params: { max_tokens: 8192, temperature: 0.2, reasoning_effort: 'high' } },
+      model: {
+        type: 'fixed',
+        name: 'provider/model',
+        params: { max_tokens: 8192, temperature: 0.2, reasoning_effort: 'high' },
+      },
     });
 
     const { model } = await resolver.resolveModel({
@@ -162,7 +167,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model', params: { max_tokens: 8192, reasoning_effort: 'high' } },
+      model: { type: 'fixed', name: 'provider/model', params: { max_tokens: 8192, reasoning_effort: 'high' } },
     });
 
     const { model } = await resolver.resolveModel({
@@ -194,7 +199,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       logger: makeSilentLogger(),
     });
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
+      model: { type: 'fixed', name: 'provider/model' },
       mcp_servers: [{ name: 'docs' }],
     });
 

@@ -105,11 +105,13 @@ describe('selectModel', () => {
 });
 
 describe('createModelRouter', () => {
+  const candidateModels = models.map(model => model.name);
   const routeInput = {
     threadId: 'child',
     input: 'Name: research\n\nTask:\nCompare pricing of three CI tools.',
     instructions: TASK_ROUTING_INSTRUCTIONS,
     categories: SUBAGENT_ROUTING_CATEGORIES,
+    candidateModels,
   };
 
   function route(classifier: IDecisionModel, listModels = () => Promise.resolve(models)) {
@@ -118,6 +120,7 @@ describe('createModelRouter', () => {
         classifier: () => Promise.resolve({ client: classifier, properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
+        candidateModels,
       },
       logger,
     )(routeInput);
@@ -133,6 +136,7 @@ describe('createModelRouter', () => {
         classifier: () => Promise.resolve({ client: classifiesAs('frontier'), properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels: () => Promise.resolve(models),
+        candidateModels,
       },
       logger,
     );
@@ -182,6 +186,7 @@ describe('createModelRouter', () => {
             })),
           question: DEFAULT_ROUTING_QUESTION,
           listModels: () => Promise.reject(new Error('catalog down')),
+          candidateModels,
         },
         logger,
       )(routeInput);
@@ -203,12 +208,42 @@ describe('createModelRouter', () => {
         classifier: () => Promise.resolve({ client: classifiesAs('direct'), properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
+        candidateModels,
       },
       logger,
     );
     await routeModel(routeInput);
     await routeModel(routeInput);
     expect(listModels).toHaveBeenCalledTimes(1);
+  });
+
+  describe('with candidate models', () => {
+    function routeAmong(routeCandidates: readonly string[], classifier: IDecisionModel) {
+      return createModelRouter(
+        {
+          classifier: () => Promise.resolve({ client: classifier, properties: { contextLength: 16_000 } }),
+          question: DEFAULT_ROUTING_QUESTION,
+          listModels: () => Promise.resolve(models),
+          candidateModels,
+        },
+        logger,
+      )({ ...routeInput, candidateModels: routeCandidates });
+    }
+
+    it('picks nothing when there are no candidates', async () => {
+      await expect(routeAmong([], classifiesAs('direct'))).resolves.toBeUndefined();
+    });
+
+    it('never picks a model outside the candidates, even a cheaper one', async () => {
+      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('fixed_steps'))).resolves.toEqual({
+        model: 'a/claude-haiku-5-5',
+        effort: 'high',
+      });
+    });
+
+    it('picks nothing when the classifier answers a category the candidates do not serve', async () => {
+      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('adaptive'))).resolves.toBeUndefined();
+    });
   });
 });
 

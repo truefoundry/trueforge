@@ -8,6 +8,7 @@ import type { DecisionModelCreateParams } from '../../src/core/decision/IDecisio
 import { AgentHarnessError } from '../../src/core/errors';
 import { newEventId } from '../../src/core/events/schema';
 import type { LLMCreateParamsStreaming } from '../../src/core/llm/ILLM';
+import type { Model } from '../../src/core/llm/model';
 import type { IToolSet, ListToolsResponse } from '../../src/core/mcp/IMCPServer';
 import { DEFAULT_ROUTING_QUESTION } from '../../src/core/modelRouting/question';
 import type { ModelRouterDeps, RoutableModel } from '../../src/core/modelRouting/router';
@@ -84,14 +85,12 @@ function routing(category?: (input: DecisionModelCreateParams['input']) => strin
       }),
     question: DEFAULT_ROUTING_QUESTION,
     listModels: () => Promise.resolve(routable),
+    candidateModels: routable.map(model => model.name),
   };
   return { deps, calls };
 }
 
-async function createSession(
-  model: { name: string; params?: { temperature?: number; reasoning_effort?: string } },
-  subAgents = false,
-) {
+async function createSession(model: Model, subAgents = false) {
   const store = new InMemorySessionStore();
   const sessions = new Sessions({ sessionStore: store });
   const session = await sessions.create({
@@ -208,7 +207,7 @@ function turnInput(turnId: string, content: string) {
 }
 
 describe('auto model selection', () => {
-  const autoSpec = { name: 'auto', params: { temperature: 0.2 } };
+  const autoSpec: Model = { type: 'auto', candidate_models: routable.map(model => model.name) };
 
   it('runs a new auto turn on the routed model defaults at the routed effort', async () => {
     const { store, session } = await createSession(autoSpec);
@@ -240,6 +239,27 @@ describe('auto model selection', () => {
       role: 'user',
       content: 'hello',
     });
+  });
+
+  it('routes only among the candidate models', async () => {
+    const sonnet = 'a/claude-sonnet-5-5';
+    const { session } = await createSession({
+      type: 'auto',
+      candidate_models: [sonnet, 'a/claude-haiku-5-5', 'a/gpt-6-luna', FRONTIER],
+    });
+    const names: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({
+        modelRouting: routing().deps,
+        onModel: name => names.push(name),
+        llmCreate: () => textReplyStream('ok'),
+      }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    // The cheaper `b/` haiku the tenant has is never picked: it is not a candidate.
+    expect(names).toEqual(['a/claude-haiku-5-5']);
   });
 
   it('classifies the next turn with the previous conversation', async () => {
@@ -368,7 +388,7 @@ describe('auto model selection', () => {
   });
 
   it('runs a named model without routing, recording or saving it', async () => {
-    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const { store, session } = await createSession({ type: 'fixed', name: SPEC_MODEL });
     const route = routing();
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
@@ -384,7 +404,11 @@ describe('auto model selection', () => {
   });
 
   it('replaces the saved model when the named spec changes, without an event', async () => {
-    const { store, session } = await createSession({ name: SPEC_MODEL, params: { reasoning_effort: 'low' } });
+    const { store, session } = await createSession({
+      type: 'fixed',
+      name: SPEC_MODEL,
+      params: { reasoning_effort: 'low' },
+    });
     const first = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
@@ -395,7 +419,9 @@ describe('auto model selection', () => {
     if (agent.type !== 'inline') {
       throw new Error('expected an inline agent');
     }
-    agent.spec = makeAgentSpec({ model: { name: 'other/model', params: { reasoning_effort: 'high' } } });
+    agent.spec = makeAgentSpec({
+      model: { type: 'fixed', name: 'other/model', params: { reasoning_effort: 'high' } },
+    });
     const next = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'again'),
       previous_turn_id: 'auto',
@@ -410,7 +436,7 @@ describe('auto model selection', () => {
   });
 
   it('emits thread.switch_model when auto routes the named model that was saved without an effort', async () => {
-    const { store, session } = await createSession({ name: HAIKU });
+    const { store, session } = await createSession({ type: 'fixed', name: HAIKU });
     const first = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
@@ -444,7 +470,7 @@ describe('auto model selection', () => {
   });
 
   it('emits thread.switch_model when auto routes away from the named model', async () => {
-    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const { store, session } = await createSession({ type: 'fixed', name: SPEC_MODEL });
     const first = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
@@ -478,7 +504,11 @@ describe('auto model selection', () => {
   });
 
   it('emits thread.switch_model when auto routes the named model at a different effort', async () => {
-    const { store, session } = await createSession({ name: HAIKU, params: { reasoning_effort: 'high' } });
+    const { store, session } = await createSession({
+      type: 'fixed',
+      name: HAIKU,
+      params: { reasoning_effort: 'high' },
+    });
     const first = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
@@ -569,7 +599,7 @@ describe('auto model selection', () => {
   });
 
   it('routes before tool init, so a turn paused on MCP sign-in resumes on the routed model', async () => {
-    const { store, session } = await createSession({ name: SPEC_MODEL });
+    const { store, session } = await createSession({ type: 'fixed', name: SPEC_MODEL });
     const first = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({ llmCreate: () => textReplyStream('ok') }),
@@ -691,7 +721,7 @@ describe('auto model selection', () => {
   });
 
   it('does not route a carried subagent that has no saved model', async () => {
-    const { store, session } = await createSession({ name: SPEC_MODEL }, true);
+    const { store, session } = await createSession({ type: 'fixed', name: SPEC_MODEL }, true);
     const route = routing();
     const resolver = () => makeTestResolver({ modelRouting: route.deps, llmCreate: () => textReplyStream('ok') });
     const turn1 = await session.createTurn({ ...turnInput(mintTestTurnId(), 'hello'), resolver: resolver() });
@@ -798,8 +828,42 @@ describe('auto model selection', () => {
     expect(bodies[1]).toMatchObject({ reasoning_effort: 'low' });
   });
 
+  it("routes a named model's subagents only among the tenant's candidate models", async () => {
+    const { session } = await createSession({ type: 'fixed', name: SPEC_MODEL }, true);
+    const names: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({
+        modelRouting: { ...routing().deps, candidateModels: ['a/claude-haiku-5-5', 'a/claude-sonnet-5-5'] },
+        onModel: name => names.push(name),
+        llmCreate: subAgentReplies([]),
+      }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    // The cheaper `b/` haiku is in the catalog but not among the tenant's candidates.
+    expect(names).toContain('a/claude-haiku-5-5');
+    expect(names).not.toContain(HAIKU);
+  });
+
+  it("does not route a named model's subagents when the tenant has no candidate models", async () => {
+    const { session } = await createSession({ type: 'fixed', name: SPEC_MODEL }, true);
+    const names: string[] = [];
+    const turn = await session.createTurn({
+      ...turnInput(mintTestTurnId(), 'hello'),
+      resolver: makeTestResolver({
+        modelRouting: { ...routing().deps, candidateModels: [] },
+        onModel: name => names.push(name),
+        llmCreate: subAgentReplies([]),
+      }),
+    });
+    for await (const event of turn.stream()) void event;
+
+    expect(names).toEqual([SPEC_MODEL]);
+  });
+
   it('keeps an unplaced subagent of a named model on the spec params', async () => {
-    const { session } = await createSession({ name: SPEC_MODEL, params: { temperature: 0.2 } }, true);
+    const { session } = await createSession({ type: 'fixed', name: SPEC_MODEL, params: { temperature: 0.2 } }, true);
     const bodies: LLMCreateParamsStreaming[] = [];
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),

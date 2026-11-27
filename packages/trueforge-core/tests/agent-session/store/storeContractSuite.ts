@@ -249,7 +249,7 @@ export function runStoreContractSuite<TTransaction>(
       expect(mustGet(session).source).toBeNull();
       expect(mustGet(session).agent).toMatchObject({
         type: 'inline',
-        spec: { model: { name: 'test-provider/test-model' } },
+        spec: { model: { type: 'fixed', name: 'test-provider/test-model' } },
       });
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
