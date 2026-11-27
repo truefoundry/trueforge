@@ -337,6 +337,30 @@ describe('DraftSpecPreferenceBridge Auto default', () => {
     }
     expect(chatAutoModelDefaultPending()).toBe(true);
   });
+
+  it.each([
+    ['not configured', { status: 'not_configured' as const }],
+    ['disabled', { status: 'disabled' as const, reason: 'Auto mode is turned off for this tenant' }],
+  ])("does not read the tenant's configuration while Auto is %s", async (_label, auto) => {
+    agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
+    draftSessionId = undefined;
+    const getConfiguration = vi.fn(tenantConfiguration.getConfiguration);
+
+    renderBridge({ auto, configuration: { ...tenantConfiguration, getConfiguration } });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(getConfiguration).not.toHaveBeenCalled();
+  });
+
+  it("reads the tenant's configuration once Auto is enabled", async () => {
+    agentSpec = { model: { type: 'fixed' as const, name: 'model' } };
+    draftSessionId = undefined;
+    const getConfiguration = vi.fn(tenantConfiguration.getConfiguration);
+
+    renderBridge({ auto: { status: 'enabled' }, configuration: { ...tenantConfiguration, getConfiguration } });
+
+    await waitFor(() => expect(getConfiguration).toHaveBeenCalled());
+  });
 });
 
 describe('DraftSpecPreferenceBridge reasoning effort', () => {
