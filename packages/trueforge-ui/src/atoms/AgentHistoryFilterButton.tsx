@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode, type HistoryAgentFilter } from '../server/ShellModeContext.js';
+import type { AgentLibraryEntry } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
@@ -15,6 +16,26 @@ import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { BottomSheet } from './primitives/BottomSheet.js';
 import { DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
+
+/** After remount, keep the active filter agent first even if it is not on page 1. */
+function agentsWithSelectedPinned({
+  agents,
+  selected,
+  query,
+}: {
+  agents: readonly AgentLibraryEntry[];
+  selected: HistoryAgentFilter | null;
+  query: string;
+}): AgentLibraryEntry[] {
+  if (selected == null || selected.agentId == null || selected.agentId.length === 0 || query.trim() !== '') {
+    return [...agents];
+  }
+  const selectedId = selected.agentId;
+  const fromList = agents.find(agent => libraryAgentId(agent) === selectedId);
+  const rest = agents.filter(agent => libraryAgentId(agent) !== selectedId);
+  if (fromList != null) return [fromList, ...rest];
+  return [{ name: selected.agentName, agentId: selectedId }, ...rest];
+}
 
 /**
  * Funnel popover for filtering chat history by agent id.
@@ -35,7 +56,8 @@ export function AgentHistoryFilterButton() {
   const menuId = useId();
 
   const enabled = shell?.isLibraryEnabled === true && server != null;
-  const selected = shell?.historyAgentFilter ?? null;
+  // Try Agent also stores a historyAgentFilter for URL/chrome — only funnel intent filters the list.
+  const selected = shell?.historyAgentFilter?.intent === 'history' ? shell.historyAgentFilter : null;
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -45,6 +67,7 @@ export function AgentHistoryFilterButton() {
     enabled: open && enabled,
     query,
   });
+  const displayAgents = useMemo(() => agentsWithSelectedPinned({ agents, selected, query }), [agents, query, selected]);
 
   // Desktop only: anchor to the right of the funnel; portal escapes sidebar overflow.
   useLayoutEffect(() => {
@@ -116,15 +139,15 @@ export function AgentHistoryFilterButton() {
             {selected == null ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
           </DropdownMenuItem>
         ) : null}
-        {isInitialLoading ? (
+        {isInitialLoading && displayAgents.length === 0 ? (
           <p className="px-2 py-3 text-center text-xs text-text-secondary">Loading…</p>
-        ) : agents.length === 0 ? (
+        ) : displayAgents.length === 0 ? (
           <p className="text-text-secondary px-2 py-6 text-center text-xs" role="status">
             {query.trim() ? `No agents match "${query.trim()}".` : 'No agents yet.'}
           </p>
         ) : (
           <>
-            {agents.map(agent => {
+            {displayAgents.map(agent => {
               const id = libraryAgentId(agent);
               const active = selected?.agentId === id;
               return (

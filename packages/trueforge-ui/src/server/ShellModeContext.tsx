@@ -493,7 +493,9 @@ export function ShellModeProvider({
   const listSessionsAgentId = useMemo(() => {
     if (locked) return lockedAgentName;
     if (!isLibraryEnabled) return undefined;
-    return historyAgentFilter?.agentId;
+    // Try Agent keeps its own chrome/URL filter, but sidebar history stays unfiltered.
+    if (historyAgentFilter?.intent !== 'history') return undefined;
+    return historyAgentFilter.agentId;
   }, [locked, lockedAgentName, isLibraryEnabled, historyAgentFilter]);
 
   const bumpEpoch = useCallback((isMutable: boolean) => {

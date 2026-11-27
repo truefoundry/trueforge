@@ -288,13 +288,15 @@ describe('ThreadListContainer', () => {
     expect(screen.getByRole('button', { name: 'Filter chat history by agent' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try Support Agent' }));
 
-    expect(screen.getByRole('heading', { name: 'Chats for Support Agent' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Filter chat history by agent/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Support Session' }));
-    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Filter chat history by agent/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Filtered Support Session' }));
+    expect(screen.getByRole('heading', { name: 'Chats for Support Agent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Filter chat history by agent/ })).toBeInTheDocument();
   });
 

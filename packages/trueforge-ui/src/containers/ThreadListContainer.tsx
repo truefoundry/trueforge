@@ -36,6 +36,7 @@ import {
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import ConfirmDeleteDialog from '../atoms/primitives/ConfirmDeleteDialog.js';
+import { Tooltip } from '../atoms/primitives/Tooltip.js';
 import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionListStatusPoll } from '../hooks/useSessionListStatusPoll.js';
@@ -479,23 +480,34 @@ function RecentChatsHeading({
   const shell = useOptionalShellMode();
   const ChatHistorySearchButton = useSlot('ChatHistorySearchButton');
   const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
-  const historyFilterIntent = shell?.historyAgentFilter?.intent;
+  const historyFilter = shell?.historyAgentFilter;
+  const historyFilterIntent = historyFilter?.intent;
+  const isHistoryFilter = historyFilterIntent === 'history';
   const showFilter =
     shell?.isLibraryEnabled === true &&
-    historyFilterIntent !== 'try-agent' &&
-    (historyFilterIntent === 'history' ||
+    (isHistoryFilter ||
+      historyFilterIntent === 'try-agent' ||
       shell.mode.status !== 'active' ||
       shell.mode.isMutable ||
       shell.pendingSessionId != null ||
       activeRemoteId != null);
-  const heading =
-    shell?.historyAgentFilter == null ? 'Chat History' : `Chats for ${shell.historyAgentFilter.agentName}`;
+  const heading = isHistoryFilter && historyFilter != null ? `Chats for ${historyFilter.agentName}` : 'Chat History';
+
+  const headingNode = (
+    <h2 className="aui-chat-history-heading min-w-0 max-w-full truncate px-2.5 text-xs font-medium uppercase tracking-wider">
+      {heading}
+    </h2>
+  );
 
   return (
     <div className="flex w-full min-w-0 items-center gap-1">
-      <h2 className="aui-chat-history-heading min-w-0 flex-1 truncate px-2.5 text-xs font-medium uppercase tracking-wider">
-        {heading}
-      </h2>
+      {isHistoryFilter ? (
+        <Tooltip content={heading} side="bottom" interactive={false} triggerClassName="min-w-0 flex-1 overflow-hidden">
+          {headingNode}
+        </Tooltip>
+      ) : (
+        <div className="min-w-0 flex-1 overflow-hidden">{headingNode}</div>
+      )}
       <div className="flex shrink-0 items-center">
         <ChatHistorySearchButton onThreadOpen={onThreadOpen} variant={variant} />
         {showFilter ? <AgentHistoryFilterButton /> : null}

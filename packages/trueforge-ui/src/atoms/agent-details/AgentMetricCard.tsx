@@ -36,7 +36,7 @@ export function AgentMetricCard({ meter }: AgentMetricCardProps) {
           )}
           aria-hidden
         >
-          <Icon name={isCost ? 'dollar-sign' : 'message-square-text'} className="size-6" />
+          <Icon name={isCost ? 'dollar-sign' : 'chart'} className="size-6" />
         </span>
       </div>
       <p className="text-4xl font-bold tabular-nums text-text-primary">

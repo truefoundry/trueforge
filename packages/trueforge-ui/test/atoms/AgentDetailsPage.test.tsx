@@ -228,7 +228,7 @@ describe('AgentDetailsPage', () => {
     const deleteAgent = vi.fn(async () => {});
     renderPage({ serverOverrides: { deleteAgent } });
 
-    expect(await screen.findByRole('button', { name: 'Try agent' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Chat with agent' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit agent' })).not.toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for release-notes-writer' }));
@@ -264,8 +264,8 @@ describe('AgentDetailsPage', () => {
       },
     });
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Try agent' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Try agent' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Chat with agent' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Chat with agent' }));
     expect(screen.getByTestId('shell-mode')).toHaveTextContent('agent-1:false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Actions for release-notes-writer' }));

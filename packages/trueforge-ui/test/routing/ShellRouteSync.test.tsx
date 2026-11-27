@@ -399,10 +399,16 @@ describe('ShellRouteSync', () => {
   it('applies an agent deep link on boot and resolves its history filter id', async () => {
     renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibrary' }, strict: true });
     expect(shell.mode).toMatchObject({ status: 'active', isMutable: false, agentName: 'helper' });
-    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+    await waitFor(() =>
+      expect(shell.historyAgentFilter).toEqual({
+        agentId: 'helper-id',
+        agentName: 'helper',
+        intent: 'try-agent',
+      }),
+    );
+    expect(shell.listSessionsAgentId).toBeUndefined();
     expect(pathname).toBe('/agents/helper');
     expect(search).toBe('?try_agent_name=helper');
-    expect(shell.historyAgentFilter?.intent).toBe('try-agent');
   });
 
   it('restores a filtered history session from its agent-name query', async () => {
@@ -443,7 +449,8 @@ describe('ShellRouteSync', () => {
 
   it('preserves Try Agent intent when its new chat acquires a session id', async () => {
     renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
-    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+    await waitFor(() => expect(shell.historyAgentFilter?.intent).toBe('try-agent'));
+    expect(shell.listSessionsAgentId).toBeUndefined();
 
     act(() => setRemoteId('session-from-try'));
 
@@ -453,7 +460,7 @@ describe('ShellRouteSync', () => {
 
   it('clears Try Agent URL and history filter when New Chat opens', async () => {
     renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
-    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+    await waitFor(() => expect(shell.historyAgentFilter?.intent).toBe('try-agent'));
 
     act(() => shell.openDraft());
 
