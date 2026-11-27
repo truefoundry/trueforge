@@ -9,8 +9,8 @@ import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
@@ -48,7 +48,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
                 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
                 shellHoverClassName,
               ),
-          open && (compact ? shellRailSelectedClassName : shellSelectedClassName),
+          open && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {

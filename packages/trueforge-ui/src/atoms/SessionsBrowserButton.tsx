@@ -11,8 +11,8 @@ import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessio
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
@@ -50,7 +50,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
                 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
                 shellHoverClassName,
               ),
-          sessionsOpen && (compact ? shellRailSelectedClassName : shellSelectedClassName),
+          sessionsOpen && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {

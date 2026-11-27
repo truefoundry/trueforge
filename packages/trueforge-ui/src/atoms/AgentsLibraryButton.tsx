@@ -12,8 +12,8 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import {
   auiButtonClass,
   shellHoverClassName,
+  shellNavSelectedClassName,
   shellRailSelectedClassName,
-  shellSelectedClassName,
   sidebarButtonRadiusClassName,
   sidebarCompactNavButtonClassName,
 } from './lib/buttonClasses.js';
@@ -75,7 +75,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
                 'h-8 w-full !justify-start px-2.5 text-sm text-sidebar-text',
                 shellHoverClassName,
               ),
-          libraryOpen && (compact ? shellRailSelectedClassName : shellSelectedClassName),
+          libraryOpen && (compact ? shellRailSelectedClassName : shellNavSelectedClassName),
         ),
       })}
       onClick={() => {
