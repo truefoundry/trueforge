@@ -251,12 +251,9 @@ function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId' | 'name'>): str
 
 export function ShellModeProvider({
   agentConfig = DEFAULT_AGENT_CONFIG,
-  initialSettingsOpen = false,
   children,
 }: {
   agentConfig?: AgentConfig;
-  /** Open settings on first paint (e.g. host boot with no models). Does not re-open later. */
-  initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
   const queryClient = useServerQueryClient();
@@ -284,7 +281,7 @@ export function ShellModeProvider({
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
   const [environmentsListEpoch, setEnvironmentsListEpoch] = useState(0);
-  const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
+  const [settingsOpenState, setSettingsOpenState] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
   const [agentConfigOpenState, setAgentConfigOpenState] = useState(false);
   const [libraryOpenState, setLibraryOpenState] = useState(false);

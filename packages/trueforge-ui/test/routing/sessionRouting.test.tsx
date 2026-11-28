@@ -84,7 +84,7 @@ function Harness({
   const tree = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
       <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
-        <ShellRouteSync routes={routes} activeRemoteId={activeRemoteId} initialSettingsOpen={false} />
+        <ShellRouteSync routes={routes} activeRemoteId={activeRemoteId} />
         <SessionAccessErrorProbe />
         <RuntimeHarness
           threadList={{

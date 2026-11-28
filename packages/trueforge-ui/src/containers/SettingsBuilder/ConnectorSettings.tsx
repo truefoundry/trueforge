@@ -1,24 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '@/analytics/events.js';
 import { cn } from '@/atoms/lib/cn.js';
-import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
-import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
-import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
+import type { ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
 import ConfirmDeleteDialog from '../../atoms/primitives/ConfirmDeleteDialog.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
+import { ConnectorApiKeyDialog } from './ConnectorApiKeyDialog.js';
+import { createConnectorFromCatalog, headerAuthForCatalogEntry } from './connectorCatalogActions.js';
 import ConnectorDetails from './ConnectorDetails.js';
 
 type ConnectorListItem =
@@ -53,8 +53,6 @@ const ConnectorSettings = () => {
   const [authorizingId, setAuthorizingId] = useState<string | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<ConnectorBase | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState('');
-
   const connectorIconMap = useMemo(() => {
     return (catalog ?? []).reduce(
       (acc, entry) => {
@@ -150,56 +148,33 @@ const ConnectorSettings = () => {
 
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
-    setApiKey('');
     setFormError(null);
-  };
-
-  const createFromCatalog = async (entry: ConnectorCatalogEntry, authOverride?: ConnectorAuth) => {
-    const auth: ConnectorAuth =
-      authOverride ??
-      (entry.auth.type === 'header'
-        ? {
-            type: 'header',
-            ...(entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
-          }
-        : entry.auth.type === 'dcr'
-          ? { type: 'dcr' }
-          : { type: 'none' });
-    await connectorCatalog.createConnector({
-      name: entry.name,
-      description: entry.description ?? entry.url,
-      url: entry.url,
-      auth,
-    });
   };
 
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
-      setApiKey('');
       setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
     }
 
     void runMutation(async () => {
-      await createFromCatalog(entry);
+      await createConnectorFromCatalog({ connectorCatalog, entry });
       track(AnalyticsEvents.Settings.CONNECTOR_SAVED, { connector_name: entry.name, mode: 'create' });
     }).catch(() => {});
   };
 
-  const handleApiKeySubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!connectorAwaitingKey || !apiKey.trim()) return;
+  const handleApiKeySubmit = (apiKey: string) => {
+    if (!connectorAwaitingKey) return;
 
     const entry = connectorAwaitingKey;
     setFormError(null);
     void runMutation(async () => {
-      const auth: ConnectorAuth = {
-        type: 'header',
-        apiKey: apiKey.trim(),
-        ...(entry.auth.type === 'header' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
-      };
-      await createFromCatalog(entry, auth);
+      await createConnectorFromCatalog({
+        connectorCatalog,
+        entry,
+        auth: headerAuthForCatalogEntry({ entry, apiKey }),
+      });
       closeApiKeyModal();
       setTimeout(() => {
         toaster?.showSuccess({
@@ -562,64 +537,13 @@ const ConnectorSettings = () => {
             ) : null}
           </div>
 
-          <CenteredModal
-            open={connectorAwaitingKey !== null}
-            onOpenChange={open => {
-              if (!open) closeApiKeyModal();
-            }}
-            title={`Connect ${connectorAwaitingKey?.name ?? 'connector'}`}
-            description={connectorAwaitingKey?.url}
-            contentSized
-            className="md:max-w-xl"
-          >
-            <form onSubmit={handleApiKeySubmit}>
-              <div className="space-y-5 px-5 py-5">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary-bg"
-                    aria-hidden
-                  >
-                    <Icon name="mcp-server" className="size-6 text-text-primary" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-medium text-text-primary">{connectorAwaitingKey?.name}</p>
-                    <p className="truncate text-sm text-text-secondary">{connectorAwaitingKey?.description}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="connector-api-key"
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
-                  >
-                    API key / token
-                  </label>
-                  <input
-                    id="connector-api-key"
-                    type="password"
-                    value={apiKey}
-                    onChange={event => {
-                      setApiKey(event.target.value);
-                    }}
-                    placeholder={`Bearer <Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}>`}
-                    autoFocus
-                    required
-                    className={auiInputClass('h-11')}
-                  />
-                </div>
-                {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
-              </div>
-
-              <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
-                <Button.Ghost type="button" onClick={closeApiKeyModal} disabled={busy}>
-                  Cancel
-                </Button.Ghost>
-                <Button.Primary type="submit" disabled={!apiKey.trim() || busy}>
-                  Connect
-                </Button.Primary>
-              </footer>
-            </form>
-          </CenteredModal>
+          <ConnectorApiKeyDialog
+            entry={connectorAwaitingKey}
+            busy={busy}
+            error={formError}
+            onSubmit={handleApiKeySubmit}
+            onCancel={closeApiKeyModal}
+          />
 
           <AddMcpServerForm
             open={addMcpServerFormOpen}

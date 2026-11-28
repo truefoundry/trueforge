@@ -18,6 +18,8 @@ export default defineConfig({
   // wipe that stylesheet here. Watch mode also keeps dist/styles.css from the CSS watcher.
   clean: false,
   target: 'es2022',
+  // Onboarding banner art is small enough to ship inline, so consumers need no asset pipeline.
+  loader: { '.png': 'dataurl' },
   esbuildPlugins: [
     embedCssPlugin(),
     svgr({

@@ -31,6 +31,7 @@ import type { AgentSpec, AgentUIServer, CreateSessionRequest } from '../server/t
 import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { OnboardingGate } from './Onboarding/OnboardingGate.js';
 import { ToasterProvider } from './ToasterContainer.js';
 import { TrueForgeChatProvider, type TrueForgeChatProviderProps } from './TrueForgeChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
@@ -62,8 +63,11 @@ export type TrueForgeUIProps = {
    * Defaults to `{ mode: "AgentLibraryWithComposer" }`.
    */
   agentConfig?: AgentConfig;
-  /** Open settings on first paint only (host boot with no models configured). */
-  initialSettingsOpen?: boolean;
+  /**
+   * Show the first-run onboarding flow when no model provider is configured and the caller can manage
+   * providers. Defaults to `true`; pass `false` when the host runs its own setup.
+   */
+  onboarding?: boolean;
   /**
    * Host UI for pending client-side tools, keyed by tool name.
    * When a pending tool matches, that component is shown above the composer instead of Ask User.
@@ -294,7 +298,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     theme,
     className,
     agentConfig = DEFAULT_AGENT_CONFIG,
-    initialSettingsOpen = false,
+    onboarding = true,
     server: serverConfig,
     onError,
     analytics,
@@ -339,17 +343,14 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const shellTree = (
     <AnalyticsProvider track={analytics?.track}>
       <ToasterProvider>
-        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+        <ShellModeProvider agentConfig={agentConfig}>
           <LibrarySessionShareBoot />
           {resolvedRoutes != null ? (
             <Suspense fallback={null}>
-              <ShellRouteSync
-                routes={resolvedRoutes}
-                activeRemoteId={activeRemoteId}
-                initialSettingsOpen={initialSettingsOpen}
-              />
+              <ShellRouteSync routes={resolvedRoutes} activeRemoteId={activeRemoteId} />
             </Suspense>
           ) : null}
+          {onboarding ? <OnboardingGate /> : null}
           <ChatProviderFromShell
             server={server}
             onError={onError}

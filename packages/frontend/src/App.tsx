@@ -93,7 +93,7 @@ function Loader() {
 type BootState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
+  | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec };
 
 export function App() {
   const authError = parseAuthErrorReason(window.location.search);
@@ -148,9 +148,9 @@ export function App() {
         const first = models[0];
         const sandboxConfig = { sandbox: { enabled: capabilities.sandbox.enabled } };
         if (first === undefined) {
+          // The shell's onboarding flow connects the first model; the draft picks it up afterwards.
           setBoot({
             status: 'ready',
-            openSettings: capabilities.settings.modelProviders.enabled,
             defaultAgentSpec: {
               model: { type: 'fixed', name: '' },
               config: sandboxConfig,
@@ -161,7 +161,6 @@ export function App() {
         const defaultReasoningEffort = resolveReasoningEffort(first.properties.reasoningEfforts, undefined);
         setBoot({
           status: 'ready',
-          openSettings: false,
           defaultAgentSpec: {
             model: {
               type: 'fixed',
@@ -267,7 +266,6 @@ export function App() {
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
-        initialSettingsOpen={boot.openSettings}
         currentUser={{ subjectId: session.subjectId, displayName: session.displayName }}
         overrides={overrides}
         theme={appTheme}

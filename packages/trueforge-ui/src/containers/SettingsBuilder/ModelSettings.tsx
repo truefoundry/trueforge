@@ -15,6 +15,7 @@ import ConfigureModelProviderForm, {
 import CustomModelProviderForm, {
   type CustomProviderDraft,
 } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
+import { buildCreateModelProviderRequest } from '@/containers/SettingsBuilder/modelProviderRequest.js';
 import { useToasterOptional } from '@/containers/ToasterContainer.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer, useServerCapabilities, useServerCapabilitiesSettled } from '@/server/ServerContext.js';
@@ -189,13 +190,7 @@ const ModelSettings = () => {
     setKeyError(null);
     await runMutation(
       async () => {
-        await modelCatalog.createModelProvider({
-          type: entry.type,
-          name: entry.name,
-          ...(draft.baseUrl ? { baseUrl: draft.baseUrl } : {}),
-          apiKey: draft.apiKey,
-          models: entry.models,
-        });
+        await modelCatalog.createModelProvider(buildCreateModelProviderRequest({ entry, draft }));
       },
       err => setKeyError(getErrorMessage(err, 'Request failed')),
     );

@@ -23,7 +23,7 @@ import {
 } from './mockServer.js';
 import { allSettingsSections } from './settingsCapabilityFixture.js';
 
-function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
+function wrap(agentConfig?: AgentConfig) {
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(),
     sessions: createMockAgentSessionsServer(),
@@ -31,22 +31,18 @@ function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ServerProvider server={server}>
-        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-          {children}
-        </ShellModeProvider>
+        <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>
       </ServerProvider>
     );
   };
 }
 
-function wrapWithoutCatalog(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
+function wrapWithoutCatalog(agentConfig?: AgentConfig) {
   const server = createMockAgentUIServer({ catalog: undefined });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ServerProvider server={server}>
-        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-          {children}
-        </ShellModeProvider>
+        <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>
       </ServerProvider>
     );
   };
@@ -90,10 +86,13 @@ describe('ShellModeProvider', () => {
     expect(result.current).toBeNull();
   });
 
-  it('waits for explicit capability before honoring initialSettingsOpen', async () => {
-    const { result } = renderHook(() => useShellMode(), { wrapper: wrap(undefined, true) });
+  it('opens settings on the models section once capabilities allow it', async () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     expect(result.current.settingsOpen).toBe(false);
-    await waitFor(() => expect(result.current.settingsOpen).toBe(true));
+    await waitFor(() => {
+      act(() => result.current.setSettingsOpen(true));
+      expect(result.current.settingsOpen).toBe(true);
+    });
     expect(result.current.settingsSection).toBe('models');
 
     act(() => result.current.setSettingsOpen(false));
@@ -102,14 +101,14 @@ describe('ShellModeProvider', () => {
     expect(result.current.settingsOpen).toBe(false);
   });
 
-  it('ignores initialSettingsOpen when Settings chrome has no catalog', () => {
-    const { result } = renderHook(() => useShellMode(), { wrapper: wrapWithoutCatalog(undefined, true) });
+  it('keeps settings closed when Settings chrome has no catalog', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrapWithoutCatalog() });
     expect(result.current.settingsOpen).toBe(false);
     act(() => result.current.setSettingsOpen(true));
     expect(result.current.settingsOpen).toBe(false);
   });
 
-  it('ignores initialSettingsOpen when Settings capability is disabled', async () => {
+  it('keeps settings closed when the Settings capability is disabled', async () => {
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),
       getCapabilities: async () => ({
@@ -131,7 +130,7 @@ describe('ShellModeProvider', () => {
         wrapper: function Wrapper({ children }: { children: ReactNode }) {
           return (
             <ServerProvider server={server}>
-              <ShellModeProvider initialSettingsOpen>{children}</ShellModeProvider>
+              <ShellModeProvider>{children}</ShellModeProvider>
             </ServerProvider>
           );
         },
