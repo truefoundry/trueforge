@@ -290,7 +290,10 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: MODEL_FQN,
         model_id: 'gpt-5.2',
         provider: { name: 'openai' },
-        properties: {},
+        canonical_model: null,
+        properties: {
+          auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
+        },
       }).name,
     ).toBe(MODEL_FQN);
     expect(
@@ -298,7 +301,10 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: `${PROVIDER_ACCOUNT}/${MODEL_NAME}`,
         model_id: 'upstream/id.with.dots',
         provider: { name: PROVIDER_ACCOUNT },
-        properties: {},
+        canonical_model: null,
+        properties: {
+          auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
+        },
       }).provider.name,
     ).toBe(PROVIDER_ACCOUNT);
   });
@@ -322,5 +328,22 @@ describe('TrueFoundry naming vs NameSchema', () => {
     expect(NameSchema.safeParse(fqn).success).toBe(false);
     expect(NameSchema.safeParse(PROVIDER_ACCOUNT).success).toBe(false);
     expect(NameSchema.safeParse(MODEL_NAME).success).toBe(false);
+  });
+
+  it.each([
+    ['an empty', '', null],
+    ['a set', 'openai/gpt-5-2', 'openai/gpt-5-2'],
+  ])('maps %s canonical model id from the integration metadata', (_label, canonical, expected) => {
+    const [model] = mapEnabledModels({
+      integrations: [
+        {
+          name: MODEL_NAME,
+          manifest: { model_types: ['chat'] },
+          providerAccount: { name: PROVIDER_ACCOUNT },
+          metadata: { canonical_model: canonical },
+        },
+      ],
+    });
+    expect(model?.canonical_model).toBe(expected);
   });
 });

@@ -32,11 +32,11 @@ const SPEC_MODEL = 'test-provider/test-model';
 const DEFAULTS = { max_tokens: 128 };
 
 const routable: RoutableModel[] = [
-  { name: 'a/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', cost: 4 },
-  { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
-  { name: HAIKU, canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
-  { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: FRONTIER, canonicalModel: 'anthropic/claude-fable-5-2', cost: 1 },
+  { name: 'a/claude-sonnet-5-5', canonical_model: 'anthropic/claude-sonnet-5-5', cost: 4 },
+  { name: 'a/claude-haiku-5-5', canonical_model: 'anthropic/claude-haiku-5-5', cost: 0.5 },
+  { name: HAIKU, canonical_model: 'anthropic/claude-haiku-5-5', cost: 0.2 },
+  { name: 'a/gpt-6-luna', canonical_model: 'openai/gpt-6-luna', cost: undefined },
+  { name: FRONTIER, canonical_model: 'anthropic/claude-fable-5-2', cost: 1 },
 ];
 
 function decisionFor(category: string | undefined) {

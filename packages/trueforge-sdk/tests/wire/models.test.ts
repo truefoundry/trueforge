@@ -11,7 +11,14 @@ describe("ModelsClient", () => {
 
         const rawResponseBody = {
             data: [
-                { model_id: "model_id", name: "name", properties: {}, provider: { name: "name" }, warning: "warning" },
+                {
+                    canonical_model: "canonical_model",
+                    model_id: "model_id",
+                    name: "name",
+                    properties: { auto_routing: { categories: ["answer"], enabled: true, supported: true } },
+                    provider: { name: "name" },
+                    warning: "warning",
+                },
             ],
         };
 
@@ -21,9 +28,16 @@ describe("ModelsClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    canonicalModel: "canonical_model",
                     modelId: "model_id",
                     name: "name",
-                    properties: {},
+                    properties: {
+                        autoRouting: {
+                            categories: ["answer"],
+                            enabled: true,
+                            supported: true,
+                        },
+                    },
                     provider: {
                         name: "name",
                     },

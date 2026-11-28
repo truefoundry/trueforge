@@ -5,10 +5,17 @@ export interface RoutingQuestion {
 export type RoutingCategory = keyof RoutingQuestion['categories'];
 
 /** What a subagent's delegated task can be classified as: never `frontier`. */
-export const SUBAGENT_ROUTING_CATEGORIES: readonly RoutingCategory[] = ['answer', 'execute', 'analyze'];
+export const SUBAGENT_ROUTING_CATEGORIES = [
+  'answer',
+  'execute',
+  'analyze',
+] as const satisfies readonly RoutingCategory[];
 
 /** What the root thread's conversation can be classified as. */
-export const ROOT_ROUTING_CATEGORIES: readonly RoutingCategory[] = [...SUBAGENT_ROUTING_CATEGORIES, 'frontier'];
+export const ROOT_ROUTING_CATEGORIES = [
+  ...SUBAGENT_ROUTING_CATEGORIES,
+  'frontier',
+] as const satisfies readonly RoutingCategory[];
 
 export const CONVERSATION_ROUTING_INSTRUCTIONS =
   'Given the conversation so far, which category best describes what the latest user message needs to be completed?';

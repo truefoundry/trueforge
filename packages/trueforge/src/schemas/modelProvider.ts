@@ -3,7 +3,11 @@
  * and OpenAPI request/response shapes. Catalog file schemas live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
-import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
+import {
+  ROOT_ROUTING_CATEGORIES,
+  SUPPORTED_REASONING_EFFORTS,
+  VERCEL_AI_PROVIDER_NAMES,
+} from '@truefoundry/trueforge-core/core';
 import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
@@ -28,6 +32,39 @@ export const ModelPropertiesSchema = z
   .strict()
   .describe('Optional model capability metadata.')
   .openapi('ModelProperties');
+
+export const AutoRoutingCategorySchema = z
+  .enum(ROOT_ROUTING_CATEGORIES)
+  .describe('A routing category a model can serve.')
+  .openapi('AutoRoutingCategory');
+
+export const AutoRoutingSchema = z
+  .discriminatedUnion('supported', [
+    z
+      .object({
+        supported: z.literal(true).describe('The model supports Auto routing.'),
+        categories: z.array(AutoRoutingCategorySchema).min(1).describe('Categories the model can serve.'),
+        enabled: z.boolean().describe("Whether the model is in the tenant's Auto candidate list."),
+      })
+      .strict()
+      .openapi('SupportedAutoRouting'),
+    z
+      .object({
+        supported: z.literal(false).describe('The model does not support Auto routing.'),
+        unsupported_reason: z.string().min(1).describe('Why the model does not support Auto routing.'),
+      })
+      .strict()
+      .openapi('UnsupportedAutoRouting'),
+  ])
+  .describe('Whether the model supports Auto routing and, if so, how.')
+  .openapi('AutoRouting');
+
+/** Returned by GET /models: the configured properties plus the computed, read-only `auto_routing`. */
+export const ResolvedModelPropertiesSchema = z
+  .object({ ...ModelPropertiesSchema.shape, auto_routing: AutoRoutingSchema })
+  .strict()
+  .describe('Model capability metadata and Auto routing support.')
+  .openapi('ResolvedModelProperties');
 
 export const ConfiguredModelSchema = z
   .object({
@@ -244,7 +281,8 @@ export const AvailableModelSchema = z
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
     provider: AvailableModelProviderSchema,
-    properties: ModelPropertiesSchema,
+    canonical_model: z.string().min(1).nullable().describe('Provider-neutral model id; null when unknown.'),
+    properties: ResolvedModelPropertiesSchema,
     warning: z
       .string()
       .min(1)
@@ -265,4 +303,5 @@ export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSche
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
 export type UpdateModelProviderRequest = z.infer<typeof UpdateModelProviderRequestSchema>;
 export type AvailableModelProvider = z.infer<typeof AvailableModelProviderSchema>;
+export type AutoRouting = z.infer<typeof AutoRoutingSchema>;
 export type AvailableModel = z.infer<typeof AvailableModelSchema>;

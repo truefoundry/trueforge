@@ -26,7 +26,7 @@ const MetadataSchema = z.object({
     })
     .optional(),
   params: z.array(ModelParamSchema).optional(),
-  canonical_model: z.string().nullish().catch(undefined),
+  canonical_model: z.string().min(1).nullish().catch(undefined),
   costs: z.array(RegionCostSchema.nullable().catch(null)).optional().catch(undefined),
 });
 
@@ -79,11 +79,11 @@ function toBlendedCost(metadata: IntegrationMetadata | undefined): number | unde
 }
 
 function integrationModelInfo(metadata: IntegrationMetadata | undefined): {
-  canonicalModel: string | undefined;
+  canonical_model: string | null;
   cost: number | undefined;
 } {
   return {
-    canonicalModel: metadata?.canonical_model ?? undefined,
+    canonical_model: metadata?.canonical_model ?? null,
     cost: toBlendedCost(metadata),
   };
 }
@@ -93,7 +93,7 @@ export interface TrueFoundryEnabledModel {
   modelName: string;
   properties: ModelProperties;
   /** Provider-neutral model id from the integration metadata. */
-  canonicalModel: string | undefined;
+  canonical_model: string | null;
   /** Blended USD per million tokens from the integration's default-region cost. */
   cost: number | undefined;
 }

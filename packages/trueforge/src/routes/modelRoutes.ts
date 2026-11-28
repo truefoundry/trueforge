@@ -18,7 +18,8 @@ export const listAvailableModelsRoute = createRoute({
       'identifier before setting one on an agent.',
     annotations: { readOnlyHint: true },
   },
-  description: 'Configured models as a slim FQN list for the composer.',
+  description:
+    'Configured models as a slim FQN list for the composer. Each model reports whether it supports Auto routing and, if so, the categories it serves.',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableModelsResponseSchema } },

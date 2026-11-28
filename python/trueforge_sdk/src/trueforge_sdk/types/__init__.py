@@ -26,6 +26,8 @@ if typing.TYPE_CHECKING:
     from .auto_model import AutoModel
     from .auto_model_routing_configuration import AutoModelRoutingConfiguration
     from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
+    from .auto_routing import AutoRouting
+    from .auto_routing_category import AutoRoutingCategory
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
     from .available_model_provider import AvailableModelProvider
@@ -191,6 +193,7 @@ if typing.TYPE_CHECKING:
     from .remote_mcp_server_manifest import RemoteMcpServerManifest
     from .request_error_response import RequestErrorResponse
     from .request_error_response_error import RequestErrorResponseError
+    from .resolved_model_properties import ResolvedModelProperties
     from .resource_name import ResourceName
     from .resource_permission import ResourcePermission
     from .response_format import ResponseFormat
@@ -255,6 +258,7 @@ if typing.TYPE_CHECKING:
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
     from .subject import Subject
+    from .supported_auto_routing import SupportedAutoRouting
     from .text_content import TextContent
     from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
     from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
@@ -297,6 +301,7 @@ if typing.TYPE_CHECKING:
     from .turn_update_event_state import TurnUpdateEventState
     from .turn_user_event import TurnUserEvent
     from .turn_user_event_message import TurnUserEventMessage
+    from .unsupported_auto_routing import UnsupportedAutoRouting
     from .update_artifact_response import UpdateArtifactResponse
     from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
@@ -337,6 +342,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AutoModel": ".auto_model",
     "AutoModelRoutingConfiguration": ".auto_model_routing_configuration",
     "AutoModelRoutingConfigurationPatch": ".auto_model_routing_configuration_patch",
+    "AutoRouting": ".auto_routing",
+    "AutoRoutingCategory": ".auto_routing_category",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
     "AvailableModelProvider": ".available_model_provider",
@@ -502,6 +509,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RemoteMcpServerManifest": ".remote_mcp_server_manifest",
     "RequestErrorResponse": ".request_error_response",
     "RequestErrorResponseError": ".request_error_response_error",
+    "ResolvedModelProperties": ".resolved_model_properties",
     "ResourceName": ".resource_name",
     "ResourcePermission": ".resource_permission",
     "ResponseFormat": ".response_format",
@@ -566,6 +574,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
     "Subject": ".subject",
+    "SupportedAutoRouting": ".supported_auto_routing",
     "TextContent": ".text_content",
     "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
     "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
@@ -608,6 +617,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnUpdateEventState": ".turn_update_event_state",
     "TurnUserEvent": ".turn_user_event",
     "TurnUserEventMessage": ".turn_user_event_message",
+    "UnsupportedAutoRouting": ".unsupported_auto_routing",
     "UpdateArtifactResponse": ".update_artifact_response",
     "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
@@ -672,6 +682,8 @@ __all__ = [
     "AutoModel",
     "AutoModelRoutingConfiguration",
     "AutoModelRoutingConfigurationPatch",
+    "AutoRouting",
+    "AutoRoutingCategory",
     "AvailableMcpServer",
     "AvailableModel",
     "AvailableModelProvider",
@@ -837,6 +849,7 @@ __all__ = [
     "RemoteMcpServerManifest",
     "RequestErrorResponse",
     "RequestErrorResponseError",
+    "ResolvedModelProperties",
     "ResourceName",
     "ResourcePermission",
     "ResponseFormat",
@@ -901,6 +914,7 @@ __all__ = [
     "SkillManifest",
     "SkillVersion",
     "Subject",
+    "SupportedAutoRouting",
     "TextContent",
     "ThreadContextCompactionFinishedEvent",
     "ThreadContextCompactionStartedEvent",
@@ -943,6 +957,7 @@ __all__ = [
     "TurnUpdateEventState",
     "TurnUserEvent",
     "TurnUserEventMessage",
+    "UnsupportedAutoRouting",
     "UpdateArtifactResponse",
     "User",
     "UserMcpAuthContinueEvent",

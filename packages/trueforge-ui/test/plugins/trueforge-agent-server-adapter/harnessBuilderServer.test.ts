@@ -38,10 +38,12 @@ describe('harnessBuilderServer', () => {
           modelId: 'o3',
           name: 'openai/o3',
           provider: { name: 'openai' },
+          canonicalModel: 'openai/o3',
           properties: {
             contextLength: 200_000,
             maxOutputTokens: 100_000,
             reasoningEfforts: ['low', 'medium', 'high'],
+            autoRouting: { supported: true, enabled: true, categories: ['answer', 'execute'] },
           },
           warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
         },
@@ -65,7 +67,10 @@ describe('harnessBuilderServer', () => {
           modelId: 'gpt-4o',
           name: 'openai/gpt-4o',
           provider: { name: 'openai' },
-          properties: {},
+          canonicalModel: null,
+          properties: {
+            autoRouting: { supported: false, unsupportedReason: 'The model has no canonical model mapping.' },
+          },
         },
       }),
       {
