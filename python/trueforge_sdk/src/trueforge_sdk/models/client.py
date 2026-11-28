@@ -25,7 +25,7 @@ class ModelsClient:
 
     def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> ListAvailableModelsResponse:
         """
-        Configured models as a slim FQN list for the composer.
+        Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.
 
         Parameters
         ----------
@@ -68,7 +68,7 @@ class AsyncModelsClient:
 
     async def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> ListAvailableModelsResponse:
         """
-        Configured models as a slim FQN list for the composer.
+        Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.
 
         Parameters
         ----------

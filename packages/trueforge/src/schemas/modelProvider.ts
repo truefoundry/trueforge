@@ -3,7 +3,11 @@
  * and OpenAPI request/response shapes. Catalog file schemas live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
-import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
+import {
+  ROOT_ROUTING_CATEGORIES,
+  SUPPORTED_REASONING_EFFORTS,
+  VERCEL_AI_PROVIDER_NAMES,
+} from '@truefoundry/trueforge-core/core';
 import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
@@ -236,21 +240,63 @@ export const AvailableModelProviderSchema = z
   .describe('Owning configured provider.')
   .openapi('AvailableModelProvider');
 
+/** A configured model as the stores flatten it, before per-request fields are added. */
+export const ModelViewSchema = z.object({
+  name: z
+    .string()
+    .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
+  model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
+  provider: AvailableModelProviderSchema,
+  properties: ModelPropertiesSchema,
+  warning: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Set when reasoning effort or context length is not configured; may affect TrueForge performance.'),
+});
+
+export const AutoRoutingCategorySchema = z
+  .enum(ROOT_ROUTING_CATEGORIES)
+  .describe('A routing category a model can serve.')
+  .openapi('AutoRoutingCategory');
+
+export const AutoRoutingUnsupportedReasonSchema = z
+  .enum(['no_canonical_model', 'not_in_routing_clusters'])
+  .describe('Why Auto cannot route to the model.')
+  .openapi('AutoRoutingUnsupportedReason');
+
+export const AutoRoutingSchema = z
+  .discriminatedUnion('supported', [
+    z
+      .object({
+        supported: z.literal(true).describe('Auto can route to this model.'),
+        enabled: z.boolean().describe("Included in the tenant's global list of Auto candidate models."),
+        categories: z.array(AutoRoutingCategorySchema).min(1).describe('The categories the model can serve.'),
+      })
+      .strict()
+      .openapi('SupportedAutoRouting'),
+    z
+      .object({
+        supported: z.literal(false).describe('Auto cannot route to this model.'),
+        unsupported_reason: AutoRoutingUnsupportedReasonSchema,
+      })
+      .strict()
+      .openapi('UnsupportedAutoRouting'),
+  ])
+  .describe('Whether Auto can route to the model.')
+  .openapi('AutoRouting');
+
+/** Read-only: properties as returned by the list, plus the computed Auto routing support. */
+export const AvailableModelPropertiesSchema = ModelPropertiesSchema.extend({ auto_routing: AutoRoutingSchema })
+  .strict()
+  .describe('Model capability metadata and Auto routing support.')
+  .openapi('AvailableModelProperties');
+
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
-export const AvailableModelSchema = z
-  .object({
-    name: z
-      .string()
-      .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
-    model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-    provider: AvailableModelProviderSchema,
-    properties: ModelPropertiesSchema,
-    warning: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Set when reasoning effort or context length is not configured; may affect TrueForge performance.'),
-  })
+export const AvailableModelSchema = ModelViewSchema.extend({
+  properties: AvailableModelPropertiesSchema,
+  canonical_model: z.string().min(1).optional().describe('Provider-neutral model id; omitted when unknown.'),
+})
   .strict()
   .openapi('AvailableModel');
 
@@ -265,4 +311,6 @@ export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSche
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
 export type UpdateModelProviderRequest = z.infer<typeof UpdateModelProviderRequestSchema>;
 export type AvailableModelProvider = z.infer<typeof AvailableModelProviderSchema>;
+export type AutoRouting = z.infer<typeof AutoRoutingSchema>;
+export type ModelView = z.infer<typeof ModelViewSchema>;
 export type AvailableModel = z.infer<typeof AvailableModelSchema>;

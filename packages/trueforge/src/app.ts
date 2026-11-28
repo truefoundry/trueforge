@@ -426,6 +426,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createModelsRouter({
         resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
+        configurationStore: deps.configurationStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),

@@ -23,7 +23,7 @@ export class ModelsClient {
     }
 
     /**
-     * Configured models as a slim FQN list for the composer.
+     * Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.
      *
      * @param {ModelsClient.RequestOptions} requestOptions - Request-specific configuration.
      *

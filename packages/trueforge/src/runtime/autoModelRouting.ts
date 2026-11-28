@@ -6,6 +6,7 @@ import {
 } from '@truefoundry/trueforge-core/core';
 import type { IModelProviderStore, ModelInfo } from '../db/modelProviderStore';
 import type { AutoModelRoutingConfiguration } from '../schemas/configuration';
+import type { AutoRouting } from '../schemas/modelProvider';
 
 /** The models Auto may route to: those the caller can access, narrowed to the candidate list. */
 export async function listAutoCandidateModels({
@@ -20,6 +21,30 @@ export async function listAutoCandidateModels({
   const candidates = new Set(autoModelRouting.candidate_models);
   const accessibleModels = await modelProviderStore.listModels({ tenant_id });
   return accessibleModels.filter(model => candidates.has(model.name));
+}
+
+/** The categories the router could pick this model for; empty when it can never be chosen. */
+function routableCategories(model: RoutableModel) {
+  return ROOT_ROUTING_CATEGORIES.filter(category => selectModel({ category, models: [model] }) !== undefined);
+}
+
+/** Whether Auto can route to the model, and which categories it can serve. */
+export function describeAutoRouting({
+  model,
+  enabledModelNames,
+}: {
+  model: ModelInfo;
+  /** Names in the tenant's global list of Auto candidate models. */
+  enabledModelNames: ReadonlySet<string>;
+}): AutoRouting {
+  const categories = routableCategories(model);
+  if (categories.length > 0) {
+    return { supported: true, enabled: enabledModelNames.has(model.name), categories };
+  }
+  return {
+    supported: false,
+    unsupported_reason: model.canonicalModel === undefined ? 'no_canonical_model' : 'not_in_routing_clusters',
+  };
 }
 
 /** The routing categories none of these models can serve; empty when every category has a model. */
@@ -73,9 +98,7 @@ export async function validateAutoCandidateModels({
   }
   const chosen = accessibleModels.filter(model => names.includes(model.name));
   // A model the router could never pick for any category would sit in the list unused.
-  const unroutable = chosen.some(
-    model => !ROOT_ROUTING_CATEGORIES.some(category => selectModel({ category, models: [model] }) !== undefined),
-  );
+  const unroutable = chosen.some(model => routableCategories(model).length === 0);
   if (unroutable) {
     return { type: 'rejected', message: 'candidate_models must only contain models that support Auto routing' };
   }

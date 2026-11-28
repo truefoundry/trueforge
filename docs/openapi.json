@@ -460,6 +460,39 @@
         },
         "type": "object"
       },
+      "AutoRouting": {
+        "description": "Whether Auto can route to the model.",
+        "discriminator": {
+          "mapping": {},
+          "propertyName": "supported"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SupportedAutoRouting"
+          },
+          {
+            "$ref": "#/components/schemas/UnsupportedAutoRouting"
+          }
+        ]
+      },
+      "AutoRoutingCategory": {
+        "description": "A routing category a model can serve.",
+        "enum": [
+          "answer",
+          "execute",
+          "analyze",
+          "frontier"
+        ],
+        "type": "string"
+      },
+      "AutoRoutingUnsupportedReason": {
+        "description": "Why Auto cannot route to the model.",
+        "enum": [
+          "no_canonical_model",
+          "not_in_routing_clusters"
+        ],
+        "type": "string"
+      },
       "AvailableMCPServer": {
         "additionalProperties": false,
         "properties": {
@@ -488,6 +521,11 @@
       "AvailableModel": {
         "additionalProperties": false,
         "properties": {
+          "canonical_model": {
+            "description": "Provider-neutral model id; omitted when unknown.",
+            "minLength": 1,
+            "type": "string"
+          },
           "model_id": {
             "description": "Upstream, provider-specific identifier sent to the provider API.",
             "type": "string"
@@ -497,7 +535,7 @@
             "type": "string"
           },
           "properties": {
-            "$ref": "#/components/schemas/ModelProperties"
+            "$ref": "#/components/schemas/AvailableModelProperties"
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
@@ -513,6 +551,37 @@
           "model_id",
           "provider",
           "properties"
+        ],
+        "type": "object"
+      },
+      "AvailableModelProperties": {
+        "additionalProperties": false,
+        "description": "Model capability metadata and Auto routing support.",
+        "properties": {
+          "auto_routing": {
+            "$ref": "#/components/schemas/AutoRouting"
+          },
+          "context_length": {
+            "description": "Maximum context window size in tokens.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "description": "Maximum output tokens the model can generate.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "reasoning_efforts": {
+            "description": "Supported reasoning-effort values for this model.",
+            "items": {
+              "$ref": "#/components/schemas/ReasoningEffort"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "auto_routing"
         ],
         "type": "object"
       },
@@ -5316,6 +5385,36 @@
         ],
         "type": "object"
       },
+      "SupportedAutoRouting": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "description": "The categories the model can serve.",
+            "items": {
+              "$ref": "#/components/schemas/AutoRoutingCategory"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Included in the tenant's global list of Auto candidate models.",
+            "type": "boolean"
+          },
+          "supported": {
+            "description": "Auto can route to this model.",
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported",
+          "enabled",
+          "categories"
+        ],
+        "type": "object"
+      },
       "TextContent": {
         "properties": {
           "text": {
@@ -6569,6 +6668,26 @@
             "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
           }
         ]
+      },
+      "UnsupportedAutoRouting": {
+        "additionalProperties": false,
+        "properties": {
+          "supported": {
+            "description": "Auto cannot route to this model.",
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          },
+          "unsupported_reason": {
+            "$ref": "#/components/schemas/AutoRoutingUnsupportedReason"
+          }
+        },
+        "required": [
+          "supported",
+          "unsupported_reason"
+        ],
+        "type": "object"
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,
@@ -9111,7 +9230,7 @@
     },
     "/api/v1/models": {
       "get": {
-        "description": "Configured models as a slim FQN list for the composer.",
+        "description": "Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.",
         "responses": {
           "200": {
             "content": {

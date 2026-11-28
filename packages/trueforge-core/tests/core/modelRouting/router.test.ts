@@ -8,6 +8,7 @@ import {
   ROOT_ROUTING_CATEGORIES,
   SUBAGENT_ROUTING_CATEGORIES,
   TASK_ROUTING_INSTRUCTIONS,
+  type RoutingCategory,
 } from '../../../src/core/modelRouting/question';
 import { createModelRouter, selectModel, type RoutableModel } from '../../../src/core/modelRouting/router';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
@@ -292,7 +293,7 @@ describe('classification', () => {
   });
 
   it('offers only the categories the caller allows, in the question order', () => {
-    const offered = (categories: typeof ROOT_ROUTING_CATEGORIES) => {
+    const offered = (categories: readonly RoutingCategory[]) => {
       const question = classificationRequest({
         input: 'task',
         question: DEFAULT_ROUTING_QUESTION,

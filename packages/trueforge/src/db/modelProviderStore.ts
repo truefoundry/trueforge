@@ -4,7 +4,7 @@
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
 import type { ResourceName } from '../schemas/common';
-import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
+import type { ModelProperties, ModelProviderManifest, ModelView } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
@@ -22,7 +22,7 @@ export interface ListModelProvidersInput {
 }
 
 /** Store model. `canonicalModel` and `cost` are undefined when the provider has no integration metadata. */
-export interface ModelInfo extends AvailableModel {
+export interface ModelInfo extends ModelView {
   /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
   canonicalModel: string | undefined;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */

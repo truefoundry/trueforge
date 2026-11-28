@@ -42,6 +42,7 @@ describe('harnessBuilderServer', () => {
             contextLength: 200_000,
             maxOutputTokens: 100_000,
             reasoningEfforts: ['low', 'medium', 'high'],
+            autoRouting: { supported: true, enabled: true, categories: ['answer', 'execute'] },
           },
           warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
         },
@@ -65,7 +66,7 @@ describe('harnessBuilderServer', () => {
           modelId: 'gpt-4o',
           name: 'openai/gpt-4o',
           provider: { name: 'openai' },
-          properties: {},
+          properties: { autoRouting: { supported: false, unsupportedReason: 'no_canonical_model' } },
         },
       }),
       {

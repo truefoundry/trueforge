@@ -290,7 +290,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: MODEL_FQN,
         model_id: 'gpt-5.2',
         provider: { name: 'openai' },
-        properties: {},
+        properties: { auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' } },
       }).name,
     ).toBe(MODEL_FQN);
     expect(
@@ -298,7 +298,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: `${PROVIDER_ACCOUNT}/${MODEL_NAME}`,
         model_id: 'upstream/id.with.dots',
         provider: { name: PROVIDER_ACCOUNT },
-        properties: {},
+        properties: { auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' } },
       }).provider.name,
     ).toBe(PROVIDER_ACCOUNT);
   });

@@ -1169,7 +1169,7 @@ client.mcp_servers.list_tools(
 <dl>
 <dd>
 
-Configured models as a slim FQN list for the composer.
+Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.
 </dd>
 </dl>
 </dd>

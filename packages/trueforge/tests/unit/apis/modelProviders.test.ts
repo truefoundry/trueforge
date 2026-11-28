@@ -17,6 +17,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteConfigurationStore } from '../../../src/db/sqlite/configuration-store/SqliteConfigurationStore';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteMemoryProviderStore } from '../../../src/db/sqlite/memory-provider-store/SqliteMemoryProviderStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -160,6 +161,7 @@ async function createRouters(): Promise<{
     }),
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,
+      configurationStore: new SqliteConfigurationStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
@@ -313,13 +315,19 @@ describe('settings model-providers and models routers', () => {
           name: 'anthropic/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
           provider: { name: 'anthropic' },
-          properties: model.properties,
+          properties: {
+            ...model.properties,
+            auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' },
+          },
         },
         {
           name: 'internal/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
           provider: { name: 'internal' },
-          properties: model.properties,
+          properties: {
+            ...model.properties,
+            auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' },
+          },
         },
       ],
     });
