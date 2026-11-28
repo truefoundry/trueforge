@@ -292,7 +292,7 @@ describe('settings configuration router', () => {
     });
 
     describe('with model routing set up for the tenant', () => {
-      // flash covers direct and fixed_steps, argon covers adaptive, fable covers frontier.
+      // flash covers routine and guided, argon covers analytical, fable covers frontier.
       const canonicalModels = {
         'acct/flash': 'google/gemini-3-8-flash',
         'acct/argon': 'google/gemini-4-argon',
@@ -323,7 +323,7 @@ describe('settings configuration router', () => {
         expect(await onlyFrontier.json()).toEqual({
           error: {
             message:
-              "The selected models don't cover every tier. Add a model for each of these tiers: routine, tool-driven, and adaptive.",
+              "The selected models don't cover every tier. Add a model for each of these tiers: routine, guided, and analytical.",
           },
         });
         expect(await savedList(store)).toEqual([]);

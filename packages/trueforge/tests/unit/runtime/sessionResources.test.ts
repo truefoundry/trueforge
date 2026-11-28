@@ -35,7 +35,7 @@ const routableModel = (name: string, canonicalModel: string | undefined): ModelI
   canonicalModel,
   cost: 1,
 });
-// Together these serve every routing category: direct, fixed_steps, adaptive and frontier.
+// Together these serve every routing category: routine, guided, analytical and frontier.
 const COVERING = [
   routableModel('acct/haiku', 'anthropic/claude-haiku-5-5'),
   routableModel('acct/sonnet', 'anthropic/claude-sonnet-5-5'),

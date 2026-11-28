@@ -236,7 +236,7 @@ describe('parseTrueFoundryModelRouting', () => {
         tenants: { internal: { enabled: 'on' } },
         ...(categories === undefined ? {} : { categories }),
       });
-    const three = { direct: 'd', fixed_steps: 'f', adaptive: 'a' };
+    const three = { routine: 'r', guided: 'g', analytical: 'a' };
 
     it('defaults to the tested four when unset', () => {
       expect(parseTrueFoundryModelRouting(routing())?.categories).toEqual(DEFAULT_ROUTING_QUESTION.categories);
@@ -252,6 +252,12 @@ describe('parseTrueFoundryModelRouting', () => {
     it('overrides the frontier meaning, and rejects unknown categories', () => {
       expect(parseTrueFoundryModelRouting(routing({ ...three, frontier: 'f!' }))?.categories.frontier).toBe('f!');
       expect(() => parseTrueFoundryModelRouting(routing({ ...three, extra: 'x' }))).toThrow(
+        'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object',
+      );
+    });
+
+    it('rejects the pre-rename category keys', () => {
+      expect(() => parseTrueFoundryModelRouting(routing({ direct: 'd', fixed_steps: 'f', adaptive: 'a' }))).toThrow(
         'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object',
       );
     });

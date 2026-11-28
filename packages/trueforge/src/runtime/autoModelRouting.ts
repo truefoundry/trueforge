@@ -32,21 +32,12 @@ export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean
   return uncoveredRoutingCategories(models).length === 0;
 }
 
-/** Each routing category in user-facing words, as defined in `DEFAULT_ROUTING_QUESTION`. */
-const ROUTING_CATEGORY_LABELS: Record<RoutingCategory, string> = {
-  direct: 'routine',
-  fixed_steps: 'tool-driven',
-  adaptive: 'adaptive',
-  frontier: 'frontier',
-};
-
 /** Error message naming the categories no candidate model serves, or undefined when all are covered. */
 export function describeUncoveredCandidateCategories(candidateModels: readonly ModelInfo[]): string | undefined {
-  const uncovered = uncoveredRoutingCategories(candidateModels);
-  if (uncovered.length === 0) {
+  const tiers = uncoveredRoutingCategories(candidateModels);
+  if (tiers.length === 0) {
     return undefined;
   }
-  const tiers = uncovered.map(category => ROUTING_CATEGORY_LABELS[category]);
   const [onlyTier] = tiers;
   const ask =
     onlyTier !== undefined && tiers.length === 1

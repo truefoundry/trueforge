@@ -64,7 +64,7 @@ function decisionFor(category: string | undefined) {
   };
 }
 
-/** `direct` for a conversation and `fixed_steps` for a task, unless `category` overrides both. */
+/** `routine` for a conversation and `guided` for a task, unless `category` overrides both. */
 function routing(category?: (input: DecisionModelCreateParams['input']) => string | undefined): {
   deps: ModelRouterDeps;
   calls: DecisionModelCreateParams[];
@@ -77,7 +77,7 @@ function routing(category?: (input: DecisionModelCreateParams['input']) => strin
           create: body => {
             calls.push(body);
             const chosen =
-              category !== undefined ? category(body.input) : typeof body.input === 'string' ? 'fixed_steps' : 'direct';
+              category !== undefined ? category(body.input) : typeof body.input === 'string' ? 'guided' : 'routine';
             return Promise.resolve(decisionFor(chosen));
           },
         },
@@ -783,7 +783,7 @@ describe('auto model selection', () => {
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({
-        modelRouting: routing(input => (typeof input === 'string' ? undefined : 'direct')).deps,
+        modelRouting: routing(input => (typeof input === 'string' ? undefined : 'routine')).deps,
         defaultModelParams: DEFAULTS,
         llmCreate: subAgentReplies(bodies),
       }),
@@ -804,8 +804,8 @@ describe('auto model selection', () => {
     for await (const event of turn.stream()) void event;
 
     expect(route.calls).toHaveLength(2);
-    expect(offeredCategories(route.calls[0])).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
-    expect(offeredCategories(route.calls[1])).toEqual(['direct', 'fixed_steps', 'adaptive']);
+    expect(offeredCategories(route.calls[0])).toEqual(['routine', 'guided', 'analytical', 'frontier']);
+    expect(offeredCategories(route.calls[1])).toEqual(['routine', 'guided', 'analytical']);
   });
 
   it('routes an auto root classified as frontier to the frontier cluster, and records it', async () => {
@@ -835,7 +835,7 @@ describe('auto model selection', () => {
     const turn = await session.createTurn({
       ...turnInput(mintTestTurnId(), 'hello'),
       resolver: makeTestResolver({
-        modelRouting: routing(input => (typeof input === 'string' ? 'frontier' : 'direct')).deps,
+        modelRouting: routing(input => (typeof input === 'string' ? 'frontier' : 'routine')).deps,
         defaultModelParams: DEFAULTS,
         onModel: name => names.push(name),
         llmCreate: subAgentReplies(bodies),
