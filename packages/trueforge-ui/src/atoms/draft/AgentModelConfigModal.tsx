@@ -57,6 +57,7 @@ export function AgentModelConfigModal({
           query={query}
           onQueryChange={onQueryChange}
           onChange={onChange}
+          onClose={onClose}
         />
       ) : (
         <AgentModelSettingsContent spec={spec} model={model} onChange={onChange} />

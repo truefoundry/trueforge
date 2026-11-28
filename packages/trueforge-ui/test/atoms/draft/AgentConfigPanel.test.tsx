@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -463,5 +463,92 @@ describe('AgentConfigPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close agent config' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('AgentConfigPanel with an Auto model', () => {
+  const routable = (name: string): ModelSelection => ({
+    id: name.slice(name.indexOf('/') + 1),
+    name,
+    provider: { name: 'Anthropic' },
+    properties: { autoRouting: { supported: true, enabled: true, categories: ['answer'] } },
+  });
+  const workspaceModels = ['sonnet', 'haiku', 'opus', 'fable'].map(name => routable(`anthropic/${name}`));
+  const candidateModels = workspaceModels.map(item => item.name);
+
+  function renderAuto({
+    candidates = candidateModels,
+    onChange = vi.fn(),
+    disabled = false,
+  }: {
+    candidates?: string[];
+    onChange?: (next: AgentSpec) => void;
+    disabled?: boolean;
+  }) {
+    const autoSpec: AgentSpec = { model: { type: 'auto', candidateModels: candidates } };
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={autoSpec}
+          models={workspaceModels}
+          modelsLoading={false}
+          modelsError={null}
+          skillsAvailable={false}
+          instructions=""
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      </SlotsProvider>,
+    );
+    return autoSpec;
+  }
+
+  it('summarises the candidates instead of model parameters', () => {
+    renderAuto({});
+
+    expect(screen.getByRole('button', { name: 'Edit Model' })).toHaveTextContent('Auto · 4 models');
+    expect(screen.getByRole('button', { name: 'Edit candidate models' })).toHaveTextContent(
+      'candidates: sonnet, haiku, opus, fable',
+    );
+    expect(screen.queryByRole('button', { name: 'Model settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit model settings' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/removed from workspace list/)).not.toBeInTheDocument();
+  });
+
+  it('counts the workspace Auto models when the agent names no candidates', () => {
+    renderAuto({ candidates: [] });
+
+    expect(screen.getByRole('button', { name: 'Edit Model' })).toHaveTextContent('Auto · 4 models');
+  });
+
+  it('warns about candidates the workspace dropped and syncs them away on hover', async () => {
+    const onChange = vi.fn();
+    renderAuto({ candidates: [...candidateModels, 'anthropic/retired'], onChange });
+
+    fireEvent.mouseEnter(screen.getByText('1 model removed from workspace list'));
+    const card = await screen.findByRole('tooltip');
+    expect(card).toHaveTextContent('Workspace model list changed since this agent was saved.');
+    fireEvent.click(within(card).getByRole('button', { name: 'Sync with workspace' }));
+
+    expect(onChange).toHaveBeenCalledWith({ model: { type: 'auto', candidateModels } });
+  });
+
+  it('opens the model picker from Review changes', async () => {
+    renderAuto({ candidates: [...candidateModels, 'anthropic/retired'] });
+
+    fireEvent.mouseEnter(screen.getByText('1 model removed from workspace list'));
+    fireEvent.click(within(await screen.findByRole('tooltip')).getByRole('button', { name: 'Review changes' }));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  it('offers no fixes in the warning while the agent cannot be edited', async () => {
+    renderAuto({ candidates: [...candidateModels, 'anthropic/retired'], disabled: true });
+
+    fireEvent.mouseEnter(screen.getByText('1 model removed from workspace list'));
+    const card = await screen.findByRole('tooltip');
+
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument();
   });
 });

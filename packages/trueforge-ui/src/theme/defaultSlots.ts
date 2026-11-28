@@ -63,6 +63,8 @@ import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigField
 import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
 import { AgentSkillsHeaderActionSlot } from '../atoms/draft/AgentSkillsHeaderActionSlot.js';
+import { AutoModelCandidatesPanel } from '../atoms/draft/AutoModelCandidatesPanel.js';
+import { AutoModelRemovedWarning } from '../atoms/draft/AutoModelRemovedWarning.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
 import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
@@ -191,6 +193,8 @@ export const defaultSlots = {
   InstructionsFullScreenEditor,
   InstructionsMarkdownEditor,
   AgentModelEditorContent,
+  AutoModelCandidatesPanel,
+  AutoModelRemovedWarning,
   AgentModelSettingsContent,
   AgentMcpEditorContent,
   AgentModelConfigModal,

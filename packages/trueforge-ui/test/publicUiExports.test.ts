@@ -42,6 +42,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ApprovalNavBanner',
   'ApprovalNavContainer',
   'AskUserContainer',
+  'AutoModelCandidatesPanel',
+  'AutoModelRemovedWarning',
   'AssistantMessageBubble',
   'AssistantMessageContainer',
   'AssistantTextContainer',

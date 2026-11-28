@@ -22,7 +22,7 @@ export function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
-function formatTokens(value: number): string {
+export function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
