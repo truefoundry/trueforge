@@ -102,7 +102,7 @@ const detail: AgentDetail = {
   name: 'release-notes-writer',
   description: 'Produces concise release notes from merged PRs.',
   agentSpec: {
-    model: { name: 'openai/gpt-5.1', params: { maxTokens: 16000 } },
+    model: { type: 'fixed', name: 'openai/gpt-5.1', params: { maxTokens: 16000 } },
     instructions: '# Who you are\n\nWrite concise release notes.',
     skills: [{ name: 'release-writing' }],
     mcpServers: [{ name: 'github' }],

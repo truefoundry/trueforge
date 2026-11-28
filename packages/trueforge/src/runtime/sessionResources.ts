@@ -1,6 +1,8 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   AUTO_MODEL,
+  MIN_AUTO_CANDIDATE_MODELS,
+  parseModelFqn,
   Sandbox,
   SkillMounter,
   type AgentModel,
@@ -39,9 +41,9 @@ import {
   toSandboxProviderFromRecord,
   type ResolvedSandboxProvider,
 } from '../sandbox/providerUtils';
-import { parseModelFqn } from '../schemas/common';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
+import { validateAutoCandidateModels } from './autoModelRouting';
 
 export const AUTO_MODE_TURNED_OFF_MESSAGE = 'Auto mode is turned off for this tenant';
 
@@ -283,6 +285,7 @@ export async function validateAgentSpec({
   previousSpec,
   agentId,
   modelRouting,
+  allowDefaultCandidates = false,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -299,22 +302,35 @@ export async function validateAgentSpec({
   agentId: string | undefined;
   /** This process's model routing config. `auto` is rejected when this tenant's routing is off. */
   modelRouting: TrueFoundryModelRouting | undefined;
+  allowDefaultCandidates?: boolean;
 }): Promise<void> {
-  // `auto` names no catalog model. It is only valid when this tenant routes models and allows Auto mode.
-  if (spec.model.name === AUTO_MODEL) {
+  // An auto model is only valid when this tenant routes models and allows Auto mode, and its candidates can route
+  // every category.
+  if (spec.model.type === AUTO_MODEL) {
     if (enabledTenantModelRouting(modelRouting, tenant_id) === undefined) {
       throw new HTTPException(422, {
         message: 'Model "auto" requires model routing to be enabled for this tenant',
       });
     }
-    if (spec.model.params !== undefined && Object.keys(spec.model.params).length > 0) {
-      throw new HTTPException(422, {
-        message: 'Model "auto" does not accept model params',
-      });
-    }
     const autoModelRouting = await getAutoModelRoutingForTenant({ tenant_id, store: configurationStore });
     if (!autoModelRouting.enabled) {
       throw new HTTPException(422, { message: AUTO_MODE_TURNED_OFF_MESSAGE });
+    }
+    const listed = spec.model.candidate_models;
+    // Only a chat may leave the list empty; a saved agent must list its own models.
+    if (listed.length === 0 && !allowDefaultCandidates) {
+      throw new HTTPException(422, {
+        message: `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
+      });
+    }
+    if (listed.length > 0) {
+      const rejection = await validateAutoCandidateModels({ names: listed, tenant_id, modelProviderStore });
+      if (rejection?.type === 'inaccessible') {
+        throw new HTTPException(422, { message: 'candidate_models must only contain models you have access to' });
+      }
+      if (rejection?.type === 'rejected') {
+        throw new HTTPException(422, { message: rejection.message });
+      }
     }
   } else {
     const resolved = await getModelDetails({

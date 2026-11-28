@@ -13,7 +13,7 @@ export interface AgentSpec {
     mcpServers?: TrueForge.McpServer[];
     /** Optional initial user messages injected at the start of every session. */
     messages?: TrueForge.InitialUserMessage[];
-    model: TrueForge.Model;
+    model: TrueForge.ModelDefinition;
     responseFormat?: TrueForge.ResponseFormat;
     /** Skills used in this agent. */
     skills?: TrueForge.Skill[];

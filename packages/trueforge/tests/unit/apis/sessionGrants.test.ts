@@ -182,7 +182,10 @@ describe('session grants API', () => {
       created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
       agent: {
         type: 'inline',
-        spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+        spec: AgentSpecSchema.parse({
+          model: { type: 'fixed', name: 'test-provider/test-model' },
+          instructions: 'test',
+        }),
       },
       custom: null,
       metadata: {},

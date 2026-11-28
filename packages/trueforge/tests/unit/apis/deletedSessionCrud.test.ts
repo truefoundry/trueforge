@@ -120,7 +120,7 @@ describe('public CRUD after session deletion', () => {
       agent: {
         type: 'inline',
         spec: AgentSpecSchema.parse({
-          model: { name: 'test-provider/test-model' },
+          model: { type: 'fixed', name: 'test-provider/test-model' },
           instructions: 'test',
         }),
       },

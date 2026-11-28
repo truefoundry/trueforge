@@ -54,3 +54,36 @@ export function describeUncoveredCandidateCategories(candidateModels: readonly M
       : `Add a model for each of these tiers: ${new Intl.ListFormat('en').format(tiers)}.`;
   return `The selected models don't cover every tier. ${ask}`;
 }
+
+/** `inaccessible` is reported by each caller in its own words; `rejected` carries the message to return. */
+export type AutoCandidateRejection = { type: 'inaccessible' } | { type: 'rejected'; message: string };
+
+/**
+ * Why these model names cannot be Auto candidates, or undefined when they can all be routed to and together serve
+ * every category. Which name failed is left out so the result cannot probe which models the caller lacks.
+ */
+export async function validateAutoCandidateModels({
+  names,
+  tenant_id,
+  modelProviderStore,
+}: {
+  names: readonly string[];
+  tenant_id: string;
+  modelProviderStore: IModelProviderStore;
+}): Promise<AutoCandidateRejection | undefined> {
+  const accessibleModels = await modelProviderStore.listModels({ tenant_id });
+  const accessible = new Set(accessibleModels.map(model => model.name));
+  if (names.some(name => !accessible.has(name))) {
+    return { type: 'inaccessible' };
+  }
+  const chosen = accessibleModels.filter(model => names.includes(model.name));
+  // A model the router could never pick for any category would sit in the list unused.
+  const unroutable = chosen.some(
+    model => !ROOT_ROUTING_CATEGORIES.some(category => selectModel({ category, models: [model] }) !== undefined),
+  );
+  if (unroutable) {
+    return { type: 'rejected', message: 'candidate_models must only contain models that support Auto routing' };
+  }
+  const uncovered = describeUncoveredCandidateCategories(chosen);
+  return uncovered === undefined ? undefined : { type: 'rejected', message: uncovered };
+}

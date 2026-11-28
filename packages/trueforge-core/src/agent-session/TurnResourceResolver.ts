@@ -16,7 +16,6 @@ import {
 } from '../core/mcp/toolSelectors';
 import { ToolSet } from '../core/mcp/ToolSet';
 import {
-  AUTO_MODEL,
   createModelRouter,
   type ModelRouterDeps,
   type RouteInput,
@@ -149,6 +148,10 @@ export class TurnResourceResolver<
     }
     this.#routeModel = deps.modelRouting === undefined ? undefined : createModelRouter(deps.modelRouting, deps.logger);
     this.autoModelRouterAvailable = this.#routeModel !== undefined;
+  }
+
+  get routingCandidateModels(): readonly string[] {
+    return this.deps.modelRouting?.candidateModels ?? [];
   }
 
   get webSearchProvider(): IWebSearchProvider | undefined {
@@ -312,18 +315,19 @@ export class TurnResourceResolver<
     routingInput: RouteInput | undefined;
   }): Promise<{ model: AgentModel; routed: boolean }> {
     const { spec } = input;
+    const specModel = spec.model;
     const routed = input.routingInput === undefined ? undefined : await this.#routeModel?.(input.routingInput);
     const chosen = routed === undefined ? input.model : { name: routed.model, effort: routed.effort };
-    if (chosen === undefined && spec.model.name === AUTO_MODEL) {
+    const name = chosen?.name ?? (specModel.type === 'fixed' ? specModel.name : undefined);
+    if (name === undefined) {
       throw new AgentHarnessError('auto_model_unavailable', 'Auto model selection could not choose a model');
     }
-    const name = chosen?.name ?? spec.model.name;
     const resolvedModel = await this.getModel(name);
     // The spec's params belong to its own model, and routing drops them; any other model runs on its defaults. A chosen
     // effort replaces either.
     const baseParams =
-      routed === undefined && name === spec.model.name
-        ? { ...resolvedModel.defaultModelParams, ...spec.model.params }
+      routed === undefined && specModel.type === 'fixed' && name === specModel.name
+        ? { ...resolvedModel.defaultModelParams, ...specModel.params }
         : { ...resolvedModel.defaultModelParams };
     return {
       model: {

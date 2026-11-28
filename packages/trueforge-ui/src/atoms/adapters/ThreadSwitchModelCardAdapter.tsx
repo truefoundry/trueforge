@@ -21,7 +21,8 @@ export function ThreadSwitchModelCard({
 }: ThreadSwitchModelCardProps) {
   const ToolCallContentBlock = useSlot('ToolCallContentBlock');
   const json = JSON.stringify(data, null, 2);
-  const title = `Switched to ${data.model.name} · ${data.model.params.reasoningEffort}`;
+  const effort = data.model.params?.reasoningEffort;
+  const title = effort === undefined ? `Switched to ${data.model.name}` : `Switched to ${data.model.name} · ${effort}`;
 
   return (
     <div

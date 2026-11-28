@@ -1,5 +1,6 @@
 'use client';
 
+import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef, useState, type ReactNode } from 'react';
 
 import type { AgentSpec, ModelParams, ModelSelection } from '../../server/types.js';
@@ -62,14 +63,16 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
   const CodeEditor = useSlot('CodeEditor');
   const AgentCustomParametersEditor = useSlot('AgentCustomParametersEditor');
 
-  const params = spec.model.params ?? {};
+  const params = modelParams(spec.model) ?? {};
   const [view, setView] = useState<ParamsView>(ParamsView.UI);
   const [jsonValue, setJsonValue] = useState(() => formatParams(params));
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [customEnabled, setCustomEnabled] = useState(() => Object.keys(customParamsFrom(params)).length > 0);
 
   const savedCustomParams = useRef<Record<string, unknown> | null>(null);
-  const replaceParams = (next: ModelParams) => onChange({ ...spec, model: { ...spec.model, params: next } });
+  const replaceParams = (next: ModelParams) => {
+    if (spec.model.type === 'fixed') onChange({ ...spec, model: { ...spec.model, params: next } });
+  };
   const setParam = <Key extends keyof ModelParams>(key: Key, value: ModelParams[Key]) =>
     replaceParams({ ...params, [key]: value });
   const removeParam = (key: keyof ModelParams) => replaceParams({ ...params, [key]: undefined });

@@ -28,7 +28,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     render(
       <SlotsProvider>
         <AgentMcpEditorContent
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           connectors={[{ id: 'linear', name: 'Linear', authenticated: true }]}
           query=""
           activeConnectorId="linear"
@@ -56,7 +56,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     render(
       <SlotsProvider>
         <AgentMcpEditorContent
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           connectors={[{ id: 'linear', name: 'Linear', authenticated: true }]}
           query=""
           activeConnectorId="linear"
@@ -76,7 +76,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Enable all read-only tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         {
           id: 'linear',
@@ -93,7 +93,7 @@ describe('AgentMcpEditorContent tool sections', () => {
       <SlotsProvider>
         <AgentMcpEditorContent
           spec={{
-            model: { name: 'openai/gpt' },
+            model: { type: 'fixed', name: 'openai/gpt' },
             mcpServers: [
               {
                 id: 'linear',
@@ -121,7 +121,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Enable all read-only tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         {
           id: 'linear',
@@ -136,7 +136,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     render(
       <SlotsProvider>
         <AgentMcpEditorContent
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           connectors={[{ id: 'linear', name: 'Linear', authenticated: true }]}
           query=""
           activeConnectorId="linear"
@@ -165,7 +165,7 @@ describe('AgentMcpEditorContent tool sections', () => {
     render(
       <SlotsProvider>
         <AgentMcpEditorContent
-          spec={{ model: { name: 'openai/gpt' } }}
+          spec={{ model: { type: 'fixed', name: 'openai/gpt' } }}
           connectors={[{ id: 'linear', name: 'Linear', authenticated: true }]}
           query=""
           activeConnectorId="linear"

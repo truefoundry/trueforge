@@ -27,7 +27,10 @@ import { reply } from '../unit/memory/turnFixtures';
 const TENANT = 'default';
 const OWNER: Subject = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' };
 const UI: SessionMetadata = { 'tfg.source': 'ui' };
-const SPEC = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' });
+const SPEC = AgentSpecSchema.parse({
+  model: { type: 'fixed', name: 'test-provider/test-model' },
+  instructions: 'test',
+});
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const HOUR_AGO = () => new Date(Date.now() - 60 * 60 * 1000);
 

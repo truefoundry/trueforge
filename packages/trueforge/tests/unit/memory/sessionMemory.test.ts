@@ -21,7 +21,7 @@ import { fakeMemoryProvider } from './fakeMemoryProvider';
 
 type SessionMemoryRecord = Parameters<typeof resolveSessionMemory>[0]['record'];
 
-const SPEC = AgentSpecSchema.parse({ model: { name: 'p/m' }, instructions: 'x' });
+const SPEC = AgentSpecSchema.parse({ model: { type: 'fixed', name: 'p/m' }, instructions: 'x' });
 const SUBJECT = { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User One' } as const;
 
 function record(overrides: Partial<SessionMemoryRecord> = {}): SessionMemoryRecord {
@@ -46,7 +46,7 @@ function agentStore(memoryEnabled: boolean | undefined): Pick<IAgentStore, 'getA
         name: 'chef',
         description: '',
         manifest: AgentSpecSchema.parse({
-          model: { name: 'p/m' },
+          model: { type: 'fixed', name: 'p/m' },
           instructions: 'x',
           config: { memory: { enabled: memoryEnabled } },
         }),

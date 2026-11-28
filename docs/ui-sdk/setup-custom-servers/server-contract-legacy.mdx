@@ -309,10 +309,9 @@ interface AgentSpec {
   variables?: Record<string, string>;
 }
 
-interface Model {
-  name: string;
-  params?: { maxTokens?: number; reasoningEffort?: string };
-}
+type Model =
+  | { type: 'fixed'; name: string; params?: { maxTokens?: number; reasoningEffort?: string } }
+  | { type: 'auto'; candidateModels: string[] };
 
 interface AgentRuntimeConfig {
   generativeUi?: { enabled?: boolean };

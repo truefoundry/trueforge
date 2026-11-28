@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .initial_user_message import InitialUserMessage
 from .mcp_server import McpServer
-from .model import Model
+from .model_definition import ModelDefinition
 from .response_format import ResponseFormat
 from .runtime_config import RuntimeConfig
 from .skill import Skill
@@ -34,7 +34,7 @@ class AgentSpec(UncheckedBaseModel):
     Optional initial user messages injected at the start of every session.
     """
 
-    model: Model
+    model: ModelDefinition
     response_format: typing.Optional[ResponseFormat] = None
     skills: typing.Optional[typing.List[Skill]] = pydantic.Field(default=None)
     """

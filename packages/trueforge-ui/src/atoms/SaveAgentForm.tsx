@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { AgentSpec } from '../server/types.js';
+import { modelSelectionKey } from './draft/autoModel.js';
 import { auiInputClass } from './lib/inputClasses.js';
 import { Button } from './primitives/Button.js';
 
@@ -39,7 +40,7 @@ export function SaveAgentForm({
     errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [error]);
 
-  const canSave = name.trim() !== '' && spec.model.name.trim() !== '' && description.trim() !== '';
+  const canSave = name.trim() !== '' && modelSelectionKey(spec.model).trim() !== '' && description.trim() !== '';
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">

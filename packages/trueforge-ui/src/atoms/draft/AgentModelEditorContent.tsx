@@ -1,13 +1,15 @@
 'use client';
 
+import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useId, useMemo, useState } from 'react';
 
 import { Icon } from '@/icons/Icon.js';
-import type { AgentSpec, ModelSelection } from '../../server/types.js';
+import type { AgentSpec, FixedModel, ModelSelection } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { modelSelectionKey } from './autoModel.js';
 import { DraftModelCatalogPanel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelMatchesQuery, normalizeModelSearchText, providerMatchesQuery } from './modelSearch.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
@@ -22,8 +24,8 @@ export type AgentModelEditorContentProps = {
   onChange: (spec: AgentSpec) => void;
 };
 
-function modelForSelection(spec: AgentSpec, model: ModelSelection): AgentSpec['model'] {
-  const next = modelPatchWithReasoningEffort(model.name, spec.model.params, model.properties.reasoningEfforts);
+function modelForSelection(spec: AgentSpec, model: ModelSelection): FixedModel {
+  const next = modelPatchWithReasoningEffort(model.name, modelParams(spec.model), model.properties.reasoningEfforts);
   const maxOutputTokens = model.properties.maxOutputTokens;
   if (
     maxOutputTokens === undefined ||
@@ -46,7 +48,8 @@ export function AgentModelEditorContent({
 }: AgentModelEditorContentProps) {
   const listboxId = useId();
   const compact = useCompactLayout();
-  const selectedModel = useMemo(() => models.find(model => model.name === spec.model.name), [models, spec.model.name]);
+  const selectedKey = modelSelectionKey(spec.model);
+  const selectedModel = useMemo(() => models.find(model => model.name === selectedKey), [models, selectedKey]);
   const providers = useMemo(() => Array.from(new Set(models.map(model => model.provider.name))), [models]);
   const [provider, setProvider] = useState(selectedModel?.provider.name ?? providers[0] ?? '');
   const [compactProvider, setCompactProvider] = useState<string | null>(null);
@@ -165,7 +168,7 @@ export function AgentModelEditorContent({
         <DraftModelCatalogPanel
           models={compactModels}
           loading={loading}
-          selectedName={spec.model.name}
+          selectedName={selectedKey}
           query=""
           onQueryChange={onQueryChange}
           listboxId={listboxId}
@@ -207,7 +210,7 @@ export function AgentModelEditorContent({
           <DraftModelCatalogPanel
             models={visibleModels}
             loading={loading}
-            selectedName={spec.model.name}
+            selectedName={selectedKey}
             query={query}
             onQueryChange={onQueryChange}
             listboxId={listboxId}

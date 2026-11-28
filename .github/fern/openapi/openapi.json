@@ -193,7 +193,7 @@
             "type": "array"
           },
           "model": {
-            "$ref": "#/components/schemas/Model"
+            "$ref": "#/components/schemas/ModelDefinition"
           },
           "response_format": {
             "$ref": "#/components/schemas/ResponseFormat"
@@ -392,6 +392,31 @@
         },
         "required": [
           "status"
+        ],
+        "type": "object"
+      },
+      "AutoModel": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_models": {
+            "description": "Full names (account/model) of 4 to 10 models the router may choose from.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "type": {
+            "description": "Route each turn to the cheapest candidate model that suits the task.",
+            "enum": [
+              "auto"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "candidate_models"
         ],
         "type": "object"
       },
@@ -1673,6 +1698,31 @@
         ],
         "type": "object"
       },
+      "FixedModel": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
+          },
+          "type": {
+            "description": "Run every turn on the model named in `name`.",
+            "enum": [
+              "fixed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
       "GenerativeUIConfig": {
         "default": {
           "enabled": true
@@ -2156,6 +2206,25 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "LegacyModel": {
+        "additionalProperties": false,
+        "deprecated": true,
+        "description": "Deprecated: send a fixed model with `type: \"fixed\"` instead.",
+        "properties": {
+          "name": {
+            "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
+          }
+        },
+        "required": [
+          "name"
+        ],
         "type": "object"
       },
       "LegacyTurnInputItem": {
@@ -3101,6 +3170,19 @@
           "name"
         ],
         "type": "object"
+      },
+      "ModelDefinition": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/FixedModel"
+          },
+          {
+            "$ref": "#/components/schemas/AutoModel"
+          },
+          {
+            "$ref": "#/components/schemas/LegacyModel"
+          }
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -5487,7 +5569,7 @@
             "type": "string"
           },
           "model": {
-            "$ref": "#/components/schemas/ThreadSwitchModelEventModel"
+            "$ref": "#/components/schemas/Model"
           },
           "thread_id": {
             "description": "Thread the model was selected for.",
@@ -5507,36 +5589,6 @@
           "created_at",
           "thread_id",
           "model"
-        ],
-        "type": "object"
-      },
-      "ThreadSwitchModelEventModel": {
-        "description": "The chosen model and its parameters.",
-        "properties": {
-          "name": {
-            "description": "Name of the chosen model, `provider/model`.",
-            "type": "string"
-          },
-          "params": {
-            "$ref": "#/components/schemas/ThreadSwitchModelEventParams"
-          }
-        },
-        "required": [
-          "name",
-          "params"
-        ],
-        "type": "object"
-      },
-      "ThreadSwitchModelEventParams": {
-        "description": "Model parameters chosen with the model.",
-        "properties": {
-          "reasoning_effort": {
-            "description": "Reasoning effort chosen for the model.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reasoning_effort"
         ],
         "type": "object"
       },

@@ -74,6 +74,7 @@ describe('reasoningEffortSeed', () => {
 describe('modelPatchWithReasoningEffort', () => {
   it('sets effort and preserves other params', () => {
     expect(modelPatchWithReasoningEffort('m', { maxTokens: 100, reasoningEffort: 'high' }, ['low', 'high'])).toEqual({
+      type: 'fixed',
       name: 'm',
       params: { maxTokens: 100, reasoningEffort: 'high' },
     });
@@ -81,17 +82,20 @@ describe('modelPatchWithReasoningEffort', () => {
 
   it('falls back to first and clears effort when model has none', () => {
     expect(modelPatchWithReasoningEffort('m', { maxTokens: 100, reasoningEffort: 'high' }, ['low'])).toEqual({
+      type: 'fixed',
       name: 'm',
       params: { maxTokens: 100, reasoningEffort: 'low' },
     });
 
     // `undefined` must be present so mergeAgentSpec overwrites a sticky effort.
     expect(modelPatchWithReasoningEffort('m', { maxTokens: 100, reasoningEffort: 'high' }, [])).toEqual({
+      type: 'fixed',
       name: 'm',
       params: { maxTokens: 100, reasoningEffort: undefined },
     });
 
     expect(modelPatchWithReasoningEffort('m', { reasoningEffort: 'high' }, undefined)).toEqual({
+      type: 'fixed',
       name: 'm',
       params: { reasoningEffort: undefined },
     });

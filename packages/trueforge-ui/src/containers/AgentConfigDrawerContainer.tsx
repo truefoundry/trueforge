@@ -11,6 +11,7 @@ import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
 import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { withInitialUserMessages } from '../atoms/draft/agentConfigMessages.js';
 import type { AgentInstructionsDraft } from '../atoms/draft/AgentInstructionsDrawer.js';
+import { modelSelectionKey } from '../atoms/draft/autoModel.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { CATALOG_STALE_TIME_MS, useServerQueryClient } from '../server/queryClient.js';
@@ -152,7 +153,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
     return null;
   }
 
-  const model = catalog.models.find(item => item.name === agentSpec.model.name);
+  const model = catalog.models.find(item => item.name === modelSelectionKey(agentSpec.model));
 
   return (
     <>

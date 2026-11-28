@@ -213,7 +213,7 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
       name: 'support-bot',
       description: 'Helps customers with orders.',
       manifest: {
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'You help customers with orders. Always confirm before processing refunds.',
       },
     });
@@ -224,7 +224,7 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
         name="support-bot",
         description="Helps customers with orders.",
         manifest={
-            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "model": {"type": "fixed", "name": "anthropic/claude-sonnet-4-6"},
             "instructions": "You help customers with orders. Always confirm before processing refunds.",
         },
     )
@@ -266,7 +266,7 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
 const { data: session } = await client.sessions.create({
   agent: {
     spec: {
-      model: { name: 'anthropic/claude-sonnet-4-6' },
+      model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
       instructions: 'You are a concise research assistant.',
     },
   },
@@ -277,7 +277,7 @@ const { data: session } = await client.sessions.create({
 session = client.sessions.create(
     agent={
         "spec": {
-            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "model": {"type": "fixed", "name": "anthropic/claude-sonnet-4-6"},
             "instructions": "You are a concise research assistant.",
         },
     },
@@ -302,6 +302,7 @@ The `manifest` you save (or the inline `spec`) is the agent spec below — every
 ```json
 {
   "model": {
+    "type": "fixed",
     "name": "anthropic/claude-sonnet-4-6",
     "params": { "max_tokens": 4096, "temperature": 0.2 }
   },
@@ -336,12 +337,36 @@ The **Set via** column on each table below marks where a field is configurable t
 
 ### `model`
 
-The only required field.
+The only required field. `type` picks how the model is chosen.
 
-| Field    | Type   | Required | Set via  | Description                                                                |
-| -------- | ------ | -------- | -------- | -------------------------------------------------------------------------- |
-| `name`   | string | Yes      | UI + API | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
-| `params` | object | No       | API      | Model call parameters, passed through to the provider.                     |
+**`type: "fixed"`** runs every turn on one model.
+
+| Field        | Type    | Required | Set via  | Description                                                                |
+| ------------ | ------- | -------- | -------- | -------------------------------------------------------------------------- |
+| `type`       | `fixed` | Yes      | UI + API | Always `fixed`.                                                            |
+| `name`       | string  | Yes      | UI + API | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
+| `params`     | object  | No       | API      | Model call parameters, passed through to the provider.                     |
+
+**`type: "auto"`** lets the router pick a model for each turn from the models you list.
+
+| Field              | Type            | Required | Set via | Description |
+| ------------------ | --------------- | -------- | ------- | ----------- |
+| `type`             | `auto`          | Yes      | UI + API | Always `auto`. |
+| `candidate_models` | array of string | Yes      | API     | 4 to 10 distinct model FQNs you can access. Together they must cover every kind of task Auto routes (simple, tool, reasoning, and hard open-ended tasks). |
+
+```json Auto model
+{
+  "model": {
+    "type": "auto",
+    "candidate_models": [
+      "openai/gpt-5-mini",
+      "anthropic/claude-haiku-5-5",
+      "anthropic/claude-sonnet-5-5",
+      "anthropic/claude-fable-5-2"
+    ]
+  }
+}
+```
 
 `model.params` recognizes `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls` (boolean), and `reasoning_effort` (string). Extra keys are allowed and forwarded to the provider as-is.
 

@@ -17,6 +17,7 @@ import type { AgentSpec } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
+import { modelSelectionKey } from './draft/autoModel.js';
 import { cloneAgentSpec } from './lib/cloneAgentSpec.js';
 import { Button } from './primitives/Button.js';
 import { SideDrawer } from './primitives/SideDrawer.js';
@@ -118,7 +119,7 @@ function SaveAgentButtonContent({
     if (builder === null || draftSpec === null) return;
     if (intent === 'update' ? !canManageAgent : !canCreate) return;
     const normalizedName = name.trim();
-    if (!normalizedName || !draftSpec.model.name.trim()) return;
+    if (!normalizedName || !modelSelectionKey(draftSpec.model).trim()) return;
     const normalizedDescription = description.trim();
     if (!normalizedDescription) return;
     setSaving(true);

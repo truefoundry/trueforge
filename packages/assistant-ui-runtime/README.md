@@ -57,7 +57,7 @@ import type { TrueForgeAgentConfig } from '@truefoundry/trueforge-assistant-ui-r
 const agent = {
   mode: 'draft',
   defaultAgentSpec: {
-    model: { name: 'openai-main/gpt-4.1' },
+    model: { type: 'fixed', name: 'openai-main/gpt-4.1' },
     instructions: 'Answer concisely.',
   },
 } satisfies TrueForgeAgentConfig;

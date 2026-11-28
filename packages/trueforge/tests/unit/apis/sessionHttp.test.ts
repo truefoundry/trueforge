@@ -46,7 +46,7 @@ import {
 } from '../../../src/schemas/sessionMetrics';
 
 const inlineSpec = AgentSpecSchema.parse({
-  model: { name: 'anthropic/claude-sonnet-4-6' },
+  model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'inline',
 });
 
@@ -247,7 +247,7 @@ describe('sessions HTTP agent binding', () => {
       jsonInit('POST', {
         agent: {
           spec: AgentSpecSchema.parse({
-            model: { name: 'anthropic/claude-sonnet-4-6' },
+            model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
             instructions: 'inline',
             config: { sandbox: { enabled: true } },
           }),
@@ -290,7 +290,7 @@ describe('sessions HTTP agent binding', () => {
       name: 'named-agent',
       description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
       external_id: null,
@@ -780,7 +780,7 @@ describe('sessions HTTP agent binding', () => {
       name: 'named-agent',
       description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
       external_id: null,
@@ -1072,7 +1072,7 @@ describe('sessions HTTP agent binding', () => {
       name: 'web-search-agent',
       description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
-        model: { name: 'anthropic/claude-sonnet-4-6' },
+        model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'searches',
         config: { web_search: { enabled: true } },
       }),
@@ -1130,7 +1130,7 @@ describe('sessions HTTP agent binding', () => {
       name: 'stale-model-agent',
       description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
-        model: { name: 'anthropic/model-that-was-removed' },
+        model: { type: 'fixed', name: 'anthropic/model-that-was-removed' },
         instructions: 'test',
       }),
       external_id: null,

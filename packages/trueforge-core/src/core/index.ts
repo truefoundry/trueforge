@@ -4,8 +4,17 @@
  */
 
 // Runtime
-export { ModelParamsSchema, ModelSchema } from './llm/model';
-export type { Model, ModelParams } from './llm/model';
+export {
+  AUTO_MODEL,
+  MAX_AUTO_CANDIDATE_MODELS,
+  MIN_AUTO_CANDIDATE_MODELS,
+  ModelDefinitionSchema,
+  ModelParamsSchema,
+  ModelSchema,
+  modelNames,
+  parseModelFqn,
+} from './llm/model';
+export type { AutoModel, FixedModel, Model, ModelDefinition, ModelParams } from './llm/model';
 export type { AgentDefinition } from './runtime/AgentDefinition';
 export { modelSnapshotFromAgent } from './runtime/AgentModel';
 export type { AgentModel } from './runtime/AgentModel';
@@ -130,7 +139,6 @@ export {
   type RoutingQuestion,
 } from './modelRouting/question';
 export {
-  AUTO_MODEL,
   createModelRouter,
   selectModel,
   type ModelRouterDeps,

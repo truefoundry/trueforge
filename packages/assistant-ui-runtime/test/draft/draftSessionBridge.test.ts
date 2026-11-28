@@ -10,7 +10,7 @@ describe('createDraftSessionBridge', () => {
       createdAt: '2026-09-01T00:00:00.000Z',
       updatedAt: '2026-09-01T00:00:00.000Z',
       isMutable: true,
-      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      agentSpec: { model: { type: 'fixed', name: 'openai-main/gpt-4.1' } },
     };
     const server: AgentChatServer = {
       getSession: vi.fn().mockResolvedValue(mockSession),
@@ -28,7 +28,7 @@ describe('createDraftSessionBridge', () => {
 
     const bridge = createDraftSessionBridge(server);
     const spec = await bridge.getDraftAgentSpec('session-1');
-    expect(spec).toEqual({ model: { name: 'openai-main/gpt-4.1' } });
+    expect(spec).toEqual({ model: { type: 'fixed', name: 'openai-main/gpt-4.1' } });
   });
 
   it('returns null without throwing when session has no agentSpec', async () => {

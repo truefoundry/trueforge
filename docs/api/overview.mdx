@@ -29,6 +29,7 @@ An **agent** is a definition, not a running process. You define it once (the mod
 ```json support-bot AgentSpec wrap
 {
   "model": {
+    "type": "fixed",
     "name": "anthropic/claude-sonnet-4-6",
     "params": { "max_tokens": 4096 }
   },

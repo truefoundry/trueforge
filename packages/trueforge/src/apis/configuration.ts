@@ -5,7 +5,7 @@ import { enabledTenantModelRouting, trueFoundryModelRouting } from '../config';
 import type { ConfigurationRecord, IConfigurationStore } from '../db/configurationStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import { getConfigurationRoute, patchConfigurationRoute } from '../routes/configurationRoutes';
-import { describeUncoveredCandidateCategories } from '../runtime/autoModelRouting';
+import { validateAutoCandidateModels } from '../runtime/autoModelRouting';
 import {
   DEFAULT_CONFIGURATION_MANIFEST,
   type AutoModelRoutingConfiguration,
@@ -79,25 +79,22 @@ export function createConfigurationRouter(deps: ConfigurationRouterDeps) {
     const store = deps.resolveConfigurationStore(c);
     const candidateModels = body.manifest.auto_model_routing?.candidate_models;
     if (candidateModels !== undefined) {
-      const accessibleModels = await deps
-        .resolveModelProviderStore(c)
-        .listModels({ tenant_id: requestContext.tenant_id });
-      const accessible = new Set(accessibleModels.map(model => model.name));
-      if (candidateModels.some(name => !accessible.has(name))) {
+      if (enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id) === undefined) {
+        return c.json({ error: { message: 'Model routing is not enabled for this tenant.' } }, 400);
+      }
+      const rejection = await validateAutoCandidateModels({
+        names: candidateModels,
+        tenant_id: requestContext.tenant_id,
+        modelProviderStore: deps.resolveModelProviderStore(c),
+      });
+      if (rejection?.type === 'inaccessible') {
         return c.json(
           { error: { message: 'You do not have access to all candidate models in the provided list.' } },
           400,
         );
       }
-      // Categories only exist where model routing is set up for the tenant.
-      if (enabledTenantModelRouting(trueFoundryModelRouting(), requestContext.tenant_id)) {
-        const chosen = new Set(candidateModels);
-        const uncovered = describeUncoveredCandidateCategories(
-          accessibleModels.filter(model => chosen.has(model.name)),
-        );
-        if (uncovered !== undefined) {
-          return c.json({ error: { message: uncovered } }, 400);
-        }
+      if (rejection !== undefined) {
+        return c.json({ error: { message: rejection.message } }, 400);
       }
     }
     const current = await store.getOrCreateConfiguration({

@@ -12,7 +12,7 @@ describe('createHarnessAgentSessionsServer', () => {
         id: 'agent-1',
         name: 'writer',
         description: 'Writes docs.',
-        manifest: { model: { name: 'openai/gpt-5' }, instructions: 'Write.' },
+        manifest: { model: { type: 'fixed', name: 'openai/gpt-5' }, instructions: 'Write.' },
       },
     }));
     const getCodeSnippets = vi.fn(async () => ({
@@ -40,7 +40,7 @@ describe('createHarnessAgentSessionsServer', () => {
       name: 'writer',
       description: 'Writes docs.',
       agentSpec: {
-        model: { name: 'openai/gpt-5' },
+        model: { type: 'fixed', name: 'openai/gpt-5' },
         instructions: 'Write.',
       },
     });
@@ -101,7 +101,7 @@ describe('createHarnessAgentSessionsServer', () => {
       client: {
         agents: {
           get: vi.fn(async () => ({
-            data: { id: 'agent-1', name: 'writer', manifest: { model: { name: 'openai/gpt-5' } } },
+            data: { id: 'agent-1', name: 'writer', manifest: { model: { type: 'fixed', name: 'openai/gpt-5' } } },
           })),
         },
         sessions: { list, listEvents },
@@ -151,7 +151,7 @@ describe('createHarnessAgentSessionsServer', () => {
                 title: 'hello',
                 createdAt: '2026-01-01T00:00:00.000Z',
                 updatedAt: '2026-01-02T00:00:00.000Z',
-                agent: { type: 'inline', spec: { model: { name: 'openai/gpt-5' } } },
+                agent: { type: 'inline', spec: { model: { type: 'fixed', name: 'openai/gpt-5' } } },
                 createdBy: 'user-1',
                 metrics: { totalTurns: 2, totalDurationMs: 96_201 },
               },

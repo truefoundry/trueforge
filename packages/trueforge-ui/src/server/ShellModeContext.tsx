@@ -205,7 +205,7 @@ type ShellModeContextValue = {
 const ShellModeContext = createContext<ShellModeContextValue | null>(null);
 
 const FALLBACK_MUTABLE_SPEC: AgentSpec = {
-  model: { name: 'openai-main/gpt-4.1' },
+  model: { type: 'fixed', name: 'openai-main/gpt-4.1' },
 };
 
 function mutableSeedFromConfig(config: AgentConfig): AgentSpec {

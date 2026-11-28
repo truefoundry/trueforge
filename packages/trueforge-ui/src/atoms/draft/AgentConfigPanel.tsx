@@ -1,5 +1,6 @@
 'use client';
 
+import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
@@ -18,6 +19,7 @@ import {
   withPreload,
   type EditableMount,
 } from './agentConfigMounts.js';
+import { modelSelectionKey } from './autoModel.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
 import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
@@ -302,7 +304,8 @@ export function AgentConfigPanel({
   const [modelQuery, setModelQuery] = useState('');
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skillMounts = editableMountsFromSpec(spec.skills);
-  const modelParams = modelParamSummary(spec.model.params);
+  const paramSummary = modelParamSummary(modelParams(spec.model));
+  const modelKey = modelSelectionKey(spec.model);
   const runtimeConfig = runtimeConfigSummary(spec.config, { webSearchAvailable, memoryOffered });
   const instructionPreview = instructions.trim();
   const userMessageCount = initialUserMessagesFromSpec(spec).length;
@@ -361,12 +364,10 @@ export function AgentConfigPanel({
                 >
                   <ProviderMark
                     logo={model?.provider.logo}
-                    label={model?.provider.name ?? spec.model.name}
+                    label={model?.provider.name ?? modelKey}
                     className="size-4 text-[0.5rem]"
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {displayModelLabel(spec.model.name)}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(modelKey)}</span>
                   {modelInfo.length ? (
                     <span
                       title={modelInfoTitle}
@@ -429,8 +430,8 @@ export function AgentConfigPanel({
             className="mt-2 flex w-full cursor-pointer flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
           >
             <dl className="text-text-secondary flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-              {modelParams.length ? (
-                modelParams.map(entry => (
+              {paramSummary.length ? (
+                paramSummary.map(entry => (
                   <div key={entry.label} className="flex gap-1">
                     <dt>{entry.label}:</dt>
                     <dd className="text-text-primary font-medium">{entry.value}</dd>

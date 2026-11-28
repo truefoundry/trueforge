@@ -1,4 +1,5 @@
 import { AgentSpecSchema, type Subject } from '@truefoundry/trueforge-core/agent-session';
+import { modelNames } from '@truefoundry/trueforge-core/core';
 import type { Kysely, Transaction } from 'kysely';
 import { createLogger } from 'winston';
 
@@ -47,7 +48,7 @@ const TXN = mockTransaction();
 
 function manifest(overrides: { instructions?: string; mcp_servers?: { name: string }[] } = {}) {
   return AgentSpecSchema.parse({
-    model: { name: 'openai-gateway/gpt-5' },
+    model: { type: 'fixed', name: 'openai-gateway/gpt-5' },
     instructions: overrides.instructions ?? 'Be helpful.',
     ...(overrides.mcp_servers === undefined ? {} : { mcp_servers: overrides.mcp_servers }),
   });
@@ -167,7 +168,7 @@ describe('TrueFoundryAgentStore', () => {
         accessToken: TOKEN,
         name: 'research',
         description: 'research',
-        model: 'openai-gateway/gpt-5',
+        models: ['openai-gateway/gpt-5'],
         mcp_servers: ['slack'],
       });
       return { externalId: 'sf-1' };
@@ -235,6 +236,36 @@ describe('TrueFoundryAgentStore', () => {
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
 
+  it('createAgent grants every candidate model of an auto agent', async () => {
+    const CANDIDATES = ['gw/a', 'gw/b', 'gw/c', 'gw/d'];
+    const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
+      expect(input.models).toEqual(CANDIDATES);
+      return { externalId: 'sf-1' };
+    });
+    const createAgent = jest.fn(async () => record({ external_id: null }));
+    const updateAgent = jest.fn(async () => record({ external_id: 'sf-1' }));
+    const store = tfStore({
+      inner: mockInner({ createAgent, updateAgent }),
+      client: mockClient({ putRemoteAgent }),
+    });
+
+    await store.createAgent(
+      {
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'research',
+        description: '',
+        manifest: AgentSpecSchema.parse({
+          model: { type: 'auto', candidate_models: CANDIDATES },
+          instructions: '',
+        }),
+        external_id: null,
+      },
+      TXN,
+    );
+    expect(putRemoteAgent).toHaveBeenCalledTimes(1);
+  });
+
   it('createAgent uses agent name as description when description is blank', async () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
@@ -254,7 +285,7 @@ describe('TrueFoundryAgentStore', () => {
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'research',
         description: '',
-        manifest: AgentSpecSchema.parse({ model: { name: 'openai-gateway/gpt-5' }, instructions: '' }),
+        manifest: AgentSpecSchema.parse({ model: { type: 'fixed', name: 'openai-gateway/gpt-5' }, instructions: '' }),
         external_id: null,
       },
       TXN,
@@ -567,7 +598,7 @@ describe('TrueFoundryAgentStore', () => {
         accessToken: TOKEN,
         name: previous.name,
         description: previous.name,
-        model: previous.manifest.model.name,
+        models: modelNames(previous.manifest.model),
       }),
     );
   });

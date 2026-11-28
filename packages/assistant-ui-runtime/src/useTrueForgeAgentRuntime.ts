@@ -35,7 +35,7 @@ import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
 const TRUEFORGE_MCP_REQUEST_HEADER = 'x-tfg-trueforge-mcp';
-const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
+const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { type: 'fixed', name: '' } };
 
 /**
  * Wraps the mode-specific adapter behind a stable object so assistant-ui does
@@ -68,7 +68,7 @@ function useTrueForgeAgentRuntimeImpl(
     draftBridgeRef.current = createDraftSessionBridge(server);
   }
   // Named sessions keep the same runtimeKey as New Chat; do not keep the draft
-  // bridge armed or a fresh `{ model: { name: '' } }` will retrigger spec sync.
+  // bridge armed or a fresh `{ model: { type: 'fixed', name: '' } }` will retrigger spec sync.
   const draftBridge = agent.mode === 'draft' ? draftBridgeRef.current : null;
 
   // Only attach a draftSessionId if the thread itself is mutable.

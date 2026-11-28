@@ -27,7 +27,7 @@ import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscripti
 /** Parsed rather than built literally, so config defaults match what the create route stores. */
 function agentSpec(): AgentSpec {
   return AgentSpecSchema.parse({
-    model: { name: 'openai/gpt-4o' },
+    model: { type: 'fixed', name: 'openai/gpt-4o' },
     config: { sandbox: { enabled: true } },
   });
 }

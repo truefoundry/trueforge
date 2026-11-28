@@ -25,14 +25,14 @@ describe('selectDraftSpecPreferences', () => {
   it('keeps model, skills, MCP, and web-search for chat — not other runtime config', () => {
     expect(
       selectChatDraftSpecPreferences({
-        model: { name: 'm', params: { reasoningEffort: 'high' } },
+        model: { type: 'fixed' as const, name: 'm', params: { reasoningEffort: 'high' } },
         skills: [{ name: 's' }],
         mcpServers: [{ name: 'c' }],
         config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
         instructions: 'nope',
       }),
     ).toEqual({
-      model: { name: 'm', params: { reasoningEffort: 'high' } },
+      model: { type: 'fixed' as const, name: 'm', params: { reasoningEffort: 'high' } },
       skills: [{ name: 's' }],
       mcpServers: [{ name: 'c' }],
       config: { webSearch: { enabled: false } },
@@ -42,23 +42,23 @@ describe('selectDraftSpecPreferences', () => {
   it('omits chat config when web search was never set', () => {
     expect(
       selectChatDraftSpecPreferences({
-        model: { name: 'm' },
+        model: { type: 'fixed' as const, name: 'm' },
         config: { sandbox: { enabled: true } },
       }),
-    ).toEqual({ model: { name: 'm' } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'm' } });
   });
 
   it('freshAgentBuilderSeed keeps model and runtime config only', () => {
     expect(
       freshAgentBuilderSeed({
-        model: { name: 'm', params: { reasoningEffort: 'low' } },
+        model: { type: 'fixed' as const, name: 'm', params: { reasoningEffort: 'low' } },
         instructions: 'drop me',
         mcpServers: [{ name: 'exa' }],
         skills: [{ name: 'research' }],
         config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
       }),
     ).toEqual({
-      model: { name: 'm', params: { reasoningEffort: 'low' } },
+      model: { type: 'fixed' as const, name: 'm', params: { reasoningEffort: 'low' } },
       config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
     });
   });
@@ -66,30 +66,36 @@ describe('selectDraftSpecPreferences', () => {
   it('freshAgentBuilderSeed keeps the memory choice for the next agent', () => {
     expect(
       freshAgentBuilderSeed({
-        model: { name: 'm' },
+        model: { type: 'fixed' as const, name: 'm' },
         config: { sandbox: { enabled: true }, memory: { enabled: false } },
       }),
-    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
+    ).toEqual({
+      model: { type: 'fixed' as const, name: 'm' },
+      config: { sandbox: { enabled: true }, memory: { enabled: false } },
+    });
   });
 
   it('keeps memory as an agent preference', () => {
     expect(
       selectAgentDraftSpecPreferences({
-        model: { name: 'm' },
+        model: { type: 'fixed' as const, name: 'm' },
         config: { sandbox: { enabled: true }, memory: { enabled: false } },
       }),
-    ).toEqual({ model: { name: 'm' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } });
+    ).toEqual({
+      model: { type: 'fixed' as const, name: 'm' },
+      config: { sandbox: { enabled: true }, memory: { enabled: false } },
+    });
   });
 
   it('keeps runtime config for agent', () => {
     expect(
       selectAgentDraftSpecPreferences({
-        model: { name: 'm' },
+        model: { type: 'fixed' as const, name: 'm' },
         config: { sandbox: { enabled: true } },
         instructions: 'nope',
       }),
     ).toEqual({
-      model: { name: 'm' },
+      model: { type: 'fixed' as const, name: 'm' },
       config: { sandbox: { enabled: true } },
     });
   });
@@ -104,17 +110,17 @@ describe('draft preference storage', () => {
 
   it('stores chat and agent preferences separately', () => {
     writeDraftSpecPreferences('chat', {
-      model: { name: 'chat/model' },
+      model: { type: 'fixed' as const, name: 'chat/model' },
       config: { sandbox: { enabled: true } },
     });
     writeDraftSpecPreferences('agent', {
-      model: { name: 'agent/model' },
+      model: { type: 'fixed' as const, name: 'agent/model' },
       config: { sandbox: { enabled: true } },
     });
 
-    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'chat/model' } });
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { type: 'fixed' as const, name: 'chat/model' } });
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'agent/model' },
+      model: { type: 'fixed' as const, name: 'agent/model' },
       config: { sandbox: { enabled: true } },
     });
   });
@@ -125,28 +131,28 @@ describe('draft preference storage', () => {
       JSON.stringify({
         version: 1,
         spec: {
-          model: { name: 'agent/model' },
+          model: { type: 'fixed' as const, name: 'agent/model' },
           config: { sandbox: { enabled: true, fileDownloads: true, environment_name: 'test' } },
         },
       }),
     );
 
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'agent/model' },
+      model: { type: 'fixed' as const, name: 'agent/model' },
       config: { sandbox: { enabled: true, fileDownloads: true, environmentName: 'test' } },
     });
 
     const sandbox = { enabled: true, environmentName: 'python-dev' };
     Reflect.set(sandbox, 'environment_name', 'test');
-    writeDraftSpecPreferences('agent', { model: { name: 'agent/model' }, config: { sandbox } });
+    writeDraftSpecPreferences('agent', { model: { type: 'fixed' as const, name: 'agent/model' }, config: { sandbox } });
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'agent/model' },
+      model: { type: 'fixed' as const, name: 'agent/model' },
       config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
     });
     expect(JSON.parse(window.localStorage.getItem(AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY) ?? 'null')).toEqual({
       version: 1,
       spec: {
-        model: { name: 'agent/model' },
+        model: { type: 'fixed' as const, name: 'agent/model' },
         config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
       },
     });
@@ -154,12 +160,12 @@ describe('draft preference storage', () => {
 
   it('persists the chat web-search toggle across read/write', () => {
     writeDraftSpecPreferences('chat', {
-      model: { name: 'chat/model' },
+      model: { type: 'fixed' as const, name: 'chat/model' },
       config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
     });
 
     expect(readDraftSpecPreferences('chat')).toEqual({
-      model: { name: 'chat/model' },
+      model: { type: 'fixed' as const, name: 'chat/model' },
       config: { webSearch: { enabled: false } },
     });
   });
@@ -170,7 +176,7 @@ describe('draft preference storage', () => {
       JSON.stringify({
         version: 1,
         spec: {
-          model: { name: 'legacy/model' },
+          model: { type: 'fixed' as const, name: 'legacy/model' },
           skills: [{ name: 'Skill' }],
           config: { sandbox: { enabled: true } },
         },
@@ -178,11 +184,11 @@ describe('draft preference storage', () => {
     );
 
     expect(readDraftSpecPreferences('chat')).toEqual({
-      model: { name: 'legacy/model' },
+      model: { type: 'fixed' as const, name: 'legacy/model' },
       skills: [{ name: 'Skill' }],
     });
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'legacy/model' },
+      model: { type: 'fixed' as const, name: 'legacy/model' },
       skills: [{ name: 'Skill' }],
       config: { sandbox: { enabled: true } },
     });
@@ -195,7 +201,7 @@ describe('draft preference storage', () => {
       JSON.stringify({
         version: 1,
         spec: {
-          model: { name: 'legacy/model' },
+          model: { type: 'fixed' as const, name: 'legacy/model' },
           config: { sandbox: { enabled: true } },
         },
       }),
@@ -213,13 +219,13 @@ describe('draft preference storage', () => {
       return originalSetItem.call(this, key, value);
     });
 
-    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'legacy/model' } });
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { type: 'fixed' as const, name: 'legacy/model' } });
     expect(readDraftSpecPreferences('agent')).toBeNull();
     expect(window.localStorage.getItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY)).not.toBeNull();
 
     setItemSpy.mockRestore();
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'legacy/model' },
+      model: { type: 'fixed' as const, name: 'legacy/model' },
       config: { sandbox: { enabled: true } },
     });
     expect(window.localStorage.getItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY)).toBeNull();
@@ -240,15 +246,14 @@ describe('draft preference storage', () => {
 
   it('marks the Auto default and stores Auto as the chat model', () => {
     markChatAutoModelDefaulted({
-      model: { name: 'chat/model' },
+      model: { type: 'fixed' as const, name: 'chat/model' },
       skills: [{ name: 'Skill' }],
       config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
     });
 
     expect(chatAutoModelDefaultPending()).toBe(false);
-    // JSON drops the undefined param keys from AUTO_MODEL_PATCH.
     expect(readDraftSpecPreferences('chat')).toEqual({
-      model: { name: 'auto', params: {} },
+      model: { type: 'auto', candidateModels: [] },
       skills: [{ name: 'Skill' }],
       config: { webSearch: { enabled: true } },
     });
@@ -259,23 +264,23 @@ describe('draft preference storage', () => {
   });
 
   it('keeps the Auto-default marker when a later write stores a different model', () => {
-    markChatAutoModelDefaulted({ model: { name: 'chat/model' } });
-    writeDraftSpecPreferences('chat', { model: { name: 'gpt' } });
+    markChatAutoModelDefaulted({ model: { type: 'fixed' as const, name: 'chat/model' } });
+    writeDraftSpecPreferences('chat', { model: { type: 'fixed' as const, name: 'gpt' } });
 
     expect(chatAutoModelDefaultPending()).toBe(false);
-    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'gpt' } });
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { type: 'fixed', name: 'gpt' } });
     expect(JSON.parse(window.localStorage.getItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY) ?? 'null')).toEqual({
       version: 1,
       autoModelDefaulted: true,
-      spec: { model: { name: 'gpt' } },
+      spec: { model: { type: 'fixed', name: 'gpt' } },
     });
   });
 });
 
 describe('withCapabilitiesSandbox', () => {
   it('does not enable sandbox merely because it is available', () => {
-    expect(withCapabilitiesSandbox({ model: { name: 'model' } }, true)).toEqual({
-      model: { name: 'model' },
+    expect(withCapabilitiesSandbox({ model: { type: 'fixed' as const, name: 'model' } }, true)).toEqual({
+      model: { type: 'fixed' as const, name: 'model' },
     });
   });
 
@@ -283,13 +288,13 @@ describe('withCapabilitiesSandbox', () => {
     expect(
       withCapabilitiesSandbox(
         {
-          model: { name: 'model' },
+          model: { type: 'fixed' as const, name: 'model' },
           config: { askUserQuestions: { enabled: false } },
         },
         true,
       ),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: {
         askUserQuestions: { enabled: false },
       },
@@ -298,22 +303,25 @@ describe('withCapabilitiesSandbox', () => {
 
   it('disables a spec-owned sandbox when it is unavailable', () => {
     expect(
-      withCapabilitiesSandbox({ model: { name: 'model' }, config: { sandbox: { enabled: true } } }, false),
+      withCapabilitiesSandbox(
+        { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } },
+        false,
+      ),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { sandbox: { enabled: false } },
     });
   });
 
   it('preserves the spec sandbox while capabilities are unavailable', () => {
-    const spec = { model: { name: 'model' }, config: { sandbox: { enabled: true } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } };
 
     expect(withCapabilitiesSandbox(spec, undefined)).toBe(spec);
     expect(withCapabilitiesSandbox(spec, null)).toBe(spec);
   });
 
   it('returns the same spec when sandbox already matches capabilities', () => {
-    const spec = { model: { name: 'model' }, config: { sandbox: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: false } } };
 
     expect(withCapabilitiesSandbox(spec, false)).toBe(spec);
   });
@@ -323,18 +331,18 @@ describe('withCapabilitiesWebSearch', () => {
   it('forces false when the host capability is off', () => {
     expect(
       withCapabilitiesWebSearch({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: true } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: true } } },
         webSearchEnabled: false,
         kind: 'chat',
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: false } },
     });
   });
 
   it('preserves an explicit chat toggle when the capability is on', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
 
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: true, kind: 'chat' })).toBe(spec);
   });
@@ -342,24 +350,24 @@ describe('withCapabilitiesWebSearch', () => {
   it('fills true when the field is absent and the capability is on', () => {
     expect(
       withCapabilitiesWebSearch({
-        spec: { model: { name: 'model' } },
+        spec: { model: { type: 'fixed' as const, name: 'model' } },
         webSearchEnabled: true,
         kind: 'chat',
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: true } },
     });
   });
 
   it('preserves an explicit agent value when the capability is on', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
 
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: true, kind: 'agent' })).toBe(spec);
   });
 
   it('does not change the spec while capabilities are still loading', () => {
-    const spec = { model: { name: 'model' } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' } };
 
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: undefined, kind: 'chat' })).toBe(spec);
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: null, kind: 'agent' })).toBe(spec);
@@ -370,26 +378,26 @@ describe('withoutWebSearchPreference', () => {
   it('removes webSearch and drops empty config', () => {
     expect(
       withoutWebSearchPreference({
-        model: { name: 'model' },
+        model: { type: 'fixed' as const, name: 'model' },
         config: { webSearch: { enabled: false } },
       }),
-    ).toEqual({ model: { name: 'model' } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' } });
   });
 
   it('keeps other config fields', () => {
     expect(
       withoutWebSearchPreference({
-        model: { name: 'model' },
+        model: { type: 'fixed' as const, name: 'model' },
         config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { sandbox: { enabled: true } },
     });
   });
 
   it('returns the same spec when webSearch is already absent', () => {
-    const spec = { model: { name: 'model' } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' } };
     expect(withoutWebSearchPreference(spec)).toBe(spec);
   });
 });
@@ -398,19 +406,19 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
   it('default-fills on when capability flips unavailable → available with forced-off live', () => {
     expect(
       recoverWebSearchAfterCapabilityAvailable({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } },
         previousWebSearchEnabled: false,
         webSearchEnabled: true,
         kind: 'chat',
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: true } },
     });
   });
 
   it('is a no-op when capability did not just become available', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
     expect(
       recoverWebSearchAfterCapabilityAvailable({
         spec,
@@ -422,7 +430,7 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
   });
 
   it('is a no-op when live webSearch is not forced off', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: true } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: true } } };
     expect(
       recoverWebSearchAfterCapabilityAvailable({
         spec,
@@ -434,7 +442,7 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
   });
 
   it('keeps an explicit off when capability becomes available', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
     expect(
       recoverWebSearchAfterCapabilityAvailable({
         spec,
@@ -449,19 +457,19 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
   it('default-fills New Chat on when capability first becomes known after a schema-default off', () => {
     expect(
       recoverWebSearchAfterCapabilityAvailable({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } },
         previousWebSearchEnabled: undefined,
         webSearchEnabled: true,
         kind: 'chat',
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: true } },
     });
   });
 
   it('does not default-fill agent drafts when capability first becomes known', () => {
-    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
     expect(
       recoverWebSearchAfterCapabilityAvailable({
         spec,
@@ -481,20 +489,20 @@ describe('webSearchPreferenceToStore', () => {
   it('omits a forced off when nothing was chosen', () => {
     expect(
       webSearchPreferenceToStore({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } },
         webSearchEnabled: false,
         previousWebSearchEnabled: true,
         kind: 'chat',
       }),
-    ).toEqual({ model: { name: 'model' } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' } });
   });
 
   it('keeps a stored off while search is unavailable and after it returns', () => {
     writeDraftSpecPreferences('chat', {
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: false } },
     });
-    const forcedOff = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const forcedOff = { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } };
 
     expect(
       webSearchPreferenceToStore({
@@ -515,7 +523,10 @@ describe('webSearchPreferenceToStore', () => {
   });
 
   it('does not store a schema-default off while capabilities are pending, so it recovers once known', () => {
-    const schemaDefault = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const schemaDefault = {
+      model: { type: 'fixed' as const, name: 'model' },
+      config: { webSearch: { enabled: false } },
+    };
     const stored = webSearchPreferenceToStore({
       spec: schemaDefault,
       webSearchEnabled: undefined,
@@ -523,7 +534,7 @@ describe('webSearchPreferenceToStore', () => {
       capabilitiesPending: true,
       kind: 'chat',
     });
-    expect(stored).toEqual({ model: { name: 'model' } });
+    expect(stored).toEqual({ model: { type: 'fixed' as const, name: 'model' } });
 
     writeDraftSpecPreferences('chat', stored);
     expect(
@@ -533,31 +544,31 @@ describe('webSearchPreferenceToStore', () => {
         previousWebSearchEnabled: undefined,
         kind: 'chat',
       }),
-    ).toEqual({ model: { name: 'model' }, config: { webSearch: { enabled: true } } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: true } } });
   });
 
   it('default-fills on after an outage when no choice was stored', () => {
     expect(
       webSearchPreferenceToStore({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { webSearch: { enabled: false } } },
         webSearchEnabled: true,
         previousWebSearchEnabled: false,
         kind: 'chat',
       }),
     ).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { webSearch: { enabled: true } },
     });
   });
 });
 
 describe('recoverMemoryAfterCapabilityAvailable', () => {
-  const off = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+  const off = { model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: false } } };
 
   it('turns a leftover off back on when memory returns', () => {
     expect(
       recoverMemoryAfterCapabilityAvailable({ spec: off, previousMemoryEnabled: false, memoryEnabled: true }),
-    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: true } } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: true } } });
   });
 
   it('keeps a stored off when memory returns', () => {
@@ -587,16 +598,19 @@ describe('memoryPreferenceToStore', () => {
   });
 
   it('stores the memory choice while memory is available', () => {
-    const spec = { model: { name: 'model' }, config: { memory: { enabled: false } } };
+    const spec = { model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: false } } };
 
     expect(memoryPreferenceToStore({ spec, memoryEnabled: true, previousMemoryEnabled: true })).toEqual(spec);
   });
 
   it('does not store the draft value while memory is unavailable or capabilities are pending', () => {
-    const spec = { model: { name: 'model' }, config: { sandbox: { enabled: true }, memory: { enabled: false } } };
+    const spec = {
+      model: { type: 'fixed' as const, name: 'model' },
+      config: { sandbox: { enabled: true }, memory: { enabled: false } },
+    };
 
     expect(memoryPreferenceToStore({ spec, memoryEnabled: false, previousMemoryEnabled: true })).toEqual({
-      model: { name: 'model' },
+      model: { type: 'fixed' as const, name: 'model' },
       config: { sandbox: { enabled: true } },
     });
     expect(
@@ -606,28 +620,31 @@ describe('memoryPreferenceToStore', () => {
         previousMemoryEnabled: undefined,
         capabilitiesPending: true,
       }),
-    ).toEqual({ model: { name: 'model' }, config: { sandbox: { enabled: true } } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' }, config: { sandbox: { enabled: true } } });
   });
 
   it('keeps a stored choice while memory is unavailable', () => {
-    writeDraftSpecPreferences('agent', { model: { name: 'model' }, config: { memory: { enabled: false } } });
+    writeDraftSpecPreferences('agent', {
+      model: { type: 'fixed' as const, name: 'model' },
+      config: { memory: { enabled: false } },
+    });
 
     expect(
       memoryPreferenceToStore({
-        spec: { model: { name: 'model' } },
+        spec: { model: { type: 'fixed' as const, name: 'model' } },
         memoryEnabled: false,
         previousMemoryEnabled: true,
       }),
-    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: false } } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: false } } });
   });
 
   it('recovers a leftover off when memory returns and no off was stored', () => {
     expect(
       memoryPreferenceToStore({
-        spec: { model: { name: 'model' }, config: { memory: { enabled: false } } },
+        spec: { model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: false } } },
         memoryEnabled: true,
         previousMemoryEnabled: false,
       }),
-    ).toEqual({ model: { name: 'model' }, config: { memory: { enabled: true } } });
+    ).toEqual({ model: { type: 'fixed' as const, name: 'model' }, config: { memory: { enabled: true } } });
   });
 });

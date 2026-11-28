@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { CenteredModal } from '../primitives/CenteredModal.js';
+import { modelSelectionKey } from './autoModel.js';
 
 export type AgentModelConfigModalProps = {
   editor: 'model' | 'model-settings' | null;
@@ -30,7 +31,8 @@ export function AgentModelConfigModal({
 }: AgentModelConfigModalProps) {
   const AgentModelEditorContent = useSlot('AgentModelEditorContent');
   const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
-  const model = useMemo(() => models.find(item => item.name === spec.model.name), [models, spec.model.name]);
+  const selectedKey = modelSelectionKey(spec.model);
+  const model = useMemo(() => models.find(item => item.name === selectedKey), [models, selectedKey]);
   const selectingModel = editor === 'model';
 
   return (

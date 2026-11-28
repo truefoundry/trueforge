@@ -46,7 +46,7 @@ def run_tfy(task, prompt, cap):
     # Inline agent spec: the shared model + system prompt and the MCP connectors (by
     # the names they are registered under in TrueForge), autonomous (no approval gates).
     spec = {
-        "model": {"name": os.environ["MODEL_TFY"]},
+        "model": {"type": "fixed", "name": os.environ["MODEL_TFY"]},
         "instructions": SYSTEM_PROMPT,
         "mcp_servers": [{"name": n, "enable_tools": ["@all"], "require_approval_for_tools": []}
                         for n in mcp],

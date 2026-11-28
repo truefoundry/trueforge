@@ -49,7 +49,7 @@ function renderEditor({
 }
 
 const mountedSpec: AgentSpec = {
-  model: { name: 'openai/gpt' },
+  model: { type: 'fixed', name: 'openai/gpt' },
   mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'] }],
 };
 
@@ -75,7 +75,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
       },
       onChange,
@@ -84,7 +84,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Require approval for list_items' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['list_items'] }],
     });
   });
@@ -93,7 +93,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [
           { id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@write', '@destructive'] },
         ],
@@ -104,7 +104,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Require approval for list_items' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@all'] }],
     });
   });
@@ -113,7 +113,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [
           { id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] },
         ],
@@ -124,7 +124,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Require approval for delete_item' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
     });
   });
@@ -133,7 +133,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [
           { id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] },
         ],
@@ -144,7 +144,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Require approval for rename_item' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'] }],
     });
   });
@@ -153,7 +153,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
       },
       onChange,
@@ -162,7 +162,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Require approval for all destructive tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] }],
     });
   });
@@ -171,7 +171,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
       },
       onChange,
@@ -180,7 +180,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Require approval for all other tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@write'] }],
     });
   });
@@ -196,7 +196,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(destructiveToggle);
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@write'] }],
     });
   });
@@ -213,7 +213,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
   it('hides approval controls for tools that are not enabled', () => {
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['delete_item'] }],
       },
       onChange: vi.fn(),
@@ -227,7 +227,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
   it('hides a section approval toggle when none of its tools are enabled', () => {
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['rename_item'] }],
       },
       onChange: vi.fn(),
@@ -240,7 +240,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
   });
 
   it('shows no approval controls until the server is added', () => {
-    renderEditor({ spec: { model: { name: 'openai/gpt' } }, onChange: vi.fn() });
+    renderEditor({ spec: { model: { type: 'fixed', name: 'openai/gpt' } }, onChange: vi.fn() });
 
     expect(screen.queryByRole('button', { name: /^Require approval for/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: /^Require approval for/ })).not.toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['delete_item'], requireApprovalForTools: [] }],
       },
       onChange,
@@ -260,7 +260,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Require approval for all destructive tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         { id: 'linear', name: 'Linear', enableTools: ['delete_item'], requireApprovalForTools: ['delete_item'] },
       ],
@@ -270,7 +270,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
   it('summarizes how many selected tools need approval', () => {
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['list_items', 'rename_item', 'delete_item'] }],
       },
       onChange: vi.fn(),
@@ -283,12 +283,12 @@ describe('AgentMcpEditorContent tool approvals', () => {
 
   it('enables every tool in a section from its Enable all switch', () => {
     const onChange = vi.fn();
-    renderEditor({ spec: { model: { name: 'openai/gpt' } }, onChange });
+    renderEditor({ spec: { model: { type: 'fixed', name: 'openai/gpt' } }, onChange });
 
     fireEvent.click(screen.getByRole('switch', { name: 'Enable all destructive tools' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['delete_item'] }],
     });
   });
@@ -297,7 +297,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [
           {
             id: 'linear',
@@ -313,7 +313,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'rename_item' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         {
           id: 'linear',
@@ -328,7 +328,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
-        model: { name: 'openai/gpt' },
+        model: { type: 'fixed', name: 'openai/gpt' },
         mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['list_items'], requireApprovalForTools: [] }],
       },
       onChange,
@@ -337,7 +337,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'delete_item' }));
 
     expect(onChange).toHaveBeenCalledWith({
-      model: { name: 'openai/gpt' },
+      model: { type: 'fixed', name: 'openai/gpt' },
       mcpServers: [
         {
           id: 'linear',

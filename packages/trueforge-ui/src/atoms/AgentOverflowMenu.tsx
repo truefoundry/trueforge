@@ -10,6 +10,7 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { modelSelectionKey } from './draft/autoModel.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cloneAgentSpec } from './lib/cloneAgentSpec.js';
 import { Button } from './primitives/Button.js';
@@ -98,7 +99,7 @@ export function AgentOverflowMenu({
     if (!canCreate || builder == null || cloneSpec == null) return;
     const normalizedName = cloneName.trim();
     const normalizedDescription = cloneDescription.trim();
-    if (!normalizedName || !normalizedDescription || !cloneSpec.model.name.trim()) return;
+    if (!normalizedName || !normalizedDescription || !modelSelectionKey(cloneSpec.model).trim()) return;
     setBusy(true);
     setCloneError(null);
     try {

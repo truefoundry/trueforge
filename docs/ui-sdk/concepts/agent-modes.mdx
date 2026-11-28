@@ -57,7 +57,7 @@ The default is `{ mode: "AgentLibraryWithComposer" }`.
 </Warning>
 
 <Warning>
-  Always pass an explicit `defaultAgentSpec` in composer modes. Omitting it falls back to `{ model: { name: "openai-main/gpt-4.1" } }`, and requests fail if your backend does not expose a model under that exact name.
+  Always pass an explicit `defaultAgentSpec` in composer modes. Omitting it falls back to `{ model: { type: "fixed", name: "openai-main/gpt-4.1" } }`, and requests fail if your backend does not expose a model under that exact name.
 </Warning>
 
 ## Settings

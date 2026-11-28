@@ -18,7 +18,7 @@ function mockNamedSession(id: string, title: string, updatedAt: string): Session
 function mockDraftSession(id: string, title: string | undefined, updatedAt: string): Session {
   return {
     id,
-    agentSpec: { model: { name: 'anthropic/claude-sonnet-4-6' } },
+    agentSpec: { model: { type: 'fixed', name: 'anthropic/claude-sonnet-4-6' } },
     ...(title === undefined ? {} : { title }),
     createdAt: updatedAt,
     updatedAt,

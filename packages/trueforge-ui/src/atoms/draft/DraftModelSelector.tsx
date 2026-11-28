@@ -1,6 +1,10 @@
 'use client';
 
-import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  modelParams,
+  useTrueForgeAgentSpec,
+  useTrueForgeUpdateAgentSpec,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
@@ -17,7 +21,13 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { AUTO_MODEL, AUTO_MODEL_PATCH, AUTO_MODEL_UNAVAILABLE_HINT, keepsAutoModel } from './autoModel.js';
+import {
+  AUTO_MODEL,
+  AUTO_MODEL_PATCH,
+  AUTO_MODEL_UNAVAILABLE_HINT,
+  keepsAutoModel,
+  modelSelectionKey,
+} from './autoModel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ModelWarningMark, ProviderMark } from './DraftModelCatalogPanel.js';
 import { DraftReasoningEffortMenu } from './DraftReasoningEffortMenu.js';
@@ -56,6 +66,9 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
     loaded && models.length === 0 && settingsChromeEnabled && canManageModelProviders && shell != null;
   const seededDefaultModelRef = useRef<string | null>(null);
   const isAutoModelKept = keepsAutoModel(capabilities);
+  const currentModel = agentSpec?.model;
+  const currentParams = currentModel === undefined ? undefined : modelParams(currentModel);
+  const currentKey = currentModel === undefined ? undefined : modelSelectionKey(currentModel);
 
   useEffect(() => {
     ensureLoaded();
@@ -68,7 +81,7 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
     const first = models[0];
     if (first === undefined) return;
     const firstValue = first.name;
-    const currentName = agentSpec?.model?.name?.trim() ?? '';
+    const currentName = currentKey?.trim() ?? '';
     if (currentName) {
       const available = currentName === AUTO_MODEL ? isAutoModelKept : models.some(m => m.name === currentName);
       if (available) {
@@ -79,14 +92,13 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
     if (seededDefaultModelRef.current === firstValue) return;
     seededDefaultModelRef.current = firstValue;
     updateAgentSpec({
-      model: modelPatchWithReasoningEffort(firstValue, agentSpec?.model?.params, first.properties.reasoningEfforts),
+      model: modelPatchWithReasoningEffort(firstValue, currentParams, first.properties.reasoningEfforts),
     });
-  }, [updateAgentSpec, loading, models, isAutoModelKept, agentSpec?.model?.name, agentSpec?.model?.params]);
+  }, [updateAgentSpec, loading, models, isAutoModelKept, currentKey, currentParams]);
 
-  const selectedName = agentSpec?.model?.name ?? models[0]?.name ?? '';
+  const selectedName = currentKey ?? models[0]?.name ?? '';
   const selected = models.find(m => m.name === selectedName);
   const selectedWarning = selected?.warning?.trim();
-  const currentParams = agentSpec?.model?.params;
   const currentEffort = currentParams?.reasoningEffort;
   // Other rows show what selecting them would apply (see `modelPatchWithReasoningEffort`).
   const effortFor = (model: ModelSelection): string | undefined =>

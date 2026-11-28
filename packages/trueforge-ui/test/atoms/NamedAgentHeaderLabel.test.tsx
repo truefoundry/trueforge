@@ -26,7 +26,7 @@ function SelectEditable() {
           isCreateAgent: true,
           agentId: 'reviewer',
           agentName: 'reviewer',
-          agentSpec: { model: { name: 'openai/gpt-4.1' } },
+          agentSpec: { model: { type: 'fixed', name: 'openai/gpt-4.1' } },
         })
       }
     >
@@ -45,7 +45,7 @@ function SelectCloneDraft() {
           isMutable: true,
           isCreateAgent: true,
           agentName: 'reviewer-clone',
-          agentSpec: { model: { name: 'openai/gpt-4.1' } },
+          agentSpec: { model: { type: 'fixed', name: 'openai/gpt-4.1' } },
         })
       }
     >

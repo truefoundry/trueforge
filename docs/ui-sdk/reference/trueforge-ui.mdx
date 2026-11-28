@@ -242,7 +242,7 @@ Persisted sessions remain available through the thread list.
 <TrueForgeUI
   server={{ type: "trueforge", baseUrl, token }}
   layout="sidebar"
-  agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
+  agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { type: "fixed", name: "openai-main/gpt-4.1" } } }}
   theme={{
     preset: "claude",
     brand: { mode: "logo", name: "Acme", icon: "/icon.svg", logo: "/wordmark.svg" },

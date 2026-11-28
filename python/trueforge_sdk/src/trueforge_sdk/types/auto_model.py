@@ -7,14 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class ThreadSwitchModelEventParams(UncheckedBaseModel):
+class AutoModel(UncheckedBaseModel):
+    candidate_models: typing.List[str] = pydantic.Field()
     """
-    Model parameters chosen with the model.
+    Full names (account/model) of 4 to 10 models the router may choose from.
     """
 
-    reasoning_effort: str = pydantic.Field()
+    type: typing.Literal["auto"] = pydantic.Field(default="auto")
     """
-    Reasoning effort chosen for the model.
+    Route each turn to the cheapest candidate model that suits the task.
     """
 
     if IS_PYDANTIC_V2:

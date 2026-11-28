@@ -2,7 +2,7 @@ import { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT } from '../../src
 
 describe('AgentSpec RuntimeConfig defaults', () => {
   it('materializes config when omitted', () => {
-    const spec = AgentSpecSchema.parse({ model: { name: 'provider/model' } });
+    const spec = AgentSpecSchema.parse({ model: { type: 'fixed', name: 'provider/model' } });
     expect(spec.config.iteration_limit).toBe(DEFAULT_AGENT_CONFIG_ITERATION_LIMIT);
     expect(spec.config.sandbox).toEqual({ enabled: false, file_downloads: true });
     expect(spec.config.generative_ui).toEqual({ enabled: true });
@@ -16,7 +16,7 @@ describe('AgentSpec RuntimeConfig defaults', () => {
 
   it('accepts an explicit memory toggle', () => {
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
+      model: { type: 'fixed', name: 'provider/model' },
       config: { memory: { enabled: true } },
     });
     expect(spec.config.memory).toEqual({ enabled: true });
@@ -24,7 +24,7 @@ describe('AgentSpec RuntimeConfig defaults', () => {
 
   it('accepts an explicit input-token compaction trigger', () => {
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
+      model: { type: 'fixed', name: 'provider/model' },
       config: {
         context_management: {
           compaction: {
@@ -43,7 +43,7 @@ describe('AgentSpec RuntimeConfig defaults', () => {
 
   it('fills generative_ui when other config fields are present', () => {
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
+      model: { type: 'fixed', name: 'provider/model' },
       config: { sandbox: { enabled: true } },
     });
     expect(spec.config.sandbox.enabled).toBe(true);
@@ -53,7 +53,7 @@ describe('AgentSpec RuntimeConfig defaults', () => {
 
   it('allows opting out of generative_ui', () => {
     const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
+      model: { type: 'fixed', name: 'provider/model' },
       config: { generative_ui: { enabled: false } },
     });
     expect(spec.config.generative_ui.enabled).toBe(false);

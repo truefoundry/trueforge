@@ -25,7 +25,7 @@ const detail: AgentDetail = {
   agentId: 'agent-1',
   name: 'release-notes-writer',
   agentSpec: {
-    model: { name: 'openai/gpt-5.1' },
+    model: { type: 'fixed', name: 'openai/gpt-5.1' },
     instructions: 'Write release notes.',
     mcpServers: [
       { name: 'slack', requireApprovalForTools: ['@destructive'] },

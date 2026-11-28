@@ -5,20 +5,20 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .thread_switch_model_event_params import ThreadSwitchModelEventParams
+from .model_params import ModelParams
 
 
-class ThreadSwitchModelEventModel(UncheckedBaseModel):
-    """
-    The chosen model and its parameters.
-    """
-
+class FixedModel(UncheckedBaseModel):
     name: str = pydantic.Field()
     """
-    Name of the chosen model, `provider/model`.
+    Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.
     """
 
-    params: ThreadSwitchModelEventParams
+    params: typing.Optional[ModelParams] = None
+    type: typing.Literal["fixed"] = pydantic.Field(default="fixed")
+    """
+    Run every turn on the model named in `name`.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

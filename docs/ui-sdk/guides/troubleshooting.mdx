@@ -66,7 +66,7 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="Requests fail in composer mode with an unknown model">
-    Without an explicit `defaultAgentSpec`, drafts default to `openai-main/gpt-4.1`. Pass a spec naming a model your backend actually exposes: `agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "..." } } }}`.
+    Without an explicit `defaultAgentSpec`, drafts default to `openai-main/gpt-4.1`. Pass a spec naming a model your backend actually exposes: `agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { type: "fixed", name: "..." } } }}`.
   </Accordion>
 
   <Accordion title="Changing defaultAgentSpec did not affect the open conversation">

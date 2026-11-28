@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
+import { modelParams } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigPanel } from '@/atoms/draft/AgentConfigPanel.js';
@@ -47,6 +48,7 @@ const catalogProps = {
 
 const spec: AgentSpec = {
   model: {
+    type: 'fixed',
     name: model.name,
     params: {
       maxTokens: 25000,
@@ -190,8 +192,9 @@ describe('AgentConfigPanel', () => {
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       model: {
+        type: 'fixed',
         name: secondModel.name,
-        params: { ...spec.model.params, reasoningEffort: undefined },
+        params: { ...modelParams(spec.model), reasoningEffort: undefined },
       },
     });
     expect(onOpenEditor).not.toHaveBeenCalledWith('model');

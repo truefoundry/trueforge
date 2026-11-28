@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .thread_switch_model_event_model import ThreadSwitchModelEventModel
+from .model import Model
 
 
 class ThreadSwitchModelEvent(UncheckedBaseModel):
@@ -19,7 +19,7 @@ class ThreadSwitchModelEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    model: ThreadSwitchModelEventModel
+    model: Model
     thread_id: str = pydantic.Field()
     """
     Thread the model was selected for.

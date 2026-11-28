@@ -315,7 +315,7 @@ describe('harnessBuilderServer', () => {
                     id: 'agt_2',
                     name: 'writer',
                     description: 'Writes docs.',
-                    manifest: { model: { name: 'test/model' } },
+                    manifest: { model: { type: 'fixed', name: 'test/model' } },
                   },
                 ]
               : [
@@ -329,7 +329,7 @@ describe('harnessBuilderServer', () => {
                       subject_display_name: 'Alice',
                     },
                     manifest: {
-                      model: { name: 'test/model' },
+                      model: { type: 'fixed', name: 'test/model' },
                       instructions: 'Review carefully.',
                       skills: [{ name: 'review' }],
                       mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
@@ -339,7 +339,7 @@ describe('harnessBuilderServer', () => {
                     id: 'agt_2',
                     name: 'writer',
                     description: 'Writes docs.',
-                    manifest: { model: { name: 'test/model' } },
+                    manifest: { model: { type: 'fixed', name: 'test/model' } },
                   },
                 ],
           pagination: { limit: 25 },
@@ -361,7 +361,7 @@ describe('harnessBuilderServer', () => {
       },
       description: 'Reviews pull requests.',
       agentSpec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         instructions: 'Review carefully.',
         skills: [{ name: 'review', preload: false }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
@@ -390,13 +390,13 @@ describe('harnessBuilderServer', () => {
       const pageToken = parsed.searchParams.get('page_token');
       if (pageToken == null || pageToken === '') {
         return Response.json({
-          data: [{ id: 'agt_1', name: 'alpha', manifest: { model: { name: 'test/model' } } }],
+          data: [{ id: 'agt_1', name: 'alpha', manifest: { model: { type: 'fixed', name: 'test/model' } } }],
           pagination: { limit: 1, next_page_token: 'tok_2' },
         });
       }
       if (pageToken === 'tok_2') {
         return Response.json({
-          data: [{ id: 'agt_2', name: 'beta', manifest: { model: { name: 'test/model' } } }],
+          data: [{ id: 'agt_2', name: 'beta', manifest: { model: { type: 'fixed', name: 'test/model' } } }],
           pagination: { limit: 1, previous_page_token: 'tok_1' },
         });
       }
@@ -441,7 +441,7 @@ describe('harnessBuilderServer', () => {
           data: {
             id: 'agt_new',
             name: 'saved-agent',
-            manifest: { model: { name: 'test/model' } },
+            manifest: { model: { type: 'fixed', name: 'test/model' } },
           },
         });
       }
@@ -452,7 +452,7 @@ describe('harnessBuilderServer', () => {
     const result = await builder.saveAgent({
       agentName: 'saved-agent',
       agentSpec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         skills: [{ name: 'review' }],
       },
       intent: 'create',
@@ -463,7 +463,7 @@ describe('harnessBuilderServer', () => {
       name: 'saved-agent',
       description: 'saved-agent',
       manifest: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         skills: [{ name: 'review', preload: false }],
       },
     });
@@ -481,7 +481,7 @@ describe('harnessBuilderServer', () => {
             id: 'agt_desc',
             name: 'described-agent',
             description: 'Helps with reviews.',
-            manifest: { model: { name: 'test/model' } },
+            manifest: { model: { type: 'fixed', name: 'test/model' } },
           },
         });
       }
@@ -493,7 +493,7 @@ describe('harnessBuilderServer', () => {
       agentName: 'described-agent',
       description: 'Helps with reviews.',
       agentSpec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         skills: [{ name: 'review' }],
       },
       intent: 'create',
@@ -503,7 +503,7 @@ describe('harnessBuilderServer', () => {
       name: 'described-agent',
       description: 'Helps with reviews.',
       manifest: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         skills: [{ name: 'review', preload: false }],
       },
     });
@@ -516,7 +516,7 @@ describe('harnessBuilderServer', () => {
       const method = init?.method ?? 'GET';
       if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
-          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { type: 'fixed', name: 'test/model' } } }],
           pagination: { limit: 25 },
         });
       }
@@ -527,7 +527,7 @@ describe('harnessBuilderServer', () => {
             id: 'agt_1',
             name: 'writer',
             manifest: {
-              model: { name: 'test/model' },
+              model: { type: 'fixed', name: 'test/model' },
               instructions: 'Write release notes.',
             },
           },
@@ -540,7 +540,7 @@ describe('harnessBuilderServer', () => {
     const result = await builder.saveAgent({
       agentName: 'writer',
       agentSpec: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         instructions: 'Write release notes.',
       },
       intent: 'update',
@@ -550,7 +550,7 @@ describe('harnessBuilderServer', () => {
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0]?.body, {
       manifest: {
-        model: { name: 'test/model' },
+        model: { type: 'fixed', name: 'test/model' },
         instructions: 'Write release notes.',
       },
     });
@@ -564,7 +564,7 @@ describe('harnessBuilderServer', () => {
       requests.push({ method, url });
       if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
-          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { type: 'fixed', name: 'test/model' } } }],
           pagination: { limit: 25 },
         });
       }

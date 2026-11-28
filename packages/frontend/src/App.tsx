@@ -152,7 +152,7 @@ export function App() {
           setBoot({
             status: 'ready',
             defaultAgentSpec: {
-              model: { name: '' },
+              model: { type: 'fixed', name: '' },
               config: sandboxConfig,
             },
           });
@@ -163,6 +163,7 @@ export function App() {
           status: 'ready',
           defaultAgentSpec: {
             model: {
+              type: 'fixed',
               name: first.name,
               ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
             },

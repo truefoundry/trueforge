@@ -210,7 +210,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.rememberDraftSpec(
         {
-          model: { name: 'saved/model' },
+          model: { type: 'fixed' as const, name: 'saved/model' },
           instructions: 'Keep building trips.',
           mcpServers: [{ name: 'exa' }],
           skills: [{ name: 'research' }],
@@ -224,7 +224,7 @@ describe('ShellModeProvider', () => {
         agentId: 'saved',
         agentName: 'saved',
         agentSpec: {
-          model: { name: 'saved/model' },
+          model: { type: 'fixed' as const, name: 'saved/model' },
           instructions: 'Keep building trips.',
           mcpServers: [{ name: 'exa' }],
           skills: [{ name: 'research' }],
@@ -242,7 +242,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: true,
       agentSpec: {
-        model: { name: 'saved/model' },
+        model: { type: 'fixed' as const, name: 'saved/model' },
         config: { sandbox: { enabled: true } },
       },
     });
@@ -263,7 +263,7 @@ describe('ShellModeProvider', () => {
         agentId: 'saved',
         agentName: 'saved',
         agentSpec: {
-          model: { name: 'saved/model' },
+          model: { type: 'fixed' as const, name: 'saved/model' },
           instructions: 'Keep building trips.',
           mcpServers: [{ name: 'exa' }],
           skills: [{ name: 'research' }],
@@ -281,7 +281,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: true,
       agentSpec: {
-        model: { name: 'saved/model' },
+        model: { type: 'fixed' as const, name: 'saved/model' },
         config: { sandbox: { enabled: true } },
       },
     });
@@ -297,7 +297,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.rememberDraftSpec(
         {
-          model: { name: 'saved/model' },
+          model: { type: 'fixed' as const, name: 'saved/model' },
           instructions: 'Keep building trips.',
           mcpServers: [{ name: 'exa' }],
           skills: [{ name: 'research' }],
@@ -311,7 +311,7 @@ describe('ShellModeProvider', () => {
         agentId: 'saved',
         agentName: 'saved',
         agentSpec: {
-          model: { name: 'saved/model' },
+          model: { type: 'fixed' as const, name: 'saved/model' },
           instructions: 'Keep building trips.',
           mcpServers: [{ name: 'exa' }],
           skills: [{ name: 'research' }],
@@ -328,7 +328,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: true,
       agentSpec: {
-        model: { name: 'saved/model' },
+        model: { type: 'fixed' as const, name: 'saved/model' },
         config: { sandbox: { enabled: true } },
       },
     });
@@ -345,7 +345,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.rememberDraftSpec(
         {
-          model: { name: 'opened/model' },
+          model: { type: 'fixed' as const, name: 'opened/model' },
           config: { sandbox: { enabled: false } },
         },
         'agent',
@@ -354,7 +354,7 @@ describe('ShellModeProvider', () => {
 
     act(() =>
       result.current.resetAgentBuilder({
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         mcpServers: [{ name: 'exa' }],
         config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
       }),
@@ -365,7 +365,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: true,
       agentSpec: {
-        model: { name: 'live/model' },
+        model: { type: 'fixed' as const, name: 'live/model' },
         config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
       },
     });
@@ -376,7 +376,7 @@ describe('ShellModeProvider', () => {
   it('restores the active agent draft after visiting New Chat', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     const agentDraft = {
-      model: { name: 'chosen/model' },
+      model: { type: 'fixed' as const, name: 'chosen/model' },
       instructions: 'Keep these instructions.',
     };
 
@@ -537,7 +537,7 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentComposer',
-        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        defaultAgentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       }),
     });
     expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
@@ -558,7 +558,7 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({
         mode: 'AgentComposer',
         defaultAgentSpec: {
-          model: { name: 'openai-main/gpt-4.1' },
+          model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: true } },
         },
       }),
@@ -568,7 +568,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.shell.rememberDraftSpec(
         {
-          model: { name: 'openai-main/gpt-4.1' },
+          model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
         },
         'chat',
@@ -586,7 +586,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.shell.rememberDraftSpec(
         {
-          model: { name: 'openai-main/gpt-4.1' },
+          model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: false } },
         },
         'chat',
@@ -618,7 +618,7 @@ describe('ShellModeProvider', () => {
       {
         wrapper: wrapWithServer(server, {
           mode: 'AgentComposer',
-          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          defaultAgentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
         }),
       },
     );
@@ -658,7 +658,7 @@ describe('ShellModeProvider', () => {
       {
         wrapper: wrapWithServer(server, {
           mode: 'AgentComposer',
-          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          defaultAgentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
         }),
       },
     );
@@ -667,7 +667,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.shell.rememberDraftSpec(
         {
-          model: { name: 'openai-main/gpt-4.1' },
+          model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
           config: { webSearch: { enabled: true } },
         },
         'chat',
@@ -675,7 +675,7 @@ describe('ShellModeProvider', () => {
     );
 
     expect(readDraftSpecPreferences('chat')).toEqual({
-      model: { name: 'openai-main/gpt-4.1' },
+      model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
     });
   });
 
@@ -721,7 +721,7 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
     const spec = {
-      model: { name: 'custom/model' },
+      model: { type: 'fixed' as const, name: 'custom/model' },
       skills: [{ id: 's1', name: 'Skill' }],
       mcpServers: [{ id: 'm1', name: 'MCP' }],
     };
@@ -751,7 +751,7 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
     const spec = {
-      model: { name: 'custom/model' },
+      model: { type: 'fixed' as const, name: 'custom/model' },
       skills: [{ id: 's1', name: 'Skill' }],
     };
 
@@ -784,11 +784,11 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
     const opened = {
-      model: { name: 'opened/model' },
+      model: { type: 'fixed' as const, name: 'opened/model' },
       instructions: 'Opened instructions.',
     };
     const live = {
-      model: { name: 'live/model' },
+      model: { type: 'fixed' as const, name: 'live/model' },
       instructions: 'Keep these instructions.',
       mcpServers: [{ name: 'exa' }],
       skills: [{ name: 'research' }],
@@ -983,7 +983,7 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentLibraryWithComposer',
-        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        defaultAgentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       }),
     });
 
@@ -992,7 +992,7 @@ describe('ShellModeProvider', () => {
         isMutable: true,
         agentId: 'writer',
         agentName: 'writer',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' }, instructions: 'Write.' },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' }, instructions: 'Write.' },
       }),
     );
     expect(result.current.mode).toMatchObject({ agentName: 'writer', isMutable: true });
@@ -1002,7 +1002,7 @@ describe('ShellModeProvider', () => {
       status: 'active',
       isMutable: true,
       isCreateAgent: false,
-      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       locked: false,
     });
     expect(result.current.pendingSessionId).toBe('sess-other');
@@ -1014,7 +1014,11 @@ describe('ShellModeProvider', () => {
     });
     await result.current.queryClient.fetchQuery({
       queryKey: queryKeys.agentDetails.agent('writer'),
-      queryFn: async () => ({ agentId: 'writer', name: 'writer', agentSpec: { model: { name: 'm' } } }),
+      queryFn: async () => ({
+        agentId: 'writer',
+        name: 'writer',
+        agentSpec: { model: { type: 'fixed' as const, name: 'm' } },
+      }),
     });
     expect(result.current.shell.agentsListEpoch).toBe(0);
     act(() => result.current.shell.invalidateAgentsList());
@@ -1035,7 +1039,7 @@ describe('ShellModeProvider', () => {
     });
     const keyBefore = result.current.runtimeKey;
     const spec = {
-      model: { name: 'openai-main/gpt-4.1' },
+      model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' },
       instructions: 'Saved.',
     };
 
@@ -1063,7 +1067,7 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentLibraryWithComposer',
-        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        defaultAgentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       }),
     });
     const keyBefore = result.current.runtimeKey;
@@ -1072,7 +1076,7 @@ describe('ShellModeProvider', () => {
       result.current.bindMutableAgent({
         agentId: 'saved',
         agentName: 'saved',
-        agentSpec: { model: { name: 'other/model' }, instructions: 'Saved.' },
+        agentSpec: { model: { type: 'fixed' as const, name: 'other/model' }, instructions: 'Saved.' },
       }),
     );
 
@@ -1080,7 +1084,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toMatchObject({
       agentId: 'saved',
       agentName: 'saved',
-      agentSpec: { model: { name: 'other/model' } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'other/model' } },
     });
   });
 
@@ -1094,7 +1098,7 @@ describe('ShellModeProvider', () => {
       result.current.bindMutableAgent({
         agentId: 'x',
         agentName: 'x',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        agentSpec: { model: { type: 'fixed' as const, name: 'openai-main/gpt-4.1' } },
       }),
     );
 
@@ -1105,13 +1109,13 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentLibraryWithComposer',
-        defaultAgentSpec: { model: { name: 'default/model' } },
+        defaultAgentSpec: { model: { type: 'fixed' as const, name: 'default/model' } },
       }),
     });
 
     act(() =>
       result.current.rememberDraftSpec({
-        model: { name: 'chosen/model' },
+        model: { type: 'fixed' as const, name: 'chosen/model' },
         skills: [{ name: 'Research' }],
         mcpServers: [{ name: 'GitHub' }],
         config: { sandbox: { enabled: true } },
@@ -1121,7 +1125,7 @@ describe('ShellModeProvider', () => {
     act(() =>
       result.current.rememberDraftSpec(
         {
-          model: { name: 'agent/model' },
+          model: { type: 'fixed' as const, name: 'agent/model' },
           skills: [{ name: 'Code' }],
           mcpServers: [{ name: 'Linear' }],
           config: { sandbox: { enabled: true } },
@@ -1137,7 +1141,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: false,
       agentSpec: {
-        model: { name: 'chosen/model' },
+        model: { type: 'fixed' as const, name: 'chosen/model' },
         skills: [{ name: 'Research' }],
         mcpServers: [{ name: 'GitHub' }],
       },
@@ -1152,7 +1156,7 @@ describe('ShellModeProvider', () => {
       isMutable: true,
       isCreateAgent: true,
       agentSpec: {
-        model: { name: 'agent/model' },
+        model: { type: 'fixed' as const, name: 'agent/model' },
         skills: [{ name: 'Code' }],
         mcpServers: [{ name: 'Linear' }],
         config: { sandbox: { enabled: true } },
@@ -1161,7 +1165,10 @@ describe('ShellModeProvider', () => {
   });
 
   it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
-    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
+    const hostSeed = {
+      model: { type: 'fixed' as const, name: 'chosen/model' },
+      config: { sandbox: { enabled: true } },
+    };
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
@@ -1169,7 +1176,7 @@ describe('ShellModeProvider', () => {
     act(() => result.current.rememberDraftSpec(hostSeed, 'agent'));
 
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'chosen/model' },
+      model: { type: 'fixed' as const, name: 'chosen/model' },
       config: { sandbox: { enabled: true } },
     });
   });
@@ -1193,10 +1200,12 @@ describe('ShellModeProvider', () => {
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(true));
 
-    act(() => result.current.shell.rememberDraftSpec({ model: { name: 'chosen/model' } }, 'agent'));
+    act(() =>
+      result.current.shell.rememberDraftSpec({ model: { type: 'fixed' as const, name: 'chosen/model' } }, 'agent'),
+    );
 
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'chosen/model' },
+      model: { type: 'fixed' as const, name: 'chosen/model' },
     });
   });
 
@@ -1218,12 +1227,15 @@ describe('ShellModeProvider', () => {
       { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
-    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
+    const hostSeed = {
+      model: { type: 'fixed' as const, name: 'chosen/model' },
+      config: { sandbox: { enabled: true } },
+    };
 
     act(() => result.current.shell.rememberDraftSpec(hostSeed, 'agent'));
 
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'chosen/model' },
+      model: { type: 'fixed' as const, name: 'chosen/model' },
       config: { sandbox: { enabled: false } },
     });
   });
@@ -1234,7 +1246,7 @@ describe('ShellModeProvider', () => {
       JSON.stringify({
         version: 1,
         spec: {
-          model: { name: 'remembered/model' },
+          model: { type: 'fixed' as const, name: 'remembered/model' },
           config: { sandbox: { enabled: true } },
         },
       }),
@@ -1243,7 +1255,7 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentComposer',
-        defaultAgentSpec: { model: { name: 'default/model' } },
+        defaultAgentSpec: { model: { type: 'fixed' as const, name: 'default/model' } },
       }),
     });
 
@@ -1251,13 +1263,13 @@ describe('ShellModeProvider', () => {
       status: 'active',
       isMutable: true,
       isCreateAgent: false,
-      agentSpec: { model: { name: 'remembered/model' } },
+      agentSpec: { model: { type: 'fixed' as const, name: 'remembered/model' } },
     });
     if (result.current.mode.status !== 'active') throw new Error('expected active mode');
     expect(result.current.mode.agentSpec).not.toHaveProperty('config');
-    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'remembered/model' } });
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { type: 'fixed' as const, name: 'remembered/model' } });
     expect(readDraftSpecPreferences('agent')).toEqual({
-      model: { name: 'remembered/model' },
+      model: { type: 'fixed' as const, name: 'remembered/model' },
       config: { sandbox: { enabled: true } },
     });
   });

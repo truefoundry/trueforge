@@ -110,7 +110,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, Model, TrueForge
+        from trueforge_sdk import AgentSpec, FixedModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -119,7 +119,7 @@ class AgentsClient:
         client.agents.create(
             description="description",
             manifest=AgentSpec(
-                model=Model(
+                model=FixedModel(
                     name="name",
                 ),
             ),
@@ -193,7 +193,7 @@ class AgentsClient:
 
         Examples
         --------
-        from trueforge_sdk import AgentSpec, Model, TrueForge
+        from trueforge_sdk import AgentSpec, FixedModel, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -202,7 +202,7 @@ class AgentsClient:
         client.agents.update(
             agent_id="agent_id",
             manifest=AgentSpec(
-                model=Model(
+                model=FixedModel(
                     name="name",
                 ),
             ),
@@ -350,7 +350,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, Model
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, FixedModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -362,7 +362,7 @@ class AsyncAgentsClient:
             await client.agents.create(
                 description="description",
                 manifest=AgentSpec(
-                    model=Model(
+                    model=FixedModel(
                         name="name",
                     ),
                 ),
@@ -449,7 +449,7 @@ class AsyncAgentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AgentSpec, AsyncTrueForge, Model
+        from trueforge_sdk import AgentSpec, AsyncTrueForge, FixedModel
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -461,7 +461,7 @@ class AsyncAgentsClient:
             await client.agents.update(
                 agent_id="agent_id",
                 manifest=AgentSpec(
-                    model=Model(
+                    model=FixedModel(
                         name="name",
                     ),
                 ),

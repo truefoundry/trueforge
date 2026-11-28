@@ -28,7 +28,7 @@ describe('SqliteMemoryIngestStore (IMemoryIngestStore contract)', () => {
           name: agent_id,
           description: '',
           manifest: jsonbBind({
-            model: { name: 'test-provider/test-model' },
+            model: { type: 'fixed', name: 'test-provider/test-model' },
             instructions: 'test',
             config: { memory: { enabled: memory_enabled } },
           }),

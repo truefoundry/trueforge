@@ -25,13 +25,22 @@ function isMountList(value: unknown): boolean {
   return Array.isArray(value) && value.every(isObject);
 }
 
+/** Specs stored before models had a `type` fail this check and are dropped. */
+function isModel(model: unknown): boolean {
+  if (!isObject(model)) return false;
+  const type = Reflect.get(model, 'type');
+  if (type === 'auto') {
+    const candidateModels = Reflect.get(model, 'candidateModels');
+    return Array.isArray(candidateModels) && candidateModels.every(name => typeof name === 'string');
+  }
+  if (type !== 'fixed' || typeof Reflect.get(model, 'name') !== 'string') return false;
+  const params = Reflect.get(model, 'params');
+  return params === undefined || isObject(params);
+}
+
 function isAgentSpec(value: unknown): value is AgentSpec {
   if (!isObject(value)) return false;
-  const model = Reflect.get(value, 'model');
-  if (!isObject(model) || typeof Reflect.get(model, 'name') !== 'string') return false;
-
-  const params = Reflect.get(model, 'params');
-  if (params !== undefined && !isObject(params)) return false;
+  if (!isModel(Reflect.get(value, 'model'))) return false;
 
   const skills = Reflect.get(value, 'skills');
   if (skills !== undefined && !isMountList(skills)) return false;

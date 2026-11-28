@@ -178,7 +178,8 @@ export interface PutRemoteAgentInput {
   accessToken: string;
   name: string;
   description: string;
-  model: string;
+  /** Every model the agent may run on (`provider/model`); each gets a grant. */
+  models: readonly string[];
   mcp_servers: string[];
 }
 
@@ -334,7 +335,7 @@ export class TrueFoundryServiceFoundryServerClient {
       body: {
         name: input.name,
         description: input.description,
-        model: input.model,
+        models: input.models,
         mcp_servers: input.mcp_servers,
       },
     });

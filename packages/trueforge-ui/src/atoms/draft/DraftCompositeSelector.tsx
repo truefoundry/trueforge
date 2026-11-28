@@ -25,6 +25,7 @@ import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { WEB_SEARCH_ONE_WAY_OFF_HINT, WEB_SEARCH_UNAVAILABLE_HINT, webSearchGate } from './agentCapabilities.js';
+import { modelSelectionKey } from './autoModel.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
@@ -389,7 +390,7 @@ export function DraftCompositeSelector({ disabled, onAttach }: DraftCompositeSel
   const selectedMcp = open ? localMcp : specMcp;
   const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
-  const hasValidModel = Boolean(agentSpec?.model?.name.trim());
+  const hasValidModel = Boolean(agentSpec && modelSelectionKey(agentSpec.model).trim());
   const toolsCount =
     selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0) + (trueforgeEnabled ? 1 : 0);
   const toolsTooltip = useMemo(() => {

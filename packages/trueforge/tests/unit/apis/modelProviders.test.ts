@@ -215,7 +215,7 @@ describe('settings model-providers and models routers', () => {
         created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
         name: 'support',
         description: 'Test agent.',
-        manifest: AgentSpecSchema.parse({ model: { name: modelName } }),
+        manifest: AgentSpecSchema.parse({ model: { type: 'fixed', name: modelName } }),
         external_id: null,
       });
       return routers;

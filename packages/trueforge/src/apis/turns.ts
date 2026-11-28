@@ -396,6 +396,7 @@ function turnModelRouting(input: {
     },
     listModels: () =>
       listAutoCandidateModels({ tenant_id, modelProviderStore, autoModelRouting: input.autoModelRouting }),
+    candidateModels: candidate_models,
   };
 }
 

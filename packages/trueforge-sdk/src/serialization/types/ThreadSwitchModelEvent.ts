@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ThreadSwitchModelEventModel } from "./ThreadSwitchModelEventModel.js";
+import { Model } from "./Model.js";
 
 export const ThreadSwitchModelEvent: core.serialization.ObjectSchema<
     serializers.ThreadSwitchModelEvent.Raw,
@@ -11,7 +11,7 @@ export const ThreadSwitchModelEvent: core.serialization.ObjectSchema<
 > = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
-    model: ThreadSwitchModelEventModel,
+    model: Model,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     type: core.serialization.stringLiteral("thread.switch_model"),
 });
@@ -20,7 +20,7 @@ export declare namespace ThreadSwitchModelEvent {
     export interface Raw {
         created_at: string;
         id: string;
-        model: ThreadSwitchModelEventModel.Raw;
+        model: Model.Raw;
         thread_id: string;
         type: "thread.switch_model";
     }
