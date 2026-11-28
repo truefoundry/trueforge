@@ -238,7 +238,7 @@ export function DraftModelSelector({ disabled }: DraftModelSelectorProps) {
           onClick={() => (open ? close() : setOpen(true))}
         >
           {selectedName === AUTO_MODEL ? (
-            <Icon name="wand" className="size-3.5 shrink-0" aria-hidden />
+            <Icon name="wand-sparkles" className="size-3.5 shrink-0" aria-hidden />
           ) : (
             <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
           )}

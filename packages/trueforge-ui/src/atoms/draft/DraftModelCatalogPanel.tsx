@@ -229,7 +229,7 @@ export function DraftModelCatalogPanel({
                   )}
                   onClick={autoOption.onSelect}
                 >
-                  <Icon name="wand" className="size-3.5 shrink-0" aria-hidden />
+                  <Icon name="wand-sparkles" className="size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0">
                     <span className="block truncate font-normal">{AUTO_MODEL_LABEL}</span>
                     {autoOption.enabled ? null : (

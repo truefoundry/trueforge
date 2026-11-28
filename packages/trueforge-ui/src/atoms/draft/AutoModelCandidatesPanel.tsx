@@ -8,6 +8,7 @@ import {
   tierLabel,
   uncoveredTiers,
 } from '../../containers/SettingsBuilder/autoRoutingTiers.js';
+import { Icon } from '../../icons/Icon.js';
 import type { AutoRoutingCategory, ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
@@ -77,6 +78,9 @@ function CandidateRow({ label, caption, categories, checked, blockedReason, onTo
           <span className="text-warning-bg mt-0.5 block truncate text-[0.625rem]">{caption}</span>
         )}
       </span>
+      {caption === undefined ? null : (
+        <Icon name="triangle-exclamation" className="text-warning-bg size-4 shrink-0" aria-hidden />
+      )}
       {categories.length > 0 ? (
         <span aria-hidden title={covered} className="flex shrink-0 gap-[0.1875rem]">
           {tierCells(categories).map(cell => (
