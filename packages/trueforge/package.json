@@ -61,6 +61,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.77",
+    "@aws-sdk/client-s3": "^3.1176.0",
+    "@aws-sdk/s3-request-presigner": "^3.1176.0",
     "@daytona/sdk": "^0.218.0",
     "@getzep/zep-cloud": "^4.1.0",
     "@hono/node-server": "^2.1.6",

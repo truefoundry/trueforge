@@ -433,6 +433,32 @@ function resolveLocalSandboxRootParent(appDataDir: string): string {
   return path.join(appDataDir, 'sandboxes');
 }
 
+function resolveObjectStoreConfig(appDataDir: string): ObjectStoreConfig {
+  const type = optionalNonEmptyEnv('OBJECT_STORE_TYPE')?.trim() ?? 'local';
+  if (type === 'local') {
+    return { type, root: resolveOptionalPathEnv('OBJECT_STORE_ROOT') ?? path.join(appDataDir, 'objects') };
+  }
+  if (type === 's3') {
+    const bucket = optionalNonEmptyEnv('OBJECT_STORE_S3_BUCKET');
+    if (bucket === undefined) {
+      throw new Error('OBJECT_STORE_S3_BUCKET is required when OBJECT_STORE_TYPE=s3.');
+    }
+    return {
+      type,
+      bucket,
+      prefix: (getEnv('OBJECT_STORE_S3_PREFIX') ?? '').replace(/^\/+|\/+$/g, ''),
+      region: optionalNonEmptyEnv('OBJECT_STORE_S3_REGION'),
+      endpoint: optionalNonEmptyEnv('OBJECT_STORE_S3_ENDPOINT'),
+      presignTtlSeconds: parsePositiveInt({
+        envKey: 'OBJECT_STORE_PRESIGN_TTL_SECONDS',
+        raw: getEnv('OBJECT_STORE_PRESIGN_TTL_SECONDS'),
+        defaultValue: 300,
+      }),
+    };
+  }
+  throw new Error(`Environment variable OBJECT_STORE_TYPE must be "local" or "s3", got ${JSON.stringify(type)}`);
+}
+
 /** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
 function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
@@ -731,6 +757,18 @@ export interface OIDCConfig {
   OIDC_ALLOWED_EMAILS: string[];
 }
 
+export type ObjectStoreConfig =
+  | { type: 'local'; root: string }
+  | {
+      type: 's3';
+      bucket: string;
+      prefix: string;
+      region: string | undefined;
+      /** S3-compatible endpoint (e.g. MinIO); uses path-style addressing when set. */
+      endpoint: string | undefined;
+      presignTtlSeconds: number;
+    };
+
 export interface SharedServerConfiguration {
   /** Log level. Env: `LOG_LEVEL`. */
   LOG_LEVEL: string;
@@ -815,6 +853,13 @@ export interface SharedServerConfiguration {
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
   MAX_REQUEST_BODY_BYTES: number;
+  /**
+   * Storage for files kept outside sandboxes. Env: `OBJECT_STORE_TYPE` (`local` | `s3`). Default `local`.
+   * Local: `OBJECT_STORE_ROOT` (default `{env-paths data}/objects`).
+   * S3: `OBJECT_STORE_S3_BUCKET` (required), `OBJECT_STORE_S3_PREFIX`, `OBJECT_STORE_S3_REGION`,
+   * `OBJECT_STORE_S3_ENDPOINT`, `OBJECT_STORE_PRESIGN_TTL_SECONDS` (default 300).
+   */
+  OBJECT_STORE: ObjectStoreConfig;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
@@ -1270,6 +1315,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
     defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
+  OBJECT_STORE: resolveObjectStoreConfig(appDataDir),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
     raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
