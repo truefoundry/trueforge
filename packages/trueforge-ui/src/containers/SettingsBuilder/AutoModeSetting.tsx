@@ -82,34 +82,30 @@ const AutoModeSetting = () => {
         <Skeleton data-testid="auto-mode-setting-skeleton" className="mt-4 h-16 w-full rounded-xl" />
       ) : null}
       {enabled !== undefined ? (
-        <div className="mt-4 rounded-xl border border-border bg-card-bg p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h4 className="text-base font-semibold text-text-primary">Auto Model Routing</h4>
-              <p className="mt-0.5 text-sm text-text-secondary">
-                {enabled ? (
-                  <>
-                    Each task is matched to a tier: Answer, Execute, Analyze or Frontier. Auto picks a suitable model
-                    from the ones you select, so include at least one for every tier.
-                  </>
-                ) : (
-                  'Intelligently picks a suitable model for each task.'
-                )}
-              </p>
+        <div className="mt-4">
+          <div className="rounded-xl border border-border bg-card-bg">
+            <div className="flex items-start justify-between gap-6 p-6">
+              <div className="flex min-w-0 max-w-[42.5rem] flex-col gap-1.5">
+                <h4 className="text-lg font-semibold text-text-primary">Auto model routing</h4>
+                <p className="text-pretty text-sm leading-[1.375rem] text-text-secondary">
+                  {enabled
+                    ? 'Each task is matched to a tier: routine, tool-driven, adaptive or frontier. Auto picks a suitable model from the ones you select, so include at least one for every tier.'
+                    : 'Intelligently picks a suitable model for each task.'}
+                </p>
+              </div>
+              <Switch
+                size="md"
+                checked={enabled}
+                disabled={saveMutation.isPending}
+                // Held while saving without dimming, so the switch doesn't flash.
+                className="disabled:opacity-100"
+                aria-label="Auto model routing"
+                onCheckedChange={next => {
+                  saveMutation.mutate({ enabled: next });
+                }}
+              />
             </div>
-            <Switch
-              checked={enabled}
-              disabled={saveMutation.isPending}
-              // Held while saving without dimming, so the switch doesn't flash.
-              className="disabled:opacity-100"
-              aria-label="Auto Model Routing"
-              onCheckedChange={next => {
-                saveMutation.mutate({ enabled: next });
-              }}
-            />
-          </div>
-          {enabled && routing ? (
-            <div className="mt-3 border-t border-border pt-3">
+            {enabled && routing ? (
               <AutoModelCandidateList
                 // Restarts the draft when the saved list changes.
                 key={JSON.stringify(routing.candidateModels)}
@@ -119,7 +115,12 @@ const AutoModeSetting = () => {
                   saveMutation.mutate({ candidateModels: next });
                 }}
               />
-            </div>
+            ) : null}
+          </div>
+          {enabled && routing ? (
+            <p className="mt-3 text-[0.8125rem] text-text-secondary">
+              Tier coverage is set per model by the platform and shown read-only.
+            </p>
           ) : null}
         </div>
       ) : null}

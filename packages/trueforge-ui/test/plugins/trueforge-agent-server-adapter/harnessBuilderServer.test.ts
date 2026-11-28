@@ -8,6 +8,11 @@ import {
 } from '@/plugins/trueforge-agent-server-adapter/builderServer.js';
 import { allSettingsSections } from '../../server/settingsCapabilityFixture.js';
 
+const SUPPORTED_WIRE = { supported: true, enabled: false, categories: ['execute', 'analyze'] };
+const SUPPORTED_UI = { supported: true, enabled: false, categories: ['execute', 'analyze'] };
+const UNSUPPORTED_WIRE = { supported: false, unsupported_reason: 'The model has no canonical model mapping.' };
+const UNSUPPORTED_UI = { supported: false, unsupportedReason: 'The model has no canonical model mapping.' };
+
 function isAgentsCollectionUrl(url: string): boolean {
   return new URL(url).pathname.endsWith('/api/v1/agents');
 }
@@ -57,6 +62,7 @@ describe('harnessBuilderServer', () => {
           contextLength: 200_000,
           maxOutputTokens: 100_000,
           reasoningEfforts: ['low', 'medium', 'high'],
+          autoRouting: { supported: true, enabled: true, categories: ['answer', 'execute'] },
         },
         warning: "Reasoning effort is not configured for this model, which may affect TrueForge's performance.",
       },
@@ -77,7 +83,9 @@ describe('harnessBuilderServer', () => {
         id: 'gpt-4o',
         name: 'openai/gpt-4o',
         provider: { name: 'openai' },
-        properties: {},
+        properties: {
+          autoRouting: { supported: false, unsupportedReason: 'The model has no canonical model mapping.' },
+        },
       },
     );
   });
@@ -92,13 +100,13 @@ describe('harnessBuilderServer', () => {
               model_id: 'gpt-5-6-sol',
               name: 'openai/gpt-5-6-sol',
               provider: { name: 'openai' },
-              properties: {},
+              properties: { auto_routing: SUPPORTED_WIRE },
             },
             {
               model_id: 'local-llama',
               name: 'internal/local-llama',
               provider: { name: 'internal' },
-              properties: {},
+              properties: { auto_routing: UNSUPPORTED_WIRE },
             },
           ],
         });
@@ -124,13 +132,13 @@ describe('harnessBuilderServer', () => {
         id: 'gpt-5-6-sol',
         name: 'openai/gpt-5-6-sol',
         provider: { name: 'openai', logo: 'https://assets.example/openai.svg' },
-        properties: {},
+        properties: { autoRouting: SUPPORTED_UI },
       },
       {
         id: 'local-llama',
         name: 'internal/local-llama',
         provider: { name: 'internal' },
-        properties: {},
+        properties: { autoRouting: UNSUPPORTED_UI },
       },
     ]);
   });
@@ -145,7 +153,7 @@ describe('harnessBuilderServer', () => {
               model_id: 'gpt-5-6-sol',
               name: 'openai/gpt-5-6-sol',
               provider: { name: 'openai' },
-              properties: {},
+              properties: { auto_routing: SUPPORTED_WIRE },
             },
           ],
         });
@@ -162,7 +170,7 @@ describe('harnessBuilderServer', () => {
         id: 'gpt-5-6-sol',
         name: 'openai/gpt-5-6-sol',
         provider: { name: 'openai' },
-        properties: {},
+        properties: { autoRouting: SUPPORTED_UI },
       },
     ]);
   });
