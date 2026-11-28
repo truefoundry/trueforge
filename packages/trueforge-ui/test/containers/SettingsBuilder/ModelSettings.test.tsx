@@ -430,32 +430,27 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
     });
 
-    it('lists providers with the most supported models first, and supported models first within each', async () => {
+    it('lists supported models by provider, then unsupported ones by provider, alphabetically', async () => {
       const unsupported = (name: string) => ({ name, unsupportedReason: 'No tools.' });
       const supported = (name: string) => ({ name, categories: ['answer'] satisfies AutoRoutingCategory[] });
       renderPicker({
         models: [
-          unsupported('aaa/a1'),
           unsupported('aaa/a2'),
-          supported('bbb/b1'),
-          unsupported('ccc/c1'),
-          supported('ccc/c2'),
           supported('ccc/c3'),
-          supported('ddd/d1'),
+          unsupported('ccc/c1'),
+          supported('bbb/b1'),
+          unsupported('aaa/a1'),
+          supported('ccc/c2'),
         ],
       });
 
       const list = await openPicker();
-      expect(
-        within(list)
-          .getAllByRole('group')
-          .map(group => group.getAttribute('aria-labelledby')),
-      ).toHaveLength(4);
+      expect(within(list).getAllByRole('group')).toHaveLength(4);
       expect(
         within(list)
           .getAllByRole('option')
           .map(item => item.getAttribute('aria-label')),
-      ).toEqual(['c2', 'c3', 'c1', 'b1', 'd1', 'a1', 'a2']);
+      ).toEqual(['b1', 'c2', 'c3', 'a1', 'a2', 'c1']);
     });
 
     it('lists every model by provider with its tiers, and shows unsupported ones as not supported', async () => {
@@ -468,7 +463,8 @@ describe('ModelSettings Auto mode switch', () => {
       expect(within(option('fable')).getByText('Not supported')).toBeInTheDocument();
       expect(option('fable')).toHaveAttribute('aria-disabled', 'true');
       expect(option('grok')).not.toHaveAttribute('aria-disabled');
-      expect(screen.getByRole('group', { name: 'acct' })).toBeInTheDocument();
+      // A provider with both kinds of model is listed once per block.
+      expect(screen.getAllByRole('group', { name: 'acct' })).toHaveLength(2);
     });
 
     it('treats a model whose Auto routing support is not reported as unsupported', async () => {

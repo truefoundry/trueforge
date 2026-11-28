@@ -37,18 +37,23 @@ function isSupported(model: ModelSelection): boolean {
   return model.properties.autoRouting?.supported === true;
 }
 
-/** Providers with the most Auto-supported models first, and supported models first within each provider. */
-function sortBySupport(sections: readonly ProviderSection[]): ProviderSection[] {
-  return sections
-    .map(section => ({
-      section: {
+type PickerSection = ProviderSection & { key: string };
+
+function byName<T extends { name: string }>(a: T, b: T): number {
+  return a.name.localeCompare(b.name);
+}
+
+/** Models Auto can route to first, then the locked ones; each block is grouped by provider, alphabetically. */
+function sectionsBySupport(models: readonly ModelSelection[]): PickerSection[] {
+  return [true, false].flatMap(supported =>
+    groupModelsByProvider(models.filter(model => isSupported(model) === supported))
+      .sort(byName)
+      .map(section => ({
         ...section,
-        models: [...section.models].sort((a, b) => Number(isSupported(b)) - Number(isSupported(a))),
-      },
-      supportedCount: section.models.filter(isSupported).length,
-    }))
-    .sort((a, b) => b.supportedCount - a.supportedCount || a.section.name.localeCompare(b.section.name))
-    .map(({ section }) => section);
+        key: `${supported ? 'supported' : 'unsupported'}:${section.name}`,
+        models: [...section.models].sort((a, b) => a.id.localeCompare(b.id)),
+      })),
+  );
 }
 
 type OptionProps = {
@@ -126,7 +131,7 @@ Option.displayName = 'AutoModelPickerOption';
 
 /**
  * Searchable list of every model, grouped by provider, for ticking the ones Auto may route to. Supported models come
- * first; models without Auto routing support stay listed but locked, with the reason on hover or focus. It overlays the card below its footer, so
+ * first, then models without Auto routing support stay listed but locked, with the reason on hover or focus. It overlays the card below its footer, so
  * the owner must be `relative`.
  */
 const AutoModelPickerPopover = ({ listboxId, models, selected, limitBlock, onToggle }: AutoModelPickerPopoverProps) => {
@@ -135,10 +140,7 @@ const AutoModelPickerPopover = ({ listboxId, models, selected, limitBlock, onTog
 
   const needle = normalizeModelSearchText(query);
   const sections = useMemo(
-    () =>
-      sortBySupport(
-        groupModelsByProvider(needle ? models.filter(model => modelMatchesQuery({ model, needle })) : [...models]),
-      ),
+    () => sectionsBySupport(needle ? models.filter(model => modelMatchesQuery({ model, needle })) : models),
     [models, needle],
   );
 
@@ -173,7 +175,7 @@ const AutoModelPickerPopover = ({ listboxId, models, selected, limitBlock, onTog
         {sections.map((section, sectionIndex) => {
           const headingId = `${listboxId}-provider-${String(sectionIndex)}`;
           return (
-            <div key={section.name} role="group" aria-labelledby={headingId}>
+            <div key={section.key} role="group" aria-labelledby={headingId}>
               <div
                 id={headingId}
                 className="truncate px-3.5 pb-1 pt-2.5 text-[0.6875rem] uppercase tracking-[0.08em] text-text-secondary"
