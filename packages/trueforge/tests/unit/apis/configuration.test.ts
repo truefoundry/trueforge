@@ -20,6 +20,44 @@ function patchInit(manifest: unknown): RequestInit {
 
 const modelNames = (count: number) => Array.from({ length: count }, (_, index) => `acct/model-${String(index)}`);
 
+// Any four consecutive default models together serve every routing category.
+const ROUTABLE_CANONICAL_IDS = [
+  'google/gemini-3-8-flash',
+  'google/gemini-4-argon',
+  'anthropic/claude-fable-5-2',
+  'anthropic/claude-haiku-5-5',
+];
+const defaultCanonicalModels = Object.fromEntries(
+  modelNames(10).map((name, index) => [name, ROUTABLE_CANONICAL_IDS[index % ROUTABLE_CANONICAL_IDS.length]]),
+);
+
+/** Sets up model routing for `tenantId` for the tests in the surrounding describe. */
+function useModelRouting(tenantId: string) {
+  const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
+  let previous: Map<(typeof routingKeys)[number], unknown> | undefined;
+
+  beforeEach(() => {
+    previous = new Map(routingKeys.map(key => [key, Reflect.get(configuration, key)]));
+    Reflect.set(configuration, 'STANDALONE', false);
+    Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
+    Reflect.set(
+      configuration,
+      'TRUEFOUNDRY_MODEL_ROUTING',
+      parseTrueFoundryModelRouting(
+        JSON.stringify({
+          decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
+          tenants: { [tenantId]: { enabled: 'on' } },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    for (const [key, value] of previous ?? []) Reflect.set(configuration, key, value);
+    previous = undefined;
+  });
+}
+
 /** Lists a fixed set of models, standing in for the models the calling admin has access to. */
 class ListedModelsStore extends SqliteModelProviderStore {
   readonly #models: ModelInfo[];
@@ -53,7 +91,7 @@ class ListedModelsStore extends SqliteModelProviderStore {
 /** The admin can access `accessibleModels`; by default the ten models the tests pick from. */
 async function createRouter({
   accessibleModels = modelNames(10),
-  canonicalModels = {},
+  canonicalModels = defaultCanonicalModels,
 }: { accessibleModels?: string[]; canonicalModels?: Record<string, string> } = {}) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
@@ -160,11 +198,23 @@ describe('settings configuration router', () => {
   describe('Auto mode model candidate list', () => {
     const tenantId = STANDALONE_REQUEST_CONTEXT.tenant_id;
     const four = modelNames(4);
+    useModelRouting(tenantId);
 
     async function savedList(store: Awaited<ReturnType<typeof createRouter>>['store']) {
       // No row at all (nothing was ever saved) reads as an empty list.
       return (await store.getConfiguration(tenantId))?.manifest.auto_model_routing.candidate_models ?? [];
     }
+
+    it('rejects setting the list when model routing is off for the tenant, and saves nothing', async () => {
+      Reflect.set(configuration, 'TRUEFOUNDRY_MODEL_ROUTING', undefined);
+      const { router, store } = await createRouter();
+
+      const patched = await router.request('/', patchInit({ auto_model_routing: { candidate_models: four } }));
+
+      expect(patched.status).toBe(400);
+      expect(await patched.json()).toEqual({ error: { message: 'Model routing is not enabled for this tenant.' } });
+      expect(await savedList(store)).toEqual([]);
+    });
 
     it('saves the list without repeats and reads it back', async () => {
       const { router, store } = await createRouter();
@@ -239,39 +289,17 @@ describe('settings configuration router', () => {
     });
 
     describe('with model routing set up for the tenant', () => {
-      const routingKeys = ['STANDALONE', 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'TRUEFOUNDRY_MODEL_ROUTING'] as const;
-      let previous: Map<(typeof routingKeys)[number], unknown> | undefined;
-
-      beforeEach(() => {
-        previous = new Map(routingKeys.map(key => [key, Reflect.get(configuration, key)]));
-        Reflect.set(configuration, 'STANDALONE', false);
-        Reflect.set(configuration, 'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', 'http://sfy.example');
-        Reflect.set(
-          configuration,
-          'TRUEFOUNDRY_MODEL_ROUTING',
-          parseTrueFoundryModelRouting(
-            JSON.stringify({
-              decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
-              tenants: { [tenantId]: { enabled: 'on' } },
-            }),
-          ),
-        );
-      });
-
-      afterEach(() => {
-        for (const [key, value] of previous ?? []) Reflect.set(configuration, key, value);
-        previous = undefined;
-      });
-
       // flash covers direct and fixed_steps, argon covers adaptive, fable covers frontier.
       const canonicalModels = {
         'acct/flash': 'google/gemini-3-8-flash',
         'acct/argon': 'google/gemini-4-argon',
         'acct/fable': 'anthropic/claude-fable-5-2',
         'acct/haiku': 'anthropic/claude-haiku-5-5',
+        'acct/haiku-2': 'anthropic/claude-haiku-5-5',
+        'acct/fable-2': 'anthropic/claude-fable-5-2',
+        'acct/fable-3': 'anthropic/claude-fable-5-2',
+        'acct/fable-4': 'anthropic/claude-fable-5-2',
         'acct/other': 'unlisted/other-model',
-        'acct/unlisted-1': 'unlisted/model-1',
-        'acct/unlisted-2': 'unlisted/model-2',
       };
       const accessibleModels = Object.keys(canonicalModels);
       const patchList = (router: Awaited<ReturnType<typeof createRouter>>['router'], candidate_models: string[]) =>
@@ -280,7 +308,7 @@ describe('settings configuration router', () => {
       it('rejects a list that leaves a routing category without a model, naming it, and saves nothing', async () => {
         const { router, store } = await createRouter({ accessibleModels, canonicalModels });
 
-        const noFrontier = await patchList(router, ['acct/flash', 'acct/argon', 'acct/haiku', 'acct/other']);
+        const noFrontier = await patchList(router, ['acct/flash', 'acct/argon', 'acct/haiku', 'acct/haiku-2']);
         expect(noFrontier.status).toBe(400);
         expect(await noFrontier.json()).toEqual({
           error: {
@@ -288,12 +316,7 @@ describe('settings configuration router', () => {
           },
         });
 
-        const onlyFrontier = await patchList(router, [
-          'acct/fable',
-          'acct/other',
-          'acct/unlisted-1',
-          'acct/unlisted-2',
-        ]);
+        const onlyFrontier = await patchList(router, ['acct/fable', 'acct/fable-2', 'acct/fable-3', 'acct/fable-4']);
         expect(await onlyFrontier.json()).toEqual({
           error: {
             message:
@@ -303,9 +326,21 @@ describe('settings configuration router', () => {
         expect(await savedList(store)).toEqual([]);
       });
 
+      it('rejects a list with a model that cannot be routed to, without naming it, and saves nothing', async () => {
+        const { router, store } = await createRouter({ accessibleModels, canonicalModels });
+
+        const response = await patchList(router, ['acct/flash', 'acct/argon', 'acct/fable', 'acct/other']);
+
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({
+          error: { message: 'candidate_models must only contain models that support Auto routing' },
+        });
+        expect(await savedList(store)).toEqual([]);
+      });
+
       it('accepts a list that covers every category', async () => {
         const { router, store } = await createRouter({ accessibleModels, canonicalModels });
-        const covering = ['acct/flash', 'acct/argon', 'acct/fable', 'acct/other'];
+        const covering = ['acct/flash', 'acct/argon', 'acct/fable', 'acct/haiku'];
 
         expect((await patchList(router, covering)).status).toBe(200);
         expect(await savedList(store)).toEqual(covering);

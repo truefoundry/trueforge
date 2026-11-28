@@ -43,7 +43,7 @@ import {
 } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
-import { describeUncoveredCandidateCategories } from './autoModelRouting';
+import { validateAutoCandidateModels } from './autoModelRouting';
 
 export const AUTO_MODE_TURNED_OFF_MESSAGE = 'Auto mode is turned off for this tenant';
 
@@ -323,19 +323,14 @@ export async function validateAgentSpec({
         message: `model.candidate_models needs at least ${String(MIN_AUTO_CANDIDATE_MODELS)} models`,
       });
     }
-    const accessibleModels = await modelProviderStore.listModels({ tenant_id });
-    const accessible = new Set(accessibleModels.map(model => model.name));
-    // Which candidate failed is left out, so the error cannot be used to probe which models the caller lacks.
-    if (listed.some(name => !accessible.has(name))) {
-      throw new HTTPException(422, { message: 'candidate_models must only contain models you have access to' });
-    }
-    // An empty list stands for the tenant's Auto models; only the ones the caller can access count.
-    const candidates = new Set(listed.length === 0 ? autoModelRouting.candidate_models : listed);
-    const uncovered = describeUncoveredCandidateCategories(
-      accessibleModels.filter(model => candidates.has(model.name)),
-    );
-    if (uncovered !== undefined) {
-      throw new HTTPException(422, { message: uncovered });
+    if (listed.length > 0) {
+      const rejection = await validateAutoCandidateModels({ names: listed, tenant_id, modelProviderStore });
+      if (rejection?.type === 'inaccessible') {
+        throw new HTTPException(422, { message: 'candidate_models must only contain models you have access to' });
+      }
+      if (rejection?.type === 'rejected') {
+        throw new HTTPException(422, { message: rejection.message });
+      }
     }
   } else {
     const resolved = await getModelDetails({
