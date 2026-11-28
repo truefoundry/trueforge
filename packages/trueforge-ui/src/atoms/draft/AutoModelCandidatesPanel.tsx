@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   tierCells,
@@ -50,16 +50,14 @@ type CandidateRowProps = {
   checked: boolean;
   /** Why an unticked row cannot be ticked; a ticked row can always be unticked. */
   blockedReason: string | null;
-  rowRef?: (element: HTMLButtonElement | null) => void;
   onToggle: () => void;
 };
 
-function CandidateRow({ label, caption, categories, checked, blockedReason, rowRef, onToggle }: CandidateRowProps) {
+function CandidateRow({ label, caption, categories, checked, blockedReason, onToggle }: CandidateRowProps) {
   const blocked = !checked && blockedReason !== null;
   const covered = categories.map(tierLabel).join(', ');
   const row = (
     <button
-      ref={rowRef}
       type="button"
       role="option"
       aria-selected={checked}
@@ -130,7 +128,6 @@ function selectionProblem({
 export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCancel }: AutoModelCandidatesPanelProps) {
   const AutoModelRemovedWarning = useSlot('AutoModelRemovedWarning');
   const [selected, setSelected] = useState<string[]>(saved);
-  const firstRemovedRef = useRef<HTMLButtonElement | null>(null);
   const needle = normalizeModelSearchText(query);
 
   const removed = useMemo(
@@ -158,17 +155,18 @@ export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCanc
     <div className="flex min-h-0 min-w-0 flex-auto flex-col overflow-hidden">
       <div className="flex min-h-0 flex-auto flex-col overflow-y-auto">
         {removed.size > 0 ? (
-          <AutoModelRemovedWarning
-            removedCount={removed.size}
-            className="px-3 pt-2.5"
-            onReview={() => firstRemovedRef.current?.focus()}
-            onSync={() => setSelected(previous => previous.filter(name => !removed.has(name)))}
-          />
+          // The list is already on screen, so there is nothing more to review than the sync.
+          <div className="px-3 pt-2.5">
+            <AutoModelRemovedWarning
+              removedCount={removed.size}
+              onSync={() => setSelected(previous => previous.filter(name => !removed.has(name)))}
+            />
+          </div>
         ) : null}
         <div role="listbox" aria-label="Auto candidate models" aria-multiselectable className="flex flex-col p-1">
           {removedRows.length > 0 ? (
             <div role="group" aria-label="No longer in workspace list">
-              {removedRows.map((name, index) => (
+              {removedRows.map(name => (
                 <CandidateRow
                   key={name}
                   label={displayModelLabel(name)}
@@ -176,13 +174,6 @@ export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCanc
                   categories={[]}
                   checked
                   blockedReason={null}
-                  rowRef={
-                    index === 0
-                      ? element => {
-                          firstRemovedRef.current = element;
-                        }
-                      : undefined
-                  }
                   onToggle={() => toggle(name)}
                 />
               ))}

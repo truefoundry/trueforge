@@ -317,6 +317,8 @@ describe('AgentModelEditorContent with Auto', () => {
     const card = await screen.findByRole('tooltip');
     expect(card).toHaveTextContent('Workspace model list changed since this agent was saved.');
     expect(card).toHaveTextContent('1 model is no longer in the workspace list.');
+    // The list being reviewed is already on screen.
+    expect(within(card).queryByRole('button', { name: 'Review changes' })).not.toBeInTheDocument();
     fireEvent.click(within(card).getByRole('button', { name: 'Sync with workspace' }));
 
     expect(screen.queryByText('1 model removed from workspace list')).not.toBeInTheDocument();

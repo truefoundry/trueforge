@@ -25,6 +25,7 @@ export function AutoModelRemovedWarning({ removedCount, onReview, onSync, classN
   return (
     <Tooltip
       side="bottom"
+      align="start"
       dismissOnClick={false}
       triggerClassName={cn('max-w-full', className)}
       className="w-72 overflow-hidden whitespace-normal rounded-lg border border-warning-bg/40 p-0 text-left shadow-lg"
