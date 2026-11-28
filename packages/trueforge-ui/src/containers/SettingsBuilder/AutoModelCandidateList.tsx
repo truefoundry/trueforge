@@ -83,25 +83,19 @@ function formatTierList(tiers: readonly AutoRoutingCategory[]): string {
   return tiers.map(tierLabel).join(', ');
 }
 
-/** The line beside the footer buttons: what is missing, or what stops the admin from saving. */
+/** The line beside the footer buttons: what is missing or blocks saving; empty when there is nothing to act on. */
 function describeSelection({
   selectedCount,
-  supportedTotal,
-  listingKnown,
   gaps,
   hasProblem,
   dirty,
   belowMinimum,
-  atLimit,
 }: {
   selectedCount: number;
-  supportedTotal: number;
-  listingKnown: boolean;
   gaps: readonly AutoRoutingCategory[];
   hasProblem: boolean;
   dirty: boolean;
   belowMinimum: boolean;
-  atLimit: boolean;
 }): { text: string; warning: boolean } {
   if (selectedCount === 0) {
     return {
@@ -116,15 +110,10 @@ function describeSelection({
       warning: true,
     };
   }
-  const count = listingKnown
-    ? `${String(selectedCount)} of ${String(supportedTotal)} selected · every tier covered`
-    : `${String(selectedCount)} selected`;
-  if (hasProblem && dirty) return { text: `${count}. Remove the flagged models to update.`, warning: false };
-  if (belowMinimum && dirty) {
-    return { text: `${count}. Pick at least ${String(MIN_CANDIDATE_MODELS)} to update.`, warning: false };
-  }
-  if (atLimit) return { text: `${count}. Remove one to add another.`, warning: false };
-  return { text: count, warning: false };
+  if (hasProblem && dirty) return { text: 'Remove the flagged models to update.', warning: false };
+  if (belowMinimum && dirty)
+    return { text: `Pick at least ${String(MIN_CANDIDATE_MODELS)} to update.`, warning: false };
+  return { text: '', warning: false };
 }
 
 /** A tier's column of a model's row: the covered stretch is a bar through its dots, which are bigger at the ends. */
@@ -191,10 +180,6 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data]);
   const modelsByName = useMemo(() => new Map(models.map(model => [model.name, model])), [models]);
   const listingKnown = modelsQuery.isSuccess;
-  const supportedTotal = useMemo(
-    () => models.filter(model => model.properties.autoRouting?.supported === true).length,
-    [models],
-  );
 
   const rows = useMemo(
     () => selected.map(name => toCandidateRow({ name, model: modelsByName.get(name), listingKnown })),
@@ -210,13 +195,10 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
   const belowMinimum = selected.length < MIN_CANDIDATE_MODELS;
   const status = describeSelection({
     selectedCount: selected.length,
-    supportedTotal,
-    listingKnown,
     gaps,
     hasProblem,
     dirty,
     belowMinimum,
-    atLimit,
   });
   // The server refuses a list with a tier no model serves, so Update waits for every tier to be covered.
   const canSave = !saving && !belowMinimum && !hasProblem && gaps.length === 0;

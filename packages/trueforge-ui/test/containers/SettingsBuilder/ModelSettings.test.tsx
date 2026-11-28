@@ -406,7 +406,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.getAllByText('1 model')).toHaveLength(2);
       expect(screen.getAllByText('3 models')).toHaveLength(1);
       expect(screen.getAllByText('2 models')).toHaveLength(1);
-      expect(screen.getByRole('status')).toHaveTextContent('4 of 5 selected · every tier covered');
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
       expect(screen.queryByText('No model')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
     });
@@ -511,9 +511,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.getByRole('listbox', { name: 'Models Auto can choose from' })).toBeInTheDocument();
       expect(option('haiku')).toHaveAttribute('aria-selected', 'true');
       // Two models already cover every tier, but Auto needs at least four to be saved.
-      expect(screen.getByRole('status')).toHaveTextContent(
-        '2 of 5 selected · every tier covered. Pick at least 4 to update.',
-      );
+      expect(screen.getByRole('status')).toHaveTextContent('Pick at least 4 to update.');
     });
 
     it('saves the chosen full model names and refreshes capabilities', async () => {
@@ -619,8 +617,7 @@ describe('ModelSettings Auto mode switch', () => {
       expect(option('model-10')).toHaveAttribute('aria-disabled', 'true');
       expect(option('model-11')).toHaveAttribute('aria-disabled', 'true');
       expect(option('model-00')).not.toHaveAttribute('aria-disabled');
-      expect(screen.getByRole('status')).toHaveTextContent('10 of 12 selected');
-      expect(screen.getByRole('status')).toHaveTextContent('Remove one to add another.');
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
       fireEvent.focus(option('model-10'));
       expect(await screen.findByRole('tooltip')).toHaveTextContent('Auto can use at most 10 models.');
 
