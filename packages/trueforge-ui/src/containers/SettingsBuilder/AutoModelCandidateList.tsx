@@ -280,17 +280,6 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
         ))}
         <div />
       </div>
-      <div className={cn(GRID_CLASS, 'pb-2.5')} style={GRID_STYLE}>
-        <div
-          className="flex items-center gap-2 px-4 text-[0.6875rem] text-text-secondary"
-          style={{ gridColumn: `2 / span ${AUTO_ROUTING_TIERS.length}` }}
-        >
-          <span>Simplest</span>
-          <span aria-hidden className="h-px flex-1 bg-linear-to-r from-text-secondary/30 to-primary-button-bg" />
-          <span>Most complex</span>
-        </div>
-      </div>
-
       {rows.length === 0 ? (
         <p className="border-t border-border px-6 py-5 text-[0.8125rem] text-text-secondary">
           Add the models Auto may route to.
