@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .model_properties import ModelProperties
+from .configured_model_properties import ConfiguredModelProperties
 from .resource_name import ResourceName
 
 
@@ -16,7 +16,7 @@ class ConfiguredModel(UncheckedBaseModel):
     """
 
     name: ResourceName
-    properties: ModelProperties
+    properties: ConfiguredModelProperties
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

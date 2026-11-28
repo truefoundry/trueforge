@@ -18,13 +18,13 @@ import { buildUploadedFilesAnnouncement } from '../../../src/core/runtime/UserIn
 const logger = createLogger({ silent: true });
 
 const models: RoutableModel[] = [
-  { name: 'a/claude-sonnet-5-5', canonicalModel: 'anthropic/claude-sonnet-5-5', cost: 4 },
-  { name: 'a/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.5 },
-  { name: 'b/claude-haiku-5-5', canonicalModel: 'anthropic/claude-haiku-5-5', cost: 0.2 },
-  { name: 'a/gpt-6-luna', canonicalModel: 'openai/gpt-6-luna', cost: undefined },
-  { name: 'a/claude-fable-5-2', canonicalModel: 'anthropic/claude-fable-5-2', cost: 1 },
+  { name: 'a/claude-sonnet-5-5', canonical_model: 'anthropic/claude-sonnet-5-5', cost: 4 },
+  { name: 'a/claude-haiku-5-5', canonical_model: 'anthropic/claude-haiku-5-5', cost: 0.5 },
+  { name: 'b/claude-haiku-5-5', canonical_model: 'anthropic/claude-haiku-5-5', cost: 0.2 },
+  { name: 'a/gpt-6-luna', canonical_model: 'openai/gpt-6-luna', cost: undefined },
+  { name: 'a/claude-fable-5-2', canonical_model: 'anthropic/claude-fable-5-2', cost: 1 },
 ];
-const haikuOnly = models.filter(model => model.canonicalModel === 'anthropic/claude-haiku-5-5');
+const haikuOnly = models.filter(model => model.canonical_model === 'anthropic/claude-haiku-5-5');
 
 function decisionFor(category?: string): Decision {
   return {
@@ -87,7 +87,7 @@ describe('selectModel', () => {
   });
 
   it('offers a model at max effort to frontier as well as analyze when it is in both clusters', () => {
-    const sonnet = models.filter(model => model.canonicalModel === 'anthropic/claude-sonnet-5-5');
+    const sonnet = models.filter(model => model.canonical_model === 'anthropic/claude-sonnet-5-5');
     expect(selectModel({ category: 'frontier', models: sonnet })?.routed).toEqual({
       model: 'a/claude-sonnet-5-5',
       effort: 'max',

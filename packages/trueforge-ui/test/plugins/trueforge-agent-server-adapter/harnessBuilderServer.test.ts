@@ -38,6 +38,7 @@ describe('harnessBuilderServer', () => {
           modelId: 'o3',
           name: 'openai/o3',
           provider: { name: 'openai' },
+          canonicalModel: 'openai/o3',
           properties: {
             contextLength: 200_000,
             maxOutputTokens: 100_000,
@@ -66,7 +67,10 @@ describe('harnessBuilderServer', () => {
           modelId: 'gpt-4o',
           name: 'openai/gpt-4o',
           provider: { name: 'openai' },
-          properties: { autoRouting: { supported: false, unsupportedReason: 'no_canonical_model' } },
+          canonicalModel: null,
+          properties: {
+            autoRouting: { supported: false, unsupportedReason: 'The model has no canonical model mapping.' },
+          },
         },
       }),
       {

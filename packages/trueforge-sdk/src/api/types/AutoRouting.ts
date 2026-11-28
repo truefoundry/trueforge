@@ -3,6 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 /**
- * Whether Auto can route to the model.
+ * Whether the model supports Auto routing and, if so, how.
  */
 export type AutoRouting = TrueForge.SupportedAutoRouting | TrueForge.UnsupportedAutoRouting;

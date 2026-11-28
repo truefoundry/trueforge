@@ -28,10 +28,8 @@ if typing.TYPE_CHECKING:
     from .auto_model_routing_configuration_patch import AutoModelRoutingConfigurationPatch
     from .auto_routing import AutoRouting
     from .auto_routing_category import AutoRoutingCategory
-    from .auto_routing_unsupported_reason import AutoRoutingUnsupportedReason
     from .available_mcp_server import AvailableMcpServer
     from .available_model import AvailableModel
-    from .available_model_properties import AvailableModelProperties
     from .available_model_provider import AvailableModelProvider
     from .available_skill import AvailableSkill
     from .base_mcp_auth_required_event import BaseMcpAuthRequiredEvent
@@ -65,6 +63,7 @@ if typing.TYPE_CHECKING:
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_memory_provider import ConfiguredMemoryProvider
     from .configured_model import ConfiguredModel
+    from .configured_model_properties import ConfiguredModelProperties
     from .configured_model_provider import ConfiguredModelProvider
     from .configured_sandbox_provider import ConfiguredSandboxProvider
     from .configured_skill import ConfiguredSkill
@@ -345,10 +344,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AutoModelRoutingConfigurationPatch": ".auto_model_routing_configuration_patch",
     "AutoRouting": ".auto_routing",
     "AutoRoutingCategory": ".auto_routing_category",
-    "AutoRoutingUnsupportedReason": ".auto_routing_unsupported_reason",
     "AvailableMcpServer": ".available_mcp_server",
     "AvailableModel": ".available_model",
-    "AvailableModelProperties": ".available_model_properties",
     "AvailableModelProvider": ".available_model_provider",
     "AvailableSkill": ".available_skill",
     "BaseMcpAuthRequiredEvent": ".base_mcp_auth_required_event",
@@ -382,6 +379,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredMemoryProvider": ".configured_memory_provider",
     "ConfiguredModel": ".configured_model",
+    "ConfiguredModelProperties": ".configured_model_properties",
     "ConfiguredModelProvider": ".configured_model_provider",
     "ConfiguredSandboxProvider": ".configured_sandbox_provider",
     "ConfiguredSkill": ".configured_skill",
@@ -686,10 +684,8 @@ __all__ = [
     "AutoModelRoutingConfigurationPatch",
     "AutoRouting",
     "AutoRoutingCategory",
-    "AutoRoutingUnsupportedReason",
     "AvailableMcpServer",
     "AvailableModel",
-    "AvailableModelProperties",
     "AvailableModelProvider",
     "AvailableSkill",
     "BaseMcpAuthRequiredEvent",
@@ -723,6 +719,7 @@ __all__ = [
     "ConfiguredMcpServer",
     "ConfiguredMemoryProvider",
     "ConfiguredModel",
+    "ConfiguredModelProperties",
     "ConfiguredModelProvider",
     "ConfiguredSandboxProvider",
     "ConfiguredSkill",

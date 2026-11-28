@@ -19,7 +19,7 @@ export const listAvailableModelsRoute = createRoute({
     annotations: { readOnlyHint: true },
   },
   description:
-    'Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.',
+    'Configured models as a slim FQN list for the composer. Each model reports whether it supports Auto routing and, if so, the categories it serves.',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableModelsResponseSchema } },

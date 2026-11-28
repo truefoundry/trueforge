@@ -3,19 +3,18 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AutoRoutingUnsupportedReason } from "./AutoRoutingUnsupportedReason.js";
 
 export const UnsupportedAutoRouting: core.serialization.ObjectSchema<
     serializers.UnsupportedAutoRouting.Raw,
     TrueForge.UnsupportedAutoRouting
 > = core.serialization.object({
     supported: core.serialization.booleanLiteral(false),
-    unsupportedReason: core.serialization.property("unsupported_reason", AutoRoutingUnsupportedReason),
+    unsupportedReason: core.serialization.property("unsupported_reason", core.serialization.string()),
 });
 
 export declare namespace UnsupportedAutoRouting {
     export interface Raw {
         supported: false;
-        unsupported_reason: AutoRoutingUnsupportedReason.Raw;
+        unsupported_reason: string;
     }
 }

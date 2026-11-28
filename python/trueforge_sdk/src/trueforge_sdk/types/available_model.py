@@ -5,14 +5,14 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .available_model_properties import AvailableModelProperties
 from .available_model_provider import AvailableModelProvider
+from .model_properties import ModelProperties
 
 
 class AvailableModel(UncheckedBaseModel):
     canonical_model: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Provider-neutral model id; omitted when unknown.
+    Provider-neutral model id; null when unknown.
     """
 
     model_id: str = pydantic.Field()
@@ -25,7 +25,7 @@ class AvailableModel(UncheckedBaseModel):
     Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.
     """
 
-    properties: AvailableModelProperties
+    properties: ModelProperties
     provider: AvailableModelProvider
     warning: typing.Optional[str] = pydantic.Field(default=None)
     """

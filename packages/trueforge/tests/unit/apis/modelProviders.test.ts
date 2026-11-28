@@ -315,18 +315,20 @@ describe('settings model-providers and models routers', () => {
           name: 'anthropic/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
           provider: { name: 'anthropic' },
+          canonical_model: null,
           properties: {
             ...model.properties,
-            auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' },
+            auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
           },
         },
         {
           name: 'internal/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
           provider: { name: 'internal' },
+          canonical_model: null,
           properties: {
             ...model.properties,
-            auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' },
+            auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
           },
         },
       ],

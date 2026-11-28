@@ -22,18 +22,18 @@ class ListedModelsStore extends SqliteModelProviderStore {
   }
 }
 
-const model = (name: string, canonicalModel: string | undefined): ModelInfo => ({
+const model = (name: string, canonical_model: string | null): ModelInfo => ({
   name,
   model_id: name,
   provider: { name: 'acct' },
   properties: {},
-  canonicalModel,
+  canonical_model,
   cost: 1,
 });
 
 interface ListedModel {
   name: string;
-  canonical_model?: string;
+  canonical_model: string | null;
   properties: { auto_routing: unknown };
 }
 
@@ -91,27 +91,27 @@ describe('GET /models auto_routing', () => {
 
   it('says why a model cannot be routed to', async () => {
     const listed = await listModels({
-      models: [model('acct/custom', undefined), model('acct/unlisted', 'acme/custom-llm')],
+      models: [model('acct/custom', null), model('acct/unlisted', 'acme/custom-llm')],
       enabled: [],
     });
 
     expect(listed.get('acct/custom')?.properties.auto_routing).toEqual({
       supported: false,
-      unsupported_reason: 'no_canonical_model',
+      unsupported_reason: 'The model has no canonical model mapping.',
     });
     expect(listed.get('acct/unlisted')?.properties.auto_routing).toEqual({
       supported: false,
-      unsupported_reason: 'not_in_routing_clusters',
+      unsupported_reason: 'The model is not in any Auto routing cluster.',
     });
   });
 
-  it('returns the canonical model when it is known and omits it otherwise', async () => {
+  it('returns the canonical model when it is known and null otherwise', async () => {
     const listed = await listModels({
-      models: [model('acct/sonnet', 'anthropic/claude-sonnet-5-5'), model('acct/custom', undefined)],
+      models: [model('acct/sonnet', 'anthropic/claude-sonnet-5-5'), model('acct/custom', null)],
       enabled: [],
     });
 
     expect(listed.get('acct/sonnet')?.canonical_model).toBe('anthropic/claude-sonnet-5-5');
-    expect(listed.get('acct/custom')).not.toHaveProperty('canonical_model');
+    expect(listed.get('acct/custom')?.canonical_model).toBeNull();
   });
 });

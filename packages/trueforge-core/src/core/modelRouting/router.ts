@@ -11,7 +11,7 @@ export interface RoutableModel {
   /** `provider/model`, as the harness resolves it. */
   name: string;
   /** Provider-neutral model id (e.g. `anthropic/claude-haiku-5-5`); matched against the clusters. */
-  canonicalModel: string | undefined;
+  canonical_model: string | null;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
   cost: number | undefined;
 }
@@ -41,7 +41,7 @@ export function selectModel(input: {
   const candidates = SUPPORTED_REASONING_EFFORTS.flatMap((effort, effortRank) =>
     (cluster[effort] ?? []).flatMap(canonicalModel =>
       input.models
-        .filter(model => model.canonicalModel === canonicalModel)
+        .filter(model => model.canonical_model === canonicalModel)
         .map(model => ({ model, canonicalModel, effort, effortRank })),
     ),
   );

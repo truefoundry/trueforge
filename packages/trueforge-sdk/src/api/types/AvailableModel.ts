@@ -3,13 +3,13 @@
 import type * as TrueForge from "../index.js";
 
 export interface AvailableModel {
-    /** Provider-neutral model id; omitted when unknown. */
-    canonicalModel?: string;
+    /** Provider-neutral model id; null when unknown. */
+    canonicalModel: string | null;
     /** Upstream, provider-specific identifier sent to the provider API. */
     modelId: string;
     /** Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant. */
     name: string;
-    properties: TrueForge.AvailableModelProperties;
+    properties: TrueForge.ModelProperties;
     provider: TrueForge.AvailableModelProvider;
     /** Set when reasoning effort or context length is not configured; may affect TrueForge performance. */
     warning?: string;

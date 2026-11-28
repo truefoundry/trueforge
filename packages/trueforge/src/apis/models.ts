@@ -21,7 +21,7 @@ function toAvailableModel({
     model_id: model.model_id,
     provider: model.provider,
     properties: { ...model.properties, auto_routing: describeAutoRouting({ model, enabledModelNames }) },
-    ...(model.canonicalModel === undefined ? {} : { canonical_model: model.canonicalModel }),
+    canonical_model: model.canonical_model,
     ...(model.warning === undefined ? {} : { warning: model.warning }),
   };
 }

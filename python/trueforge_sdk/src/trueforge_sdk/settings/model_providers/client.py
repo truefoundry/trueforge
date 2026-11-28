@@ -79,7 +79,7 @@ class ModelProvidersClient:
         from trueforge_sdk import (
             AlibabaModelProvider,
             ConfiguredModel,
-            ModelProperties,
+            ConfiguredModelProperties,
             ModelProviderAuth,
             TrueForge,
         )
@@ -97,7 +97,7 @@ class ModelProvidersClient:
                     ConfiguredModel(
                         model_id="model_id",
                         name="name",
-                        properties=ModelProperties(),
+                        properties=ConfiguredModelProperties(),
                     )
                 ],
             ),
@@ -129,7 +129,7 @@ class ModelProvidersClient:
         from trueforge_sdk import (
             AlibabaModelProvider,
             ConfiguredModel,
-            ModelProperties,
+            ConfiguredModelProperties,
             ModelProviderAuth,
             TrueForge,
         )
@@ -147,7 +147,7 @@ class ModelProvidersClient:
                     ConfiguredModel(
                         model_id="model_id",
                         name="name",
-                        properties=ModelProperties(),
+                        properties=ConfiguredModelProperties(),
                     )
                 ],
             ),
@@ -267,7 +267,7 @@ class AsyncModelProvidersClient:
             AlibabaModelProvider,
             AsyncTrueForge,
             ConfiguredModel,
-            ModelProperties,
+            ConfiguredModelProperties,
             ModelProviderAuth,
         )
 
@@ -287,7 +287,7 @@ class AsyncModelProvidersClient:
                         ConfiguredModel(
                             model_id="model_id",
                             name="name",
-                            properties=ModelProperties(),
+                            properties=ConfiguredModelProperties(),
                         )
                     ],
                 ),
@@ -325,7 +325,7 @@ class AsyncModelProvidersClient:
             AlibabaModelProvider,
             AsyncTrueForge,
             ConfiguredModel,
-            ModelProperties,
+            ConfiguredModelProperties,
             ModelProviderAuth,
         )
 
@@ -345,7 +345,7 @@ class AsyncModelProvidersClient:
                         ConfiguredModel(
                             model_id="model_id",
                             name="name",
-                            properties=ModelProperties(),
+                            properties=ConfiguredModelProperties(),
                         )
                     ],
                 ),

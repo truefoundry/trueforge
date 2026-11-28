@@ -1169,7 +1169,7 @@ client.mcp_servers.list_tools(
 <dl>
 <dd>
 
-Configured models as a slim FQN list for the composer. Each model reports whether Auto can route to it, and the categories it serves.
+Configured models as a slim FQN list for the composer. Each model reports whether it supports Auto routing and, if so, the categories it serves.
 </dd>
 </dl>
 </dd>
@@ -5884,7 +5884,7 @@ Creates a provider (models included). Fails if `name` is already taken. Well-kno
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ModelProperties
+from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ConfiguredModelProperties
 
 client = TrueForge(
     token="<token>",
@@ -5900,7 +5900,7 @@ client.settings.model_providers.create(
             ConfiguredModel(
                 model_id="model_id",
                 name="name",
-                properties=ModelProperties(),
+                properties=ConfiguredModelProperties(),
             )
         ],
         type="alibaba",
@@ -5968,7 +5968,7 @@ Create or replace a provider (models included). Well-known types use `type` as `
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ModelProperties
+from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ConfiguredModelProperties
 
 client = TrueForge(
     token="<token>",
@@ -5984,7 +5984,7 @@ client.settings.model_providers.create_or_update(
             ConfiguredModel(
                 model_id="model_id",
                 name="name",
-                properties=ModelProperties(),
+                properties=ConfiguredModelProperties(),
             )
         ],
         type="alibaba",

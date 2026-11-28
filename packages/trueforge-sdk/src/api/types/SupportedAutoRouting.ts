@@ -3,10 +3,10 @@
 import type * as TrueForge from "../index.js";
 
 export interface SupportedAutoRouting {
-    /** The categories the model can serve. */
+    /** Categories the model can serve. */
     categories: TrueForge.AutoRoutingCategory[];
-    /** Included in the tenant's global list of Auto candidate models. */
+    /** Whether the model is in the tenant's Auto candidate list. */
     enabled: boolean;
-    /** Auto can route to this model. */
+    /** The model supports Auto routing. */
     supported: true;
 }

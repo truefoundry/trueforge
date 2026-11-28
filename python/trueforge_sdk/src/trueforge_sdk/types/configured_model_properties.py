@@ -5,16 +5,14 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .auto_routing import AutoRouting
 from .reasoning_effort import ReasoningEffort
 
 
-class AvailableModelProperties(UncheckedBaseModel):
+class ConfiguredModelProperties(UncheckedBaseModel):
     """
-    Model capability metadata and Auto routing support.
+    Optional model capability metadata.
     """
 
-    auto_routing: AutoRouting
     context_length: typing.Optional[int] = pydantic.Field(default=None)
     """
     Maximum context window size in tokens.

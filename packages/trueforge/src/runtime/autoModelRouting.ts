@@ -28,7 +28,7 @@ function routableCategories(model: RoutableModel) {
   return ROOT_ROUTING_CATEGORIES.filter(category => selectModel({ category, models: [model] }) !== undefined);
 }
 
-/** Whether Auto can route to the model, and which categories it can serve. */
+/** Checks whether the model supports Auto routing and, if so, which categories it serves. */
 export function describeAutoRouting({
   model,
   enabledModelNames,
@@ -43,7 +43,10 @@ export function describeAutoRouting({
   }
   return {
     supported: false,
-    unsupported_reason: model.canonicalModel === undefined ? 'no_canonical_model' : 'not_in_routing_clusters',
+    unsupported_reason:
+      model.canonical_model === null
+        ? 'The model has no canonical model mapping.'
+        : 'The model is not in any Auto routing cluster.',
   };
 }
 

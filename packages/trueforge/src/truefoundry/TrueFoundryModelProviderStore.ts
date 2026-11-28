@@ -105,7 +105,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     const infoByName = new Map(
       models.map(model => [
         `${model.accountName}/${model.modelName}`,
-        { canonicalModel: model.canonicalModel, cost: model.cost },
+        { canonical_model: model.canonical_model, cost: model.cost },
       ]),
     );
     return listed.map(model => ({ ...model, ...infoByName.get(model.name) }));

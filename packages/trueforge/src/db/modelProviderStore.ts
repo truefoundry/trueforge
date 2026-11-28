@@ -4,7 +4,7 @@
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
 import type { ResourceName } from '../schemas/common';
-import type { ModelProperties, ModelProviderManifest, ModelView } from '../schemas/modelProvider';
+import type { AvailableModel, ConfiguredModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
@@ -21,10 +21,10 @@ export interface ListModelProvidersInput {
   tenant_id: string;
 }
 
-/** Store model. `canonicalModel` and `cost` are undefined when the provider has no integration metadata. */
-export interface ModelInfo extends ModelView {
-  /** Provider-neutral model id, e.g. `anthropic/claude-haiku-5-5`. */
-  canonicalModel: string | undefined;
+/** Store model. `canonical_model` is null and `cost` is undefined when the provider has no integration metadata. */
+export interface ModelInfo extends Omit<AvailableModel, 'properties'> {
+  /** Configured properties only; `auto_routing` is computed per request. */
+  properties: ConfiguredModelProperties;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
   cost: number | undefined;
 }
@@ -86,7 +86,7 @@ export interface IModelProviderStore<TTransaction = never> {
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
   deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
-  /** Flattens manifests into the FQN read view. Integration metadata fills canonicalModel and cost when the store has it. */
+  /** Flattens manifests into the FQN read view. Integration metadata fills canonical_model and cost when the store has it. */
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelInfo[]>;
   /** Extra headers for a model invoke. */
   resolveInvokeHeaders(input: {
@@ -95,7 +95,7 @@ export interface IModelProviderStore<TTransaction = never> {
   }): Promise<Record<string, string>>;
 }
 
-export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
+export function modelPropertiesWarning(input: { properties: ConfiguredModelProperties }): string | undefined {
   const missing: string[] = [];
   if (input.properties.reasoning_efforts === undefined || input.properties.reasoning_efforts.length === 0) {
     missing.push('reasoning effort');
@@ -120,8 +120,8 @@ export function flattenProviderModels(records: ModelProviderRecord[]): ModelInfo
         model_id: model.model_id,
         provider: { name: record.name },
         properties: model.properties,
+        canonical_model: null,
         ...(warning === undefined ? {} : { warning }),
-        canonicalModel: undefined,
         cost: undefined,
       };
     }),

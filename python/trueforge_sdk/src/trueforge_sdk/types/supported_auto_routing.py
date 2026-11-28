@@ -11,17 +11,17 @@ from .auto_routing_category import AutoRoutingCategory
 class SupportedAutoRouting(UncheckedBaseModel):
     categories: typing.List[AutoRoutingCategory] = pydantic.Field()
     """
-    The categories the model can serve.
+    Categories the model can serve.
     """
 
     enabled: bool = pydantic.Field()
     """
-    Included in the tenant's global list of Auto candidate models.
+    Whether the model is in the tenant's Auto candidate list.
     """
 
     supported: typing.Literal[True] = pydantic.Field(default=True)
     """
-    Auto can route to this model.
+    The model supports Auto routing.
     """
 
     if IS_PYDANTIC_V2:

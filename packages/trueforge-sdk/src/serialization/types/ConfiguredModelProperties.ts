@@ -3,14 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AutoRouting } from "./AutoRouting.js";
 import { ReasoningEffort } from "./ReasoningEffort.js";
 
-export const AvailableModelProperties: core.serialization.ObjectSchema<
-    serializers.AvailableModelProperties.Raw,
-    TrueForge.AvailableModelProperties
+export const ConfiguredModelProperties: core.serialization.ObjectSchema<
+    serializers.ConfiguredModelProperties.Raw,
+    TrueForge.ConfiguredModelProperties
 > = core.serialization.object({
-    autoRouting: core.serialization.property("auto_routing", AutoRouting),
     contextLength: core.serialization.property("context_length", core.serialization.number().optional()),
     maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number().optional()),
     reasoningEfforts: core.serialization.property(
@@ -19,9 +17,8 @@ export const AvailableModelProperties: core.serialization.ObjectSchema<
     ),
 });
 
-export declare namespace AvailableModelProperties {
+export declare namespace ConfiguredModelProperties {
     export interface Raw {
-        auto_routing: AutoRouting.Raw;
         context_length?: number | null;
         max_output_tokens?: number | null;
         reasoning_efforts?: ReasoningEffort.Raw[] | null;

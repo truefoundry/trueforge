@@ -52,8 +52,15 @@ const AUTO_TENANT_OFF_REASON = 'Auto mode is turned off for this tenant - it can
 const AUTO_MODELS_RESTRICTED_REASON =
   'Auto mode has no usable models - models need to be added to the global list of candidate models in settings.';
 
-function routableModel({ name, canonicalModel }: { name: string; canonicalModel: string | undefined }): ModelInfo {
-  return { name, model_id: name, provider: { name: 'acct' }, properties: {}, canonicalModel, cost: 1 };
+function routableModel({ name, canonical_model }: { name: string; canonical_model: string | null }): ModelInfo {
+  return {
+    name,
+    model_id: name,
+    provider: { name: 'acct' },
+    properties: {},
+    canonical_model,
+    cost: 1,
+  };
 }
 
 /** Lists a fixed set of models, standing in for a catalog that reports canonical ids. */
@@ -370,9 +377,9 @@ describe('capabilities routers', () => {
           modelProviderStore: new ListedModelsStore({
             db,
             models: [
-              routableModel({ name: sonnet, canonicalModel: 'anthropic/claude-sonnet-5-5' }),
-              routableModel({ name: haiku, canonicalModel: 'anthropic/claude-haiku-5-5' }),
-              routableModel({ name: outsideClusters, canonicalModel: undefined }),
+              routableModel({ name: sonnet, canonical_model: 'anthropic/claude-sonnet-5-5' }),
+              routableModel({ name: haiku, canonical_model: 'anthropic/claude-haiku-5-5' }),
+              routableModel({ name: outsideClusters, canonical_model: null }),
             ],
           }),
         }).request('/');
@@ -415,7 +422,7 @@ describe('capabilities routers', () => {
           tenantAutoCandidateModels: [haiku],
           modelProviderStore: new ListedModelsStore({
             db: createSqliteDb(':memory:'),
-            models: [routableModel({ name: haiku, canonicalModel: 'anthropic/claude-haiku-5-5' })],
+            models: [routableModel({ name: haiku, canonical_model: 'anthropic/claude-haiku-5-5' })],
           }),
         }).request('/');
         expect(await response.json()).toMatchObject({

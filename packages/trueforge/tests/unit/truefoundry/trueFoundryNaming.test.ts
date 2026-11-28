@@ -290,7 +290,10 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: MODEL_FQN,
         model_id: 'gpt-5.2',
         provider: { name: 'openai' },
-        properties: { auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' } },
+        canonical_model: null,
+        properties: {
+          auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
+        },
       }).name,
     ).toBe(MODEL_FQN);
     expect(
@@ -298,7 +301,10 @@ describe('TrueFoundry naming vs NameSchema', () => {
         name: `${PROVIDER_ACCOUNT}/${MODEL_NAME}`,
         model_id: 'upstream/id.with.dots',
         provider: { name: PROVIDER_ACCOUNT },
-        properties: { auto_routing: { supported: false, unsupported_reason: 'no_canonical_model' } },
+        canonical_model: null,
+        properties: {
+          auto_routing: { supported: false, unsupported_reason: 'The model has no canonical model mapping.' },
+        },
       }).provider.name,
     ).toBe(PROVIDER_ACCOUNT);
   });

@@ -3,20 +3,20 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelProperties } from "./ModelProperties.js";
+import { ConfiguredModelProperties } from "./ConfiguredModelProperties.js";
 import { ResourceName } from "./ResourceName.js";
 
 export const CatalogModel: core.serialization.ObjectSchema<serializers.CatalogModel.Raw, TrueForge.CatalogModel> =
     core.serialization.object({
         modelId: core.serialization.property("model_id", core.serialization.string()),
         name: ResourceName,
-        properties: ModelProperties,
+        properties: ConfiguredModelProperties,
     });
 
 export declare namespace CatalogModel {
     export interface Raw {
         model_id: string;
         name: ResourceName.Raw;
-        properties: ModelProperties.Raw;
+        properties: ConfiguredModelProperties.Raw;
     }
 }

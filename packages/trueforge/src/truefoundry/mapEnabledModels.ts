@@ -2,7 +2,7 @@ import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
-import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
+import type { ConfiguredModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
   key: z.string(),
@@ -58,7 +58,7 @@ function toReasoningEfforts(params: IntegrationMetadata['params']): ReasoningEff
   return matched.length > 0 ? matched : undefined;
 }
 
-function toProperties(metadata: IntegrationMetadata | undefined): ModelProperties {
+function toProperties(metadata: IntegrationMetadata | undefined): ConfiguredModelProperties {
   const limits = metadata?.limits;
   const contextLength = limits?.context_window ?? limits?.max_input_tokens;
   const maxOutputTokens = limits?.max_output_tokens ?? limits?.max_tokens;
@@ -79,11 +79,11 @@ function toBlendedCost(metadata: IntegrationMetadata | undefined): number | unde
 }
 
 function integrationModelInfo(metadata: IntegrationMetadata | undefined): {
-  canonicalModel: string | undefined;
+  canonical_model: string | null;
   cost: number | undefined;
 } {
   return {
-    canonicalModel: metadata?.canonical_model ?? undefined,
+    canonical_model: metadata?.canonical_model ?? null,
     cost: toBlendedCost(metadata),
   };
 }
@@ -91,9 +91,9 @@ function integrationModelInfo(metadata: IntegrationMetadata | undefined): {
 export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
-  properties: ModelProperties;
+  properties: ConfiguredModelProperties;
   /** Provider-neutral model id from the integration metadata. */
-  canonicalModel: string | undefined;
+  canonical_model: string | null;
   /** Blended USD per million tokens from the integration's default-region cost. */
   cost: number | undefined;
 }

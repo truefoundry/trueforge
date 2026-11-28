@@ -19,7 +19,8 @@ export const ReasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS).openapi
 
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
-export const ModelPropertiesSchema = z
+/** Properties an operator configures on a model; the write side of `ModelPropertiesSchema`. */
+export const ConfiguredModelPropertiesSchema = z
   .object({
     context_length: z.number().int().positive().optional().describe('Maximum context window size in tokens.'),
     max_output_tokens: z.number().int().positive().optional().describe('Maximum output tokens the model can generate.'),
@@ -31,13 +32,46 @@ export const ModelPropertiesSchema = z
   })
   .strict()
   .describe('Optional model capability metadata.')
+  .openapi('ConfiguredModelProperties');
+
+export const AutoRoutingCategorySchema = z
+  .enum(ROOT_ROUTING_CATEGORIES)
+  .describe('A routing category a model can serve.')
+  .openapi('AutoRoutingCategory');
+
+export const AutoRoutingSchema = z
+  .discriminatedUnion('supported', [
+    z
+      .object({
+        supported: z.literal(true).describe('The model supports Auto routing.'),
+        categories: z.array(AutoRoutingCategorySchema).min(1).describe('Categories the model can serve.'),
+        enabled: z.boolean().describe("Whether the model is in the tenant's Auto candidate list."),
+      })
+      .strict()
+      .openapi('SupportedAutoRouting'),
+    z
+      .object({
+        supported: z.literal(false).describe('The model does not support Auto routing.'),
+        unsupported_reason: z.string().min(1).describe('Why the model does not support Auto routing.'),
+      })
+      .strict()
+      .openapi('UnsupportedAutoRouting'),
+  ])
+  .describe('Whether the model supports Auto routing and, if so, how.')
+  .openapi('AutoRouting');
+
+/** Properties as returned by GET /models: the configured ones plus the computed, read-only `auto_routing`. */
+export const ModelPropertiesSchema = z
+  .object({ ...ConfiguredModelPropertiesSchema.shape, auto_routing: AutoRoutingSchema })
+  .strict()
+  .describe('Model capability metadata and Auto routing support.')
   .openapi('ModelProperties');
 
 export const ConfiguredModelSchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
     name: NameSchema,
-    properties: ModelPropertiesSchema,
+    properties: ConfiguredModelPropertiesSchema,
   })
   .strict()
   .openapi('ConfiguredModel');
@@ -166,7 +200,7 @@ export function refineModelProviderManifest(
   refineUniqueModels(manifest.models, ctx);
 }
 
-export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
+export type ConfiguredModelProperties = z.infer<typeof ConfiguredModelPropertiesSchema>;
 
 /**
  * Configured provider jsonb (`model_provider.manifest`). Only `custom` carries a name, so the
@@ -240,63 +274,22 @@ export const AvailableModelProviderSchema = z
   .describe('Owning configured provider.')
   .openapi('AvailableModelProvider');
 
-/** A configured model as the stores flatten it, before per-request fields are added. */
-export const ModelViewSchema = z.object({
-  name: z
-    .string()
-    .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
-  model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-  provider: AvailableModelProviderSchema,
-  properties: ModelPropertiesSchema,
-  warning: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Set when reasoning effort or context length is not configured; may affect TrueForge performance.'),
-});
-
-export const AutoRoutingCategorySchema = z
-  .enum(ROOT_ROUTING_CATEGORIES)
-  .describe('A routing category a model can serve.')
-  .openapi('AutoRoutingCategory');
-
-export const AutoRoutingUnsupportedReasonSchema = z
-  .enum(['no_canonical_model', 'not_in_routing_clusters'])
-  .describe('Why Auto cannot route to the model.')
-  .openapi('AutoRoutingUnsupportedReason');
-
-export const AutoRoutingSchema = z
-  .discriminatedUnion('supported', [
-    z
-      .object({
-        supported: z.literal(true).describe('Auto can route to this model.'),
-        enabled: z.boolean().describe("Included in the tenant's global list of Auto candidate models."),
-        categories: z.array(AutoRoutingCategorySchema).min(1).describe('The categories the model can serve.'),
-      })
-      .strict()
-      .openapi('SupportedAutoRouting'),
-    z
-      .object({
-        supported: z.literal(false).describe('Auto cannot route to this model.'),
-        unsupported_reason: AutoRoutingUnsupportedReasonSchema,
-      })
-      .strict()
-      .openapi('UnsupportedAutoRouting'),
-  ])
-  .describe('Whether Auto can route to the model.')
-  .openapi('AutoRouting');
-
-/** Read-only: properties as returned by the list, plus the computed Auto routing support. */
-export const AvailableModelPropertiesSchema = ModelPropertiesSchema.extend({ auto_routing: AutoRoutingSchema })
-  .strict()
-  .describe('Model capability metadata and Auto routing support.')
-  .openapi('AvailableModelProperties');
-
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
-export const AvailableModelSchema = ModelViewSchema.extend({
-  properties: AvailableModelPropertiesSchema,
-  canonical_model: z.string().min(1).optional().describe('Provider-neutral model id; omitted when unknown.'),
-})
+export const AvailableModelSchema = z
+  .object({
+    name: z
+      .string()
+      .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
+    model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
+    provider: AvailableModelProviderSchema,
+    canonical_model: z.string().min(1).nullable().describe('Provider-neutral model id; null when unknown.'),
+    properties: ModelPropertiesSchema,
+    warning: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Set when reasoning effort or context length is not configured; may affect TrueForge performance.'),
+  })
   .strict()
   .openapi('AvailableModel');
 
@@ -312,5 +305,4 @@ export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderReque
 export type UpdateModelProviderRequest = z.infer<typeof UpdateModelProviderRequestSchema>;
 export type AvailableModelProvider = z.infer<typeof AvailableModelProviderSchema>;
 export type AutoRouting = z.infer<typeof AutoRoutingSchema>;
-export type ModelView = z.infer<typeof ModelViewSchema>;
 export type AvailableModel = z.infer<typeof AvailableModelSchema>;

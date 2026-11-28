@@ -81,7 +81,7 @@ class ListedModelsStore extends SqliteModelProviderStore {
       model_id: name,
       provider: { name: 'acct' },
       properties: {},
-      canonicalModel: canonicalModels[name],
+      canonical_model: canonicalModels[name] ?? null,
       cost: 1,
     }));
   }

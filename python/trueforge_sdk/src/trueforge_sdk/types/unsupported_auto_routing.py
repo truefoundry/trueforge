@@ -5,16 +5,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .auto_routing_unsupported_reason import AutoRoutingUnsupportedReason
 
 
 class UnsupportedAutoRouting(UncheckedBaseModel):
     supported: typing.Literal[False] = pydantic.Field(default=False)
     """
-    Auto cannot route to this model.
+    The model does not support Auto routing.
     """
 
-    unsupported_reason: AutoRoutingUnsupportedReason
+    unsupported_reason: str = pydantic.Field()
+    """
+    Why the model does not support Auto routing.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

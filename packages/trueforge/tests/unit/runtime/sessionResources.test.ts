@@ -27,12 +27,12 @@ const SUBJECT = {
   subject_display_name: 'Tester',
 };
 
-const routableModel = (name: string, canonicalModel: string | undefined): ModelInfo => ({
+const routableModel = (name: string, canonical_model: string | null): ModelInfo => ({
   name,
   model_id: name,
   provider: { name: 'acct' },
   properties: {},
-  canonicalModel,
+  canonical_model,
   cost: 1,
 });
 // Together these serve every routing category: answer, execute, analyze and frontier.
@@ -240,11 +240,11 @@ describe('validateAgentSpec', () => {
   });
 
   it.each([
-    ['has no canonical id', undefined],
+    ['has no canonical id', null],
     ['has a canonical id no cluster lists', 'acme/custom-llm'],
-  ])('rejects auto when a candidate model %s, without naming it', async (_label, canonicalModel) => {
+  ])('rejects auto when a candidate model %s, without naming it', async (_label, canonical_model) => {
     const stores = await setup();
-    const custom = routableModel('acct/custom-llm', canonicalModel);
+    const custom = routableModel('acct/custom-llm', canonical_model);
     jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue([...COVERING, custom]);
     const modelRouting = parseTrueFoundryModelRouting(
       JSON.stringify({
