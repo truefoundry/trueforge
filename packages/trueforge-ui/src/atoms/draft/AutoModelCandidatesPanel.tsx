@@ -9,7 +9,6 @@ import {
   uncoveredTiers,
 } from '../../containers/SettingsBuilder/autoRoutingTiers.js';
 import type { AutoRoutingCategory, ModelSelection } from '../../server/types.js';
-import { useSlot } from '../../theme/SlotsProvider.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
 import { Checkbox } from '../primitives/Checkbox.js';
@@ -126,7 +125,6 @@ function selectionProblem({
  * among. Models Auto cannot route to, or that settings do not enable for it, are left out.
  */
 export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCancel }: AutoModelCandidatesPanelProps) {
-  const AutoModelRemovedWarning = useSlot('AutoModelRemovedWarning');
   const [selected, setSelected] = useState<string[]>(saved);
   const needle = normalizeModelSearchText(query);
 
@@ -154,15 +152,6 @@ export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCanc
   return (
     <div className="flex min-h-0 min-w-0 flex-auto flex-col overflow-hidden">
       <div className="flex min-h-0 flex-auto flex-col overflow-y-auto">
-        {removed.size > 0 ? (
-          // The list is already on screen, so there is nothing more to review than the sync.
-          <div className="px-3 pt-2.5">
-            <AutoModelRemovedWarning
-              removedCount={removed.size}
-              onSync={() => setSelected(previous => previous.filter(name => !removed.has(name)))}
-            />
-          </div>
-        ) : null}
         <div role="listbox" aria-label="Auto candidate models" aria-multiselectable className="flex flex-col p-1">
           {removedRows.length > 0 ? (
             <div role="group" aria-label="No longer in workspace list">

@@ -281,52 +281,41 @@ describe('AgentModelEditorContent with Auto', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
   });
 
-  it('treats a saved candidate that settings no longer enable as removed, and blocks Apply until it is unticked', async () => {
+  it('marks a saved candidate that settings no longer enable, and blocks Apply until it is unticked', async () => {
     renderWithAuto({
       spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/gpt-5-pro'] } },
     });
 
-    expect(await screen.findByText('1 model removed from workspace list')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /gpt-5-pro/ })).toHaveTextContent('no longer in workspace list');
+    expect(await screen.findByRole('option', { name: /gpt-5-pro/ })).toHaveTextContent('no longer in workspace list');
     expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
     expect(screen.getByText(/untick 1 unavailable model/)).toBeInTheDocument();
+    // The rows say what is wrong, so the picker carries no separate warning or hover card.
+    expect(screen.queryByText(/removed from workspace list/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('option', { name: /gpt-5-pro/ }));
+    expect(screen.queryByRole('option', { name: /gpt-5-pro/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
   });
 
-  it('treats a saved candidate that no longer supports Auto as removed', async () => {
+  it('marks a saved candidate that no longer supports Auto', async () => {
     renderWithAuto({
       spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'google/gemma'] } },
     });
 
-    expect(await screen.findByText('1 model removed from workspace list')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /gemma/ })).toHaveTextContent('no longer in workspace list');
+    expect(await screen.findByRole('option', { name: /gemma/ })).toHaveTextContent('no longer in workspace list');
   });
 
-  it('flags saved candidates the workspace dropped, and syncs them away from the hover card', async () => {
+  it('keeps a saved candidate the workspace dropped out of the counts of what can be added', async () => {
     const { onChange } = renderWithAuto({
       spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/retired'] } },
     });
 
-    const label = await screen.findByText('1 model removed from workspace list');
-    expect(screen.getByRole('option', { name: /retired/ })).toHaveTextContent('no longer in workspace list');
+    expect(await screen.findByRole('option', { name: /retired/ })).toHaveTextContent('no longer in workspace list');
     expect(screen.getByText(/^5 of 7 selected/)).toBeInTheDocument();
 
-    fireEvent.mouseEnter(label);
-    const card = await screen.findByRole('tooltip');
-    expect(card).toHaveTextContent('Workspace model list changed since this agent was saved.');
-    expect(card).toHaveTextContent('1 model is no longer in the workspace list.');
-    // The list being reviewed is already on screen.
-    expect(within(card).queryByRole('button', { name: 'Review changes' })).not.toBeInTheDocument();
-    fireEvent.click(within(card).getByRole('button', { name: 'Sync with workspace' }));
-
-    expect(screen.queryByText('1 model removed from workspace list')).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /retired/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /retired/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(onChange).toHaveBeenCalledWith({
-      model: { type: 'auto', candidateModels: savedCandidates },
-    });
+    expect(onChange).toHaveBeenCalledWith({ model: { type: 'auto', candidateModels: savedCandidates } });
   });
 
   it('lists Auto first in the compact provider list and opens its candidates', async () => {
