@@ -56,14 +56,14 @@ function classifiesAs(category?: string): IDecisionModel {
 
 describe('selectModel', () => {
   it('picks the cheapest pair in the cluster, across accounts', () => {
-    expect(selectModel({ category: 'fixed_steps', models })?.routed).toEqual({
+    expect(selectModel({ category: 'execute', models })?.routed).toEqual({
       model: 'b/claude-haiku-5-5',
       effort: 'high',
     });
   });
 
   it('gives a cost tie to the lower effort', () => {
-    expect(selectModel({ category: 'direct', models })?.routed).toEqual({
+    expect(selectModel({ category: 'answer', models })?.routed).toEqual({
       model: 'b/claude-haiku-5-5',
       effort: 'low',
     });
@@ -71,13 +71,11 @@ describe('selectModel', () => {
 
   it('puts models without a cost last', () => {
     const withoutCostFirst = [models[3], models[0]].filter(model => model !== undefined);
-    expect(selectModel({ category: 'fixed_steps', models: withoutCostFirst })?.routed.model).toBe(
-      'a/claude-sonnet-5-5',
-    );
+    expect(selectModel({ category: 'execute', models: withoutCostFirst })?.routed.model).toBe('a/claude-sonnet-5-5');
   });
 
   it('returns nothing when the user has none of the cluster models', () => {
-    expect(selectModel({ category: 'adaptive', models: haikuOnly })).toBeUndefined();
+    expect(selectModel({ category: 'analyze', models: haikuOnly })).toBeUndefined();
   });
 
   it('picks the cheapest pair in the frontier cluster', () => {
@@ -87,13 +85,13 @@ describe('selectModel', () => {
     });
   });
 
-  it('offers a model at max effort to frontier as well as adaptive when it is in both clusters', () => {
+  it('offers a model at max effort to frontier as well as analyze when it is in both clusters', () => {
     const sonnet = models.filter(model => model.canonicalModel === 'anthropic/claude-sonnet-5-5');
     expect(selectModel({ category: 'frontier', models: sonnet })?.routed).toEqual({
       model: 'a/claude-sonnet-5-5',
       effort: 'max',
     });
-    expect(selectModel({ category: 'adaptive', models: sonnet })?.routed).toEqual({
+    expect(selectModel({ category: 'analyze', models: sonnet })?.routed).toEqual({
       model: 'a/claude-sonnet-5-5',
       effort: 'high',
     });
@@ -127,7 +125,7 @@ describe('createModelRouter', () => {
   }
 
   it("routes to the classified cluster's cheapest pair", async () => {
-    await expect(route(classifiesAs('fixed_steps'))).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
+    await expect(route(classifiesAs('execute'))).resolves.toEqual({ model: 'b/claude-haiku-5-5', effort: 'high' });
   });
 
   it('routes to the frontier cluster when the caller offers it', async () => {
@@ -159,7 +157,7 @@ describe('createModelRouter', () => {
   });
 
   it("picks nothing when the user has none of the cluster's models", async () => {
-    await expect(route(classifiesAs('adaptive'), () => Promise.resolve(haikuOnly))).resolves.toBeUndefined();
+    await expect(route(classifiesAs('analyze'), () => Promise.resolve(haikuOnly))).resolves.toBeUndefined();
   });
 
   it('picks nothing when the classifier fails', async () => {
@@ -181,7 +179,7 @@ describe('createModelRouter', () => {
         {
           classifier: () =>
             classifierStarted.then(() => ({
-              client: classifiesAs('direct'),
+              client: classifiesAs('answer'),
               properties: { contextLength: 16_000 },
             })),
           question: DEFAULT_ROUTING_QUESTION,
@@ -205,7 +203,7 @@ describe('createModelRouter', () => {
     const listModels = jest.fn(() => Promise.resolve(models));
     const routeModel = createModelRouter(
       {
-        classifier: () => Promise.resolve({ client: classifiesAs('direct'), properties: { contextLength: 16_000 } }),
+        classifier: () => Promise.resolve({ client: classifiesAs('answer'), properties: { contextLength: 16_000 } }),
         question: DEFAULT_ROUTING_QUESTION,
         listModels,
         candidateModels,
@@ -231,18 +229,18 @@ describe('createModelRouter', () => {
     }
 
     it('picks nothing when there are no candidates', async () => {
-      await expect(routeAmong([], classifiesAs('direct'))).resolves.toBeUndefined();
+      await expect(routeAmong([], classifiesAs('answer'))).resolves.toBeUndefined();
     });
 
     it('never picks a model outside the candidates, even a cheaper one', async () => {
-      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('fixed_steps'))).resolves.toEqual({
+      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('execute'))).resolves.toEqual({
         model: 'a/claude-haiku-5-5',
         effort: 'high',
       });
     });
 
     it('picks nothing when the classifier answers a category the candidates do not serve', async () => {
-      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('adaptive'))).resolves.toBeUndefined();
+      await expect(routeAmong(['a/claude-haiku-5-5'], classifiesAs('analyze'))).resolves.toBeUndefined();
     });
   });
 });
@@ -304,12 +302,12 @@ describe('classification', () => {
       }).body.questions[0];
       return question !== undefined && 'choices' in question ? question.choices.map(choice => choice.value) : [];
     };
-    expect(offered(ROOT_ROUTING_CATEGORIES)).toEqual(['direct', 'fixed_steps', 'adaptive', 'frontier']);
-    expect(offered(SUBAGENT_ROUTING_CATEGORIES)).toEqual(['direct', 'fixed_steps', 'adaptive']);
+    expect(offered(ROOT_ROUTING_CATEGORIES)).toEqual(['answer', 'execute', 'analyze', 'frontier']);
+    expect(offered(SUBAGENT_ROUTING_CATEGORIES)).toEqual(['answer', 'execute', 'analyze']);
   });
 
   it('reads the category, or nothing when the decision has none', () => {
-    expect(readClassification(decisionFor('fixed_steps'))?.category).toBe('fixed_steps');
+    expect(readClassification(decisionFor('execute'))?.category).toBe('execute');
     expect(readClassification(decisionFor())).toBeUndefined();
   });
 });

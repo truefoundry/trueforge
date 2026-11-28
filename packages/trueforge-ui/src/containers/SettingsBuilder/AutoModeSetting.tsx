@@ -89,8 +89,8 @@ const AutoModeSetting = () => {
               <p className="mt-0.5 text-sm text-text-secondary">
                 {enabled ? (
                   <>
-                    Each task is matched to a tier: routine, tool-driven, adaptive or frontier. Auto picks a suitable
-                    model from the ones you select, so include at least one for every tier.
+                    Each task is matched to a tier: Answer, Execute, Analyze or Frontier. Auto picks a suitable model
+                    from the ones you select, so include at least one for every tier.
                   </>
                 ) : (
                   'Intelligently picks a suitable model for each task.'

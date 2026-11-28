@@ -356,7 +356,7 @@ describe('capabilities routers', () => {
     });
 
     describe('with an admin candidate list', () => {
-      // Sonnet alone covers every routing category; Haiku misses the adaptive one.
+      // Sonnet alone covers every routing category; Haiku misses the analyze one.
       const sonnet = 'acct/sonnet';
       const haiku = 'acct/haiku';
       const outsideClusters = 'acct/unclustered';

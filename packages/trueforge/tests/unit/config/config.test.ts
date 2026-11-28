@@ -236,7 +236,7 @@ describe('parseTrueFoundryModelRouting', () => {
         tenants: { internal: { enabled: 'on' } },
         ...(categories === undefined ? {} : { categories }),
       });
-    const three = { direct: 'd', fixed_steps: 'f', adaptive: 'a' };
+    const three = { answer: 'a', execute: 'e', analyze: 'z' };
 
     it('defaults to the tested four when unset', () => {
       expect(parseTrueFoundryModelRouting(routing())?.categories).toEqual(DEFAULT_ROUTING_QUESTION.categories);

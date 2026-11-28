@@ -35,7 +35,7 @@ const routableModel = (name: string, canonicalModel: string | undefined): ModelI
   canonicalModel,
   cost: 1,
 });
-// Together these serve every routing category: direct, fixed_steps, adaptive and frontier.
+// Together these serve every routing category: answer, execute, analyze and frontier.
 const COVERING = [
   routableModel('acct/haiku', 'anthropic/claude-haiku-5-5'),
   routableModel('acct/sonnet', 'anthropic/claude-sonnet-5-5'),
@@ -283,7 +283,7 @@ describe('validateAgentSpec', () => {
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
-          // Haiku, Luna and Flash serve the cheaper categories only; adaptive and frontier get no model.
+          // Haiku, Luna and Flash serve the cheaper categories only; analyze and frontier get no model.
           model: { type: 'auto', candidate_models: ['acct/haiku', 'acct/luna', ...extras.map(model => model.name)] },
           instructions: 'test',
         }),
