@@ -41,7 +41,8 @@ export const FixedModelSchema = z
 export const LegacyModelSchema = z
   .object({ ...ModelSchema.shape })
   .strict()
-  .openapi('LegacyModel');
+  .describe('Deprecated: send a fixed model with `type: "fixed"` instead.')
+  .openapi('LegacyModel', { deprecated: true });
 
 /** Fewest models an auto spec may name, so every routing category can have one. */
 export const MIN_AUTO_CANDIDATE_MODELS = 4;

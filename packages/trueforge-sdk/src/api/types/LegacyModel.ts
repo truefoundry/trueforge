@@ -2,6 +2,9 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Deprecated: send a fixed model with `type: "fixed"` instead.
+ */
 export interface LegacyModel {
     /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
     name: string;

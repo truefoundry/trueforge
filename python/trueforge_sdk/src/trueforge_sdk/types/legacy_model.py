@@ -9,6 +9,10 @@ from .model_params import ModelParams
 
 
 class LegacyModel(UncheckedBaseModel):
+    """
+    Deprecated: send a fixed model with `type: "fixed"` instead.
+    """
+
     name: str = pydantic.Field()
     """
     Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.
