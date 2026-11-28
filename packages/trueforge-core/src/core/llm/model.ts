@@ -86,7 +86,7 @@ export const AutoModelSchema = z
   .openapi('AutoModel');
 
 export const ModelDefinitionSchema = z
-  .union([LegacyModelSchema, FixedModelSchema, AutoModelSchema])
+  .union([FixedModelSchema, AutoModelSchema, LegacyModelSchema])
   .transform((model): FixedModel | AutoModel => ('type' in model ? model : { type: 'fixed', ...model }))
   .openapi('ModelDefinition');
 

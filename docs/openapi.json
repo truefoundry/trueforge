@@ -3172,13 +3172,13 @@
       "ModelDefinition": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/LegacyModel"
-          },
-          {
             "$ref": "#/components/schemas/FixedModel"
           },
           {
             "$ref": "#/components/schemas/AutoModel"
+          },
+          {
+            "$ref": "#/components/schemas/LegacyModel"
           }
         ]
       },

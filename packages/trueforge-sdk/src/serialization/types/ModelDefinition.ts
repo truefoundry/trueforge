@@ -8,8 +8,8 @@ import { FixedModel } from "./FixedModel.js";
 import { LegacyModel } from "./LegacyModel.js";
 
 export const ModelDefinition: core.serialization.Schema<serializers.ModelDefinition.Raw, TrueForge.ModelDefinition> =
-    core.serialization.undiscriminatedUnion([LegacyModel, FixedModel, AutoModel]);
+    core.serialization.undiscriminatedUnion([FixedModel, AutoModel, LegacyModel]);
 
 export declare namespace ModelDefinition {
-    export type Raw = LegacyModel.Raw | FixedModel.Raw | AutoModel.Raw;
+    export type Raw = FixedModel.Raw | AutoModel.Raw | LegacyModel.Raw;
 }

@@ -19,7 +19,7 @@ describe("AgentsClient", () => {
                     },
                     description: "description",
                     id: "id",
-                    manifest: { model: { name: "name" } },
+                    manifest: { model: { name: "name", type: "fixed" } },
                     name: "name",
                 },
             ],
@@ -47,6 +47,7 @@ describe("AgentsClient", () => {
                     manifest: {
                         model: {
                             name: "name",
+                            type: "fixed",
                         },
                     },
                     name: "name",
@@ -95,7 +96,11 @@ describe("AgentsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "description", manifest: { model: { name: "name" } }, name: "name" };
+        const rawRequestBody = {
+            description: "description",
+            manifest: { model: { name: "name", type: "fixed" } },
+            name: "name",
+        };
         const rawResponseBody = {
             data: {
                 created_by_subject: {
@@ -109,7 +114,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: { name: "name", type: "fixed" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -131,6 +136,7 @@ describe("AgentsClient", () => {
             manifest: {
                 model: {
                     name: "name",
+                    type: "fixed",
                 },
             },
             name: "name",
@@ -159,6 +165,7 @@ describe("AgentsClient", () => {
                     ],
                     model: {
                         name: "name",
+                        type: "fixed",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -177,7 +184,7 @@ describe("AgentsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x", type: "fixed" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -195,6 +202,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
                 name: "xy",
@@ -205,7 +213,7 @@ describe("AgentsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x", type: "fixed" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -223,6 +231,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
                 name: "xy",
@@ -233,7 +242,7 @@ describe("AgentsClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x", type: "fixed" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -251,6 +260,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
                 name: "xy",
@@ -275,7 +285,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: { name: "name", type: "fixed" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -316,6 +326,7 @@ describe("AgentsClient", () => {
                     ],
                     model: {
                         name: "name",
+                        type: "fixed",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -353,7 +364,7 @@ describe("AgentsClient", () => {
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "name" } } };
+        const rawRequestBody = { manifest: { model: { name: "name", type: "fixed" } } };
         const rawResponseBody = {
             data: {
                 created_by_subject: {
@@ -367,7 +378,7 @@ describe("AgentsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: { name: "name", type: "fixed" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                 },
@@ -388,6 +399,7 @@ describe("AgentsClient", () => {
             manifest: {
                 model: {
                     name: "name",
+                    type: "fixed",
                 },
             },
         });
@@ -415,6 +427,7 @@ describe("AgentsClient", () => {
                     ],
                     model: {
                         name: "name",
+                        type: "fixed",
                     },
                     responseFormat: {
                         type: "json_object",
@@ -433,7 +446,7 @@ describe("AgentsClient", () => {
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } } };
+        const rawRequestBody = { manifest: { model: { name: "x", type: "fixed" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -450,6 +463,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
             });
@@ -459,7 +473,7 @@ describe("AgentsClient", () => {
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } } };
+        const rawRequestBody = { manifest: { model: { name: "x", type: "fixed" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -476,6 +490,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
             });
@@ -485,7 +500,7 @@ describe("AgentsClient", () => {
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } } };
+        const rawRequestBody = { manifest: { model: { name: "x", type: "fixed" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -502,6 +517,7 @@ describe("AgentsClient", () => {
                 manifest: {
                     model: {
                         name: "x",
+                        type: "fixed",
                     },
                 },
             });

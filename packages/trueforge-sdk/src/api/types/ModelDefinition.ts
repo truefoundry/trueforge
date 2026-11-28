@@ -2,4 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type ModelDefinition = TrueForge.LegacyModel | TrueForge.FixedModel | TrueForge.AutoModel;
+export type ModelDefinition = TrueForge.FixedModel | TrueForge.AutoModel | TrueForge.LegacyModel;
