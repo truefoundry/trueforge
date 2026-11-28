@@ -3,7 +3,13 @@
  * Composer pickers + agent library backed by the Harness agents registry.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
+import type {
+  AgentBuilderServer,
+  AgentLibraryEntry,
+  ModelAutoRouting,
+  ModelSelection,
+  SearchAgentsParams,
+} from '../../server/types.js';
 import { AGENTS_PAGE_DEFAULT, clampAgentsPageSize, drainAgentsList, listAgentsPage } from './agentsList.js';
 import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
@@ -29,6 +35,12 @@ export function modelProviderLogosByName(
   return logos;
 }
 
+function toModelAutoRouting(autoRouting: TrueForgeApi.AutoRouting): ModelAutoRouting {
+  return autoRouting.supported
+    ? { supported: true, enabled: autoRouting.enabled, categories: [...autoRouting.categories] }
+    : { supported: false, unsupportedReason: autoRouting.unsupportedReason };
+}
+
 /** Map harness model rows onto the UI picker shape (nested provider + properties + optional logo). */
 export function toModelSelection({
   model,
@@ -37,7 +49,7 @@ export function toModelSelection({
   model: TrueForgeApi.AvailableModel;
   logo?: string;
 }): ModelSelection {
-  const { contextLength, maxOutputTokens, reasoningEfforts } = model.properties;
+  const { contextLength, maxOutputTokens, reasoningEfforts, autoRouting } = model.properties;
   return {
     id: model.modelId,
     name: model.name,
@@ -49,6 +61,7 @@ export function toModelSelection({
       ...(contextLength === undefined ? {} : { contextLength }),
       ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
       ...(reasoningEfforts === undefined ? {} : { reasoningEfforts: [...reasoningEfforts] }),
+      autoRouting: toModelAutoRouting(autoRouting),
     },
     ...(model.warning === undefined ? {} : { warning: model.warning }),
   };

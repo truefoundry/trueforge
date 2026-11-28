@@ -23,10 +23,20 @@ export interface ProviderEntry {
   logo?: string;
 }
 
+/** A kind of task Auto routing matches a model to, simplest first. */
+export type AutoRoutingCategory = 'answer' | 'execute' | 'analyze' | 'frontier';
+
+/** Whether Auto may route to a model, and for which categories. */
+export type ModelAutoRouting =
+  | { supported: true; enabled: boolean; categories: AutoRoutingCategory[] }
+  | { supported: false; unsupportedReason: string };
+
 export interface ModelProperties {
   reasoningEfforts?: string[];
   contextLength?: number;
   maxOutputTokens?: number;
+  /** Omitted when the host does not report Auto routing support. */
+  autoRouting?: ModelAutoRouting;
 }
 
 /** Model selector row. Host extends for apiModel, modelId, etc. */
