@@ -7,17 +7,17 @@ export type RoutingClusters = Record<RoutingCategory, Partial<Record<ReasoningEf
 /**
  * The router picks the cheapest pair the tenant has, by its gateway cost per token, and the thread runs at that effort.
  * Nearest anchor by AA Intelligence Index v5.0.1 (Haiku 24.6, Sonnet 30.8, GPT-6.1 Sol 46.3 at medium); min 18/26/41.
- * `frontier` is min 54, above every `analytical` pair. Only the root thread routes to it;
+ * `frontier` is min 54, above every `analyze` pair. Only the root thread routes to it;
  * subagents are never offered the category.
  */
 export const ROUTING_CLUSTERS: RoutingClusters = {
-  routine: {
+  answer: {
     low: ['anthropic/claude-haiku-5-5', 'anthropic/claude-sonnet-5-5', 'zai/glm-5-3', 'google/gemini-3-8-flash'],
     medium: ['openai/gpt-6-luna', 'anthropic/claude-haiku-5-5'],
     high: ['openai/gpt-6-luna'],
     xhigh: ['openai/gpt-6-luna', 'alibaba/qwen3-8-27b'],
   },
-  guided: {
+  execute: {
     low: ['openai/gpt-6-1-sol'],
     medium: ['anthropic/claude-sonnet-5-5', 'google/gemini-3-8-flash'],
     high: ['anthropic/claude-haiku-5-5', 'deepseek/deepseek-v4-1-flash', 'xai/grok-4-7', 'google/gemini-3-8-flash'],
@@ -30,7 +30,7 @@ export const ROUTING_CLUSTERS: RoutingClusters = {
       'zai/glm-5-3',
     ],
   },
-  analytical: {
+  analyze: {
     medium: ['openai/gpt-6-1-sol'],
     high: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5', 'google/gemini-4-argon'],
     xhigh: ['openai/gpt-6-1-sol', 'anthropic/claude-sonnet-5-5'],

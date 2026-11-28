@@ -162,9 +162,9 @@ const TrueFoundryModelRoutingSchema = z.object({
   /** What each category means to the decision model; `frontier` defaults when the other three are given. */
   categories: z
     .object({
-      routine: RoutingDescriptionSchema,
-      guided: RoutingDescriptionSchema,
-      analytical: RoutingDescriptionSchema,
+      answer: RoutingDescriptionSchema,
+      execute: RoutingDescriptionSchema,
+      analyze: RoutingDescriptionSchema,
       frontier: RoutingDescriptionSchema.default(DEFAULT_ROUTING_QUESTION.categories.frontier),
     })
     .strict()
