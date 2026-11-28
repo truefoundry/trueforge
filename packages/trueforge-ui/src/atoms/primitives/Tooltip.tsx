@@ -38,13 +38,17 @@ function interactiveBridgeStyle(side: TooltipSide): React.CSSProperties {
 
 export type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
 
+/** For top/bottom tooltips: centre on the trigger, or line the popup's left edge up with the trigger's. */
+export type TooltipAlign = 'center' | 'start';
+
 function isVerticalSide(side: TooltipSide): side is 'top' | 'bottom' {
   return side === 'top' || side === 'bottom';
 }
 
-function tooltipTransform(side: TooltipSide): string {
-  if (side === 'bottom') return 'translate(-50%, 0)';
-  if (side === 'top') return 'translate(-50%, -100%)';
+function tooltipTransform({ side, align }: { side: TooltipSide; align: TooltipAlign }): string {
+  const x = align === 'start' ? '0' : '-50%';
+  if (side === 'bottom') return `translate(${x}, 0)`;
+  if (side === 'top') return `translate(${x}, -100%)`;
   if (side === 'right') return 'translate(0, -50%)';
   return 'translate(-100%, -50%)';
 }
@@ -141,6 +145,7 @@ export type TooltipProps = {
   className?: string;
   triggerClassName?: string;
   side?: TooltipSide;
+  align?: TooltipAlign;
   dismissOnClick?: boolean;
   followCursor?: boolean;
   /** When set, tooltip is pinned to these viewport coords instead of the trigger. */
@@ -157,6 +162,7 @@ export function Tooltip({
   className,
   triggerClassName,
   side = 'top',
+  align = 'center',
   dismissOnClick = true,
   followCursor = false,
   anchor = null,
@@ -231,7 +237,12 @@ export function Tooltip({
       next = isVerticalSide(side)
         ? {
             top: side === 'bottom' ? rect.bottom + TOOLTIP_GAP : rect.top - TOOLTIP_GAP,
-            left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
+            left:
+              followCursor && cursorXRef.current != null
+                ? cursorXRef.current
+                : align === 'start'
+                  ? rect.left
+                  : rect.left + rect.width / 2,
           }
         : {
             top: rect.top + rect.height / 2,
@@ -251,7 +262,14 @@ export function Tooltip({
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
     };
-    setPos(isVerticalSide(side) ? clampCenteredTooltip({ ...size, side }) : clampEdgeTooltip({ ...size, side }));
+    if (!isVerticalSide(side)) {
+      setPos(clampEdgeTooltip({ ...size, side }));
+      return;
+    }
+    // The clamp works on the centre, so an edge-aligned popup is clamped as its centre and shifted back.
+    const shift = align === 'start' ? size.width / 2 : 0;
+    const clamped = clampCenteredTooltip({ ...size, left: size.left + shift, side });
+    setPos({ top: clamped.top, left: clamped.left - shift });
   };
 
   useLayoutEffect(() => {
@@ -268,7 +286,7 @@ export function Tooltip({
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [anchor, followCursor, visible, side, content]);
+  }, [anchor, followCursor, visible, side, align, content]);
 
   if (!isValidElement(children)) return children;
 
@@ -324,7 +342,7 @@ export function Tooltip({
             style={{
               top: pos?.top ?? 0,
               left: pos?.left ?? 0,
-              transform: tooltipTransform(side),
+              transform: tooltipTransform({ side, align }),
               visibility: pos == null ? 'hidden' : undefined,
             }}
             className={cn(

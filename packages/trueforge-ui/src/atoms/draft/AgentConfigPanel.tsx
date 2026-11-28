@@ -19,7 +19,13 @@ import {
   withPreload,
   type EditableMount,
 } from './agentConfigMounts.js';
-import { modelSelectionKey } from './autoModel.js';
+import {
+  AUTO_MODEL_LABEL,
+  autoCandidateNames,
+  modelSelectionKey,
+  removedAutoCandidates,
+  syncedAutoModel,
+} from './autoModel.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
 import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
@@ -299,6 +305,7 @@ export function AgentConfigPanel({
   const Section = useSlot('AgentConfigSection');
   const AgentModelEditorContent = useSlot('AgentModelEditorContent');
   const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
+  const AutoModelRemovedWarning = useSlot('AutoModelRemovedWarning');
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [modelSettingsMenuOpen, setModelSettingsMenuOpen] = useState(false);
   const [modelQuery, setModelQuery] = useState('');
@@ -306,6 +313,11 @@ export function AgentConfigPanel({
   const skillMounts = editableMountsFromSpec(spec.skills);
   const paramSummary = modelParamSummary(modelParams(spec.model));
   const modelKey = modelSelectionKey(spec.model);
+  const autoModel = spec.model.type === 'auto' ? spec.model : null;
+  const autoCandidates = autoModel === null ? [] : autoCandidateNames({ model: autoModel, models });
+  const removedCandidates =
+    autoModel === null ? [] : removedAutoCandidates({ candidateModels: autoModel.candidateModels, models });
+  const canEditModel = onChange !== undefined && !disabled;
   const runtimeConfig = runtimeConfigSummary(spec.config, { webSearchAvailable, memoryOffered });
   const instructionPreview = instructions.trim();
   const userMessageCount = initialUserMessagesFromSpec(spec).length;
@@ -362,12 +374,27 @@ export function AgentConfigPanel({
                   disabled={disabled}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-left transition-colors"
                 >
-                  <ProviderMark
-                    logo={model?.provider.logo}
-                    label={model?.provider.name ?? modelKey}
-                    className="size-4 text-[0.5rem]"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(modelKey)}</span>
+                  {autoModel === null ? (
+                    <>
+                      <ProviderMark
+                        logo={model?.provider.logo}
+                        label={model?.provider.name ?? modelKey}
+                        className="size-4 text-[0.5rem]"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(modelKey)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="bg-primary-button-bg/10 text-primary-button-bg flex size-5 shrink-0 items-center justify-center rounded">
+                        <Icon name="wand-sparkles" className="size-3" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {autoCandidates.length > 0
+                          ? `${AUTO_MODEL_LABEL} · ${String(autoCandidates.length)} ${autoCandidates.length === 1 ? 'model' : 'models'}`
+                          : AUTO_MODEL_LABEL}
+                      </span>
+                    </>
+                  )}
                   {modelInfo.length ? (
                     <span
                       title={modelInfoTitle}
@@ -392,56 +419,92 @@ export function AgentConfigPanel({
                   setModelMenuOpen(false);
                   setModelQuery('');
                 }}
+                onClose={() => {
+                  setModelMenuOpen(false);
+                  setModelQuery('');
+                }}
               />
             </ResponsiveDropdownMenu>
-            <ResponsiveDropdownMenu
-              open={modelSettingsMenuOpen}
-              onOpenChange={setModelSettingsMenuOpen}
-              closeOnClick={false}
-              align="start"
-              sheetLabel="Model settings"
-              className="w-[min(36rem,calc(100vw-2rem))] overflow-hidden p-0"
-              trigger={
+            {autoModel === null ? (
+              <ResponsiveDropdownMenu
+                open={modelSettingsMenuOpen}
+                onOpenChange={setModelSettingsMenuOpen}
+                closeOnClick={false}
+                align="start"
+                sheetLabel="Model settings"
+                className="w-[min(36rem,calc(100vw-2rem))] overflow-hidden p-0"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label="Model settings"
+                    title="Model settings"
+                    disabled={disabled}
+                    className={auiButtonClass({
+                      variant: 'ghost',
+                      size: 'icon',
+                      className: 'size-7 shrink-0',
+                    })}
+                  >
+                    <Icon name="sliders" className="size-3.5" />
+                  </button>
+                }
+              >
+                <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
+              </ResponsiveDropdownMenu>
+            ) : null}
+          </div>
+          {autoModel === null ? (
+            <button
+              type="button"
+              disabled={disabled}
+              aria-label="Edit model settings"
+              // DropdownMenu dismisses on document mousedown; stop it so click can toggle closed without reopen.
+              onMouseDown={event => event.stopPropagation()}
+              onClick={() => setModelSettingsMenuOpen(open => !open)}
+              className="mt-2 flex w-full cursor-pointer flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <dl className="text-text-secondary flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+                {paramSummary.length ? (
+                  paramSummary.map(entry => (
+                    <div key={entry.label} className="flex gap-1">
+                      <dt>{entry.label}:</dt>
+                      <dd className="text-text-primary font-medium">{entry.value}</dd>
+                    </div>
+                  ))
+                ) : (
+                  <div>model settings: defaults</div>
+                )}
+              </dl>
+            </button>
+          ) : (
+            <div className="mt-2 flex min-w-0 flex-col items-start gap-1.5">
+              {autoCandidates.length > 0 ? (
                 <button
                   type="button"
-                  aria-label="Model settings"
-                  title="Model settings"
                   disabled={disabled}
-                  className={auiButtonClass({
-                    variant: 'ghost',
-                    size: 'icon',
-                    className: 'size-7 shrink-0',
-                  })}
+                  aria-label="Edit candidate models"
+                  // DropdownMenu dismisses on document mousedown; stop it so this click cannot close and reopen it.
+                  onMouseDown={event => event.stopPropagation()}
+                  onClick={() => setModelMenuOpen(true)}
+                  className="text-text-secondary w-full cursor-pointer truncate text-left text-xs disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Icon name="sliders" className="size-3.5" />
+                  candidates:{' '}
+                  <span className="text-text-primary font-medium">
+                    {autoCandidates.map(displayModelLabel).join(', ')}
+                  </span>
                 </button>
-              }
-            >
-              <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
-            </ResponsiveDropdownMenu>
-          </div>
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="Edit model settings"
-            // DropdownMenu dismisses on document mousedown; stop it so click can toggle closed without reopen.
-            onMouseDown={event => event.stopPropagation()}
-            onClick={() => setModelSettingsMenuOpen(open => !open)}
-            className="mt-2 flex w-full cursor-pointer flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <dl className="text-text-secondary flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-              {paramSummary.length ? (
-                paramSummary.map(entry => (
-                  <div key={entry.label} className="flex gap-1">
-                    <dt>{entry.label}:</dt>
-                    <dd className="text-text-primary font-medium">{entry.value}</dd>
-                  </div>
-                ))
-              ) : (
-                <div>model settings: defaults</div>
-              )}
-            </dl>
-          </button>
+              ) : null}
+              <AutoModelRemovedWarning
+                removedCount={removedCandidates.length}
+                onReview={canEditModel ? () => setModelMenuOpen(true) : undefined}
+                onSync={
+                  canEditModel
+                    ? () => onChange({ ...spec, model: syncedAutoModel({ model: autoModel, models }) })
+                    : undefined
+                }
+              />
+            </div>
+          )}
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">

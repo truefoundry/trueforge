@@ -381,6 +381,7 @@ export type {
   ApprovalDecision,
   AuthenticateConnectorRequest,
   AutoModel,
+  AutoRoutingCategory,
   CatalogServer,
   CodeSnippet,
   CodeSnippetSampleCode,
@@ -422,6 +423,7 @@ export type {
   MemoryProviderBase,
   MemoryProviderCatalogEntry,
   Model,
+  ModelAutoRouting,
   ModelCatalogServer,
   ModelEntry,
   ModelParams,
@@ -567,6 +569,10 @@ export {
   DEFAULT_SETTINGS_SKILLS_URL,
 } from './atoms/draft/AgentSkillsHeaderActionSlot.js';
 export type { AgentSkillsHeaderActionSlotProps } from './atoms/draft/AgentSkillsHeaderActionSlot.js';
+export { AutoModelCandidatesPanel } from './atoms/draft/AutoModelCandidatesPanel.js';
+export type { AutoModelCandidatesPanelProps } from './atoms/draft/AutoModelCandidatesPanel.js';
+export { AutoModelRemovedWarning } from './atoms/draft/AutoModelRemovedWarning.js';
+export type { AutoModelRemovedWarningProps } from './atoms/draft/AutoModelRemovedWarning.js';
 export { DraftAgentConfigTrigger } from './atoms/draft/DraftAgentConfigTrigger.js';
 export type { DraftAgentConfigTriggerProps } from './atoms/draft/DraftAgentConfigTrigger.js';
 export { DraftCapabilitiesPanel } from './atoms/draft/DraftCapabilitiesPanel.js';

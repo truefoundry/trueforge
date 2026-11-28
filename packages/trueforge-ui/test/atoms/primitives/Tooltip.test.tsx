@@ -222,6 +222,18 @@ describe('Tooltip', () => {
     expect(tooltip.className).toMatch(/fixed/);
   });
 
+  it('lines the popup up with the left edge of the trigger when align is start', () => {
+    render(
+      <Tooltip content="Aligned tip" side="bottom" align="start">
+        <button>Anchor</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Anchor' }));
+
+    expect(screen.getByRole('tooltip')).toHaveStyle({ transform: 'translate(0, 0)', left: '0px' });
+  });
+
   it('keeps the tooltip open on click when dismissOnClick is false', () => {
     render(
       <Tooltip content="Copy session link" dismissOnClick={false}>

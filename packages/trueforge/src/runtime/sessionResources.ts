@@ -331,6 +331,13 @@ export async function validateAgentSpec({
       if (rejection?.type === 'rejected') {
         throw new HTTPException(422, { message: rejection.message });
       }
+      // Auto only routes among the models an admin enabled in settings. A stored spec keeps the candidates it
+      // already had, so removing one from settings does not break saved agents.
+      const enabled = new Set(autoModelRouting.candidate_models);
+      const kept = new Set(previousSpec?.model.type === AUTO_MODEL ? previousSpec.model.candidate_models : []);
+      if (listed.some(name => !enabled.has(name) && !kept.has(name))) {
+        throw new HTTPException(422, { message: 'candidate_models must only contain models enabled for Auto' });
+      }
     }
   } else {
     const resolved = await getModelDetails({

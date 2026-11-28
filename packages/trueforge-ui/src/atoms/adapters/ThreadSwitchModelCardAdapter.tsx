@@ -30,7 +30,7 @@ export function ThreadSwitchModelCard({
       data-testid={dataTestPrefix ? `${dataTestPrefix}-thread-switch-model-card` : undefined}
     >
       <AgentStepRow
-        icon="wand"
+        icon="wand-sparkles"
         iconVariant="primary"
         title={title}
         expandable

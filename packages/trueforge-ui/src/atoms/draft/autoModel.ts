@@ -1,4 +1,4 @@
-import type { AgentBuilderCapabilitiesResponse, Model } from '../../server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AutoModel, Model, ModelSelection } from '../../server/types.js';
 
 /** Key of the Auto row in model lists and selections. It is not a model name: the spec says `type: 'auto'`. */
 export const AUTO_MODEL = 'auto';
@@ -15,7 +15,56 @@ export const AUTO_MODEL_TOOLTIP_LINES = [
 ] as const;
 
 /** Selects Auto; the empty list leaves the choice to the tenant's Auto models. */
-export const AUTO_MODEL_PATCH: Model = { type: 'auto', candidateModels: [] };
+export const AUTO_MODEL_PATCH: AutoModel = { type: 'auto', candidateModels: [] };
+
+/** Mirror the server's limits on an Auto spec's `candidateModels` when it names any. */
+export const MIN_AUTO_CANDIDATE_MODELS = 4;
+export const MAX_AUTO_CANDIDATE_MODELS = 10;
+
+/** True when Auto can route to the model and an admin enabled it in settings; only these can be candidates. */
+export function isAutoCandidate(model: ModelSelection): boolean {
+  const routing = model.properties.autoRouting;
+  return routing?.supported === true && routing.enabled;
+}
+
+/** The models an Auto spec routes among: its own list, or the workspace's Auto models when it names none. */
+export function autoCandidateNames({
+  model,
+  models,
+}: {
+  model: AutoModel;
+  models: readonly ModelSelection[];
+}): string[] {
+  if (model.candidateModels.length > 0) return model.candidateModels;
+  return models.filter(isAutoCandidate).map(item => item.name);
+}
+
+/**
+ * Saved candidates the workspace no longer offers to Auto, e.g. after an admin disabled a model in settings,
+ * removed a provider or a model stopped supporting Auto routing. An empty workspace list means the catalog has not loaded (or failed), so
+ * nothing is reported as removed.
+ */
+export function removedAutoCandidates({
+  candidateModels,
+  models,
+}: {
+  candidateModels: readonly string[];
+  models: readonly ModelSelection[];
+}): string[] {
+  if (models.length === 0) return [];
+  const listed = new Set(models.filter(isAutoCandidate).map(item => item.name));
+  return candidateModels.filter(name => !listed.has(name));
+}
+
+/**
+ * Drops removed candidates. When fewer than the minimum remain, the spec falls back to the workspace's
+ * own Auto models (an empty list), since a shorter explicit list would be rejected on save.
+ */
+export function syncedAutoModel({ model, models }: { model: AutoModel; models: readonly ModelSelection[] }): AutoModel {
+  const removed = new Set(removedAutoCandidates({ candidateModels: model.candidateModels, models }));
+  const kept = model.candidateModels.filter(name => !removed.has(name));
+  return { type: 'auto', candidateModels: kept.length >= MIN_AUTO_CANDIDATE_MODELS ? kept : [] };
+}
 
 /** The key a model has in model lists: its name, or `AUTO_MODEL` for Auto. */
 export function modelSelectionKey(model: Model): string {
