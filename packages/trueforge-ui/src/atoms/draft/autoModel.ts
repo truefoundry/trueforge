@@ -21,9 +21,10 @@ export const AUTO_MODEL_PATCH: AutoModel = { type: 'auto', candidateModels: [] }
 export const MIN_AUTO_CANDIDATE_MODELS = 4;
 export const MAX_AUTO_CANDIDATE_MODELS = 10;
 
-/** True when the workspace reports that Auto can route to the model. */
-export function supportsAutoRouting(model: ModelSelection): boolean {
-  return model.properties.autoRouting?.supported === true;
+/** True when Auto can route to the model and an admin enabled it in settings; only these can be candidates. */
+export function isAutoCandidate(model: ModelSelection): boolean {
+  const routing = model.properties.autoRouting;
+  return routing?.supported === true && routing.enabled;
 }
 
 /** The models an Auto spec routes among: its own list, or the workspace's Auto models when it names none. */
@@ -35,15 +36,12 @@ export function autoCandidateNames({
   models: readonly ModelSelection[];
 }): string[] {
   if (model.candidateModels.length > 0) return model.candidateModels;
-  return models.flatMap(item => {
-    const routing = item.properties.autoRouting;
-    return routing?.supported === true && routing.enabled ? [item.name] : [];
-  });
+  return models.filter(isAutoCandidate).map(item => item.name);
 }
 
 /**
- * Saved candidates the workspace no longer offers to Auto, e.g. after an admin removed a provider or a model
- * stopped supporting Auto routing. An empty workspace list means the catalog has not loaded (or failed), so
+ * Saved candidates the workspace no longer offers to Auto, e.g. after an admin disabled a model in settings,
+ * removed a provider or a model stopped supporting Auto routing. An empty workspace list means the catalog has not loaded (or failed), so
  * nothing is reported as removed.
  */
 export function removedAutoCandidates({
@@ -54,10 +52,7 @@ export function removedAutoCandidates({
   models: readonly ModelSelection[];
 }): string[] {
   if (models.length === 0) return [];
-  // A host that does not report Auto support leaves `autoRouting` unset; those models still count as offered.
-  const listed = new Set(
-    models.filter(item => item.properties.autoRouting?.supported !== false).map(item => item.name),
-  );
+  const listed = new Set(models.filter(isAutoCandidate).map(item => item.name));
   return candidateModels.filter(name => !listed.has(name));
 }
 

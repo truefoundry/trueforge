@@ -15,10 +15,10 @@ import { Button } from '../primitives/Button.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import {
+  isAutoCandidate,
   MAX_AUTO_CANDIDATE_MODELS,
   MIN_AUTO_CANDIDATE_MODELS,
   removedAutoCandidates,
-  supportsAutoRouting,
 } from './autoModel.js';
 import { displayModelLabel, groupModelsByProvider } from './DraftModelCatalogPanel.js';
 import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
@@ -107,7 +107,17 @@ function CandidateRow({ label, caption, categories, checked, blockedReason, rowR
 }
 
 /** What stops Apply, or null when the selection can be saved. */
-function selectionProblem({ count, uncovered }: { count: number; uncovered: readonly AutoRoutingCategory[] }) {
+function selectionProblem({
+  count,
+  removed,
+  uncovered,
+}: {
+  count: number;
+  removed: number;
+  uncovered: readonly AutoRoutingCategory[];
+}) {
+  // The server rejects candidates that settings no longer enable, so they must be unticked first.
+  if (removed > 0) return `untick ${String(removed)} unavailable ${removed === 1 ? 'model' : 'models'}`;
   if (count < MIN_AUTO_CANDIDATE_MODELS) return `pick at least ${String(MIN_AUTO_CANDIDATE_MODELS)}`;
   if (uncovered.length > 0) return `no model for ${new Intl.ListFormat('en').format(uncovered.map(tierLabel))}`;
   return null;
@@ -115,7 +125,7 @@ function selectionProblem({ count, uncovered }: { count: number; uncovered: read
 
 /**
  * The Auto view of the model picker: a checklist, grouped by provider, of the models Auto may route this agent
- * among. Models Auto cannot route to are left out.
+ * among. Models Auto cannot route to, or that settings do not enable for it, are left out.
  */
 export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCancel }: AutoModelCandidatesPanelProps) {
   const AutoModelRemovedWarning = useSlot('AutoModelRemovedWarning');
@@ -127,7 +137,7 @@ export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCanc
     () => new Set(removedAutoCandidates({ candidateModels: selected, models })),
     [selected, models],
   );
-  const routable = useMemo(() => models.filter(supportsAutoRouting), [models]);
+  const routable = useMemo(() => models.filter(isAutoCandidate), [models]);
   const removedRows = selected.filter(name => removed.has(name) && normalizeModelSearchText(name).includes(needle));
   const sections = groupModelsByProvider(
     needle ? routable.filter(model => modelMatchesQuery({ model, needle })) : routable,
@@ -139,7 +149,7 @@ export function AutoModelCandidatesPanel({ models, saved, query, onApply, onCanc
   const uncovered = uncoveredTiers(
     tierCoverageCounts(routable.filter(model => selected.includes(model.name)).map(categoriesOf)),
   );
-  const problem = selectionProblem({ count: selected.length, uncovered });
+  const problem = selectionProblem({ count: selected.length, removed: removed.size, uncovered });
 
   const toggle = (name: string) =>
     setSelected(previous => (previous.includes(name) ? previous.filter(item => item !== name) : [...previous, name]));

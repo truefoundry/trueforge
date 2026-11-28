@@ -46,6 +46,10 @@ describe('removedAutoCandidates', () => {
     expect(removedAutoCandidates({ candidateModels: ['a/one', 'gone/model'], models })).toEqual(['gone/model']);
   });
 
+  it('reports a saved model that settings do not enable for Auto', () => {
+    expect(removedAutoCandidates({ candidateModels: ['a/one', 'a/five'], models })).toEqual(['a/five']);
+  });
+
   it('reports a saved model that no longer supports Auto', () => {
     expect(removedAutoCandidates({ candidateModels: ['a/one', 'a/six'], models })).toEqual(['a/six']);
   });
@@ -57,10 +61,13 @@ describe('removedAutoCandidates', () => {
 
 describe('syncedAutoModel', () => {
   it('drops the removed candidates', () => {
-    const candidateModels = ['a/one', 'a/two', 'a/three', 'a/four', 'a/five'];
+    const candidateModels = ['a/one', 'a/two', 'a/three', 'a/four'];
 
     expect(
-      syncedAutoModel({ model: { type: 'auto', candidateModels: [...candidateModels, 'gone/model'] }, models }),
+      syncedAutoModel({
+        model: { type: 'auto', candidateModels: [...candidateModels, 'a/five', 'gone/model'] },
+        models,
+      }),
     ).toEqual({
       type: 'auto',
       candidateModels,

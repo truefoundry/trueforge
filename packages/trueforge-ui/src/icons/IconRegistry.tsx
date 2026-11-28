@@ -98,6 +98,7 @@ import {
   UserCog,
   Users,
   Wand,
+  WandSparkles,
   Wrench,
   X,
 } from 'lucide-react';
@@ -258,6 +259,7 @@ const defaults: Record<string, IconEntry> = {
   users: Users,
   lightbulb: Lightbulb,
   wand: Wand,
+  'wand-sparkles': WandSparkles,
   // Skills (settings, composer attach, agent config / overview).
   'scroll-text': ScrollText,
 

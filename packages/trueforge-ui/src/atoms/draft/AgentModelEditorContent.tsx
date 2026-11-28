@@ -69,7 +69,7 @@ function AutoRailEntry({ active, count, disabledHint, onSelect }: AutoRailEntryP
       )}
       onClick={onSelect}
     >
-      <Icon name="wand" className="size-3.5 shrink-0" aria-hidden />
+      <Icon name="wand-sparkles" className="size-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{AUTO_MODEL_LABEL}</span>
       {count === undefined ? null : <span className="shrink-0 text-[0.625rem]">{count}</span>}
     </button>
@@ -205,7 +205,7 @@ export function AgentModelEditorContent({
                   className="hover:bg-ghost-button-hover flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => setCompactAutoOpen(true)}
                 >
-                  <Icon name="wand" className="size-5 shrink-0 p-0.5" aria-hidden />
+                  <Icon name="wand-sparkles" className="size-5 shrink-0 p-0.5" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{AUTO_MODEL_LABEL}</span>
                   {autoCount === undefined ? null : (
                     <span className="text-text-secondary shrink-0 text-xs">{autoCount}</span>

@@ -189,29 +189,6 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
-  it('accepts auto when its candidate models can route every category', async () => {
-    const stores = await setup();
-    jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue(COVERING);
-    const modelRouting = parseTrueFoundryModelRouting(
-      JSON.stringify({
-        decision_model: { name: 'typesafe/jev-1.13.0', api_key: 'test-routing-key' },
-        tenants: { default: { enabled: 'on' } },
-      }),
-    );
-    await expect(
-      validateAgentSpec({
-        spec: AgentSpecSchema.parse({
-          model: autoModel,
-          instructions: 'test',
-        }),
-        tenant_id: 'default',
-        created_by_subject_id: 'test-subject',
-        ...stores,
-        modelRouting,
-      }),
-    ).resolves.toBeUndefined();
-  });
-
   it('rejects auto when a candidate model is not accessible, without naming it', async () => {
     const stores = await setup();
     jest.spyOn(stores.modelProviderStore, 'listModels').mockResolvedValue(COVERING);
@@ -298,7 +275,7 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
-  describe('auto with no candidate models', () => {
+  describe("auto against the tenant's Auto models", () => {
     const emptyAuto = AgentSpecSchema.parse({
       model: { type: 'auto', candidate_models: [] },
       instructions: 'test',
@@ -324,6 +301,59 @@ describe('validateAgentSpec', () => {
       });
       return stores;
     }
+
+    it('accepts listed candidates that the tenant enabled and that can route every category', async () => {
+      const stores = await setupTenantList(COVERING);
+      await expect(
+        validateAgentSpec({
+          spec: AgentSpecSchema.parse({ model: autoModel, instructions: 'test' }),
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          modelRouting: routingOn(),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('rejects a candidate the tenant did not enable, without naming it', async () => {
+      const disabled = routableModel('acct/disabled', 'google/gemini-3-8-flash');
+      const stores = await setupTenantList(COVERING, [...COVERING, disabled]);
+      const rejection = validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { type: 'auto', candidate_models: [...autoModel.candidate_models, disabled.name] },
+          instructions: 'test',
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+        modelRouting: routingOn(),
+      });
+
+      await expect(rejection).rejects.toMatchObject({
+        status: 422,
+        message: 'candidate_models must only contain models enabled for Auto',
+      } satisfies Partial<HTTPException>);
+      await expect(rejection).rejects.not.toMatchObject({ message: expect.stringContaining('disabled') });
+    });
+
+    it('keeps a candidate the stored spec already had after the tenant stopped enabling it', async () => {
+      const retired = routableModel('acct/retired', 'google/gemini-3-8-flash');
+      const stores = await setupTenantList(COVERING, [...COVERING, retired]);
+      const spec = AgentSpecSchema.parse({
+        model: { type: 'auto', candidate_models: [...autoModel.candidate_models, retired.name] },
+        instructions: 'test',
+      });
+      await expect(
+        validateAgentSpec({
+          spec,
+          tenant_id: 'default',
+          created_by_subject_id: 'test-subject',
+          ...stores,
+          previousSpec: spec,
+          modelRouting: routingOn(),
+        }),
+      ).resolves.toBeUndefined();
+    });
 
     it("accepts it in a chat when the tenant's models can route every category", async () => {
       const stores = await setupTenantList(COVERING);

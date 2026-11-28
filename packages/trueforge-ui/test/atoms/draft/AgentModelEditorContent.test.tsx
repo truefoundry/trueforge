@@ -150,8 +150,10 @@ const autoModels: ModelSelection[] = [
   routable({ name: 'anthropic/haiku', provider: 'Anthropic', categories: ['answer'] }),
   routable({ name: 'anthropic/opus', provider: 'Anthropic', categories: ['answer'] }),
   routable({ name: 'openai/gpt-5', provider: 'OpenAI' }),
-  routable({ name: 'openai/gpt-5-mini', provider: 'OpenAI', enabled: false, categories: ['answer'] }),
-  routable({ name: 'openai/gpt-5-nano', provider: 'OpenAI', enabled: false, categories: ['answer'] }),
+  routable({ name: 'openai/gpt-5-mini', provider: 'OpenAI', categories: ['answer'] }),
+  routable({ name: 'openai/gpt-5-nano', provider: 'OpenAI', categories: ['answer'] }),
+  // Supported by Auto, but an admin has not enabled it in settings.
+  routable({ name: 'openai/gpt-5-pro', provider: 'OpenAI', enabled: false }),
   {
     id: 'gemma',
     name: 'google/gemma',
@@ -160,7 +162,8 @@ const autoModels: ModelSelection[] = [
   },
 ];
 
-const workspaceCandidates = ['anthropic/sonnet', 'anthropic/haiku', 'anthropic/opus', 'openai/gpt-5'];
+const savedCandidates = ['anthropic/sonnet', 'anthropic/haiku', 'anthropic/opus', 'openai/gpt-5'];
+const workspaceCandidates = [...savedCandidates, 'openai/gpt-5-mini', 'openai/gpt-5-nano'];
 
 function renderWithAuto({ spec: currentSpec, compact = false }: { spec: AgentSpec; compact?: boolean }) {
   const onChange = vi.fn();
@@ -201,7 +204,7 @@ function renderWithAuto({ spec: currentSpec, compact = false }: { spec: AgentSpe
 }
 
 describe('AgentModelEditorContent with Auto', () => {
-  const autoSpec: AgentSpec = { model: { type: 'auto', candidateModels: workspaceCandidates } };
+  const autoSpec: AgentSpec = { model: { type: 'auto', candidateModels: savedCandidates } };
 
   it('lists Auto above the providers, set apart from them', async () => {
     renderWithAuto({ spec });
@@ -226,7 +229,7 @@ describe('AgentModelEditorContent with Auto', () => {
     const { onChange, onClose } = renderWithAuto({ spec });
 
     fireEvent.click(await screen.findByRole('button', { name: /^Auto/ }));
-    expect(screen.getByText('4 of 6 selected')).toBeInTheDocument();
+    expect(screen.getByText('6 of 6 selected')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     expect(onChange).toHaveBeenCalledWith({ ...spec, model: { type: 'auto', candidateModels: workspaceCandidates } });
@@ -241,7 +244,7 @@ describe('AgentModelEditorContent with Auto', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(onChange).toHaveBeenCalledWith({
       ...autoSpec,
-      model: { type: 'auto', candidateModels: [...workspaceCandidates, 'openai/gpt-5-mini'] },
+      model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/gpt-5-mini'] },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /gpt-5-mini/ }));
@@ -250,12 +253,13 @@ describe('AgentModelEditorContent with Auto', () => {
     expect(screen.getByText(/pick at least 4/)).toBeInTheDocument();
   });
 
-  it('lists only models Auto can route to, grouped by provider', async () => {
+  it('lists only models Auto supports and settings enable, grouped by provider', async () => {
     renderWithAuto({ spec: autoSpec });
     await screen.findByRole('button', { name: 'Auto 4' });
 
     expect(screen.queryByRole('option', { name: /gemma/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Google' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /gpt-5-pro/ })).not.toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'OpenAI' })).getAllByRole('option')).toHaveLength(3);
   });
 
@@ -277,9 +281,23 @@ describe('AgentModelEditorContent with Auto', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
   });
 
+  it('treats a saved candidate that settings no longer enable as removed, and blocks Apply until it is unticked', async () => {
+    renderWithAuto({
+      spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/gpt-5-pro'] } },
+    });
+
+    expect(await screen.findByText('1 model removed from workspace list')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /gpt-5-pro/ })).toHaveTextContent('no longer in workspace list');
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    expect(screen.getByText(/untick 1 unavailable model/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('option', { name: /gpt-5-pro/ }));
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
+  });
+
   it('treats a saved candidate that no longer supports Auto as removed', async () => {
     renderWithAuto({
-      spec: { model: { type: 'auto', candidateModels: [...workspaceCandidates, 'google/gemma'] } },
+      spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'google/gemma'] } },
     });
 
     expect(await screen.findByText('1 model removed from workspace list')).toBeInTheDocument();
@@ -288,12 +306,12 @@ describe('AgentModelEditorContent with Auto', () => {
 
   it('flags saved candidates the workspace dropped, and syncs them away from the hover card', async () => {
     const { onChange } = renderWithAuto({
-      spec: { model: { type: 'auto', candidateModels: [...workspaceCandidates, 'openai/retired'] } },
+      spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/retired'] } },
     });
 
     const label = await screen.findByText('1 model removed from workspace list');
     expect(screen.getByRole('option', { name: /retired/ })).toHaveTextContent('no longer in workspace list');
-    expect(screen.getByText('5 of 7 selected')).toBeInTheDocument();
+    expect(screen.getByText(/^5 of 7 selected/)).toBeInTheDocument();
 
     fireEvent.mouseEnter(label);
     const card = await screen.findByRole('tooltip');
@@ -305,7 +323,7 @@ describe('AgentModelEditorContent with Auto', () => {
     expect(screen.queryByRole('option', { name: /retired/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(onChange).toHaveBeenCalledWith({
-      model: { type: 'auto', candidateModels: workspaceCandidates },
+      model: { type: 'auto', candidateModels: savedCandidates },
     });
   });
 
@@ -319,6 +337,6 @@ describe('AgentModelEditorContent with Auto', () => {
     fireEvent.click(auto);
 
     expect(screen.getByRole('button', { name: 'Back to providers' })).toBeInTheDocument();
-    expect(screen.getByText('4 of 6 selected')).toBeInTheDocument();
+    expect(screen.getByText('6 of 6 selected')).toBeInTheDocument();
   });
 });

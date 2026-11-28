@@ -386,7 +386,7 @@ export function AgentConfigPanel({
                   ) : (
                     <>
                       <span className="bg-primary-button-bg/10 text-primary-button-bg flex size-5 shrink-0 items-center justify-center rounded">
-                        <Icon name="wand" className="size-3" aria-hidden />
+                        <Icon name="wand-sparkles" className="size-3" aria-hidden />
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">
                         {autoCandidates.length > 0
