@@ -13,9 +13,9 @@ import type { UpdateTenantConfigurationRequest } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AutoModelCandidateList from './AutoModelCandidateList.js';
-import { AUTO_ROUTING_TIERS } from './autoRoutingTiers.js';
+import { AUTO_ROUTING_TIERS, tierLabel } from './autoRoutingTiers.js';
 
-const TIER_LIST = new Intl.ListFormat('en', { type: 'disjunction' }).format(AUTO_ROUTING_TIERS);
+const TIER_LIST = new Intl.ListFormat('en', { type: 'disjunction' }).format(AUTO_ROUTING_TIERS.map(tierLabel));
 
 type AutoModelRoutingChange = NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>;
 
