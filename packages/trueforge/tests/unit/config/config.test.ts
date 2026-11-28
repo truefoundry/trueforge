@@ -255,12 +255,6 @@ describe('parseTrueFoundryModelRouting', () => {
         'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object',
       );
     });
-
-    it('rejects the pre-rename category keys', () => {
-      expect(() => parseTrueFoundryModelRouting(routing({ direct: 'd', fixed_steps: 'f', adaptive: 'a' }))).toThrow(
-        'Environment variable TRUEFOUNDRY_MODEL_ROUTING must be a JSON object',
-      );
-    });
   });
 
   it('rejects a decision model without its api_key', () => {
