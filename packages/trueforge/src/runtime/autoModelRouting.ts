@@ -32,16 +32,13 @@ export function canRouteEveryCategory(models: readonly RoutableModel[]): boolean
   return uncoveredRoutingCategories(models).length === 0;
 }
 
-const ROUTING_CATEGORY_LABELS: Record<RoutingCategory, string> = {
-  answer: 'Answer',
-  execute: 'Execute',
-  analyze: 'Analyze',
-  frontier: 'Frontier',
-};
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
 
 /** Error message naming the categories no candidate model serves, or undefined when all are covered. */
 export function describeUncoveredCandidateCategories(candidateModels: readonly ModelInfo[]): string | undefined {
-  const tiers = uncoveredRoutingCategories(candidateModels).map(category => ROUTING_CATEGORY_LABELS[category]);
+  const tiers = uncoveredRoutingCategories(candidateModels).map(capitalize);
   if (tiers.length === 0) {
     return undefined;
   }
