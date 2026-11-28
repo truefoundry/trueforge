@@ -2,14 +2,14 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
-import { groupModelsByProvider } from '../../atoms/draft/DraftModelCatalogPanel.js';
+import { groupModelsByProvider, type ProviderSection } from '../../atoms/draft/DraftModelCatalogPanel.js';
 import { modelMatchesQuery, normalizeModelSearchText } from '../../atoms/draft/modelSearch.js';
 import { cn } from '../../atoms/lib/cn.js';
 import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Checkbox } from '../../atoms/primitives/Checkbox.js';
 import { Tooltip } from '../../atoms/primitives/Tooltip.js';
 import type { ModelSelection } from '../../server/types.js';
-import { coverageRangeLabel, tierCells } from './autoRoutingTiers.js';
+import { tierCells } from './autoRoutingTiers.js';
 
 /** Why a model can't be ticked right now, shown in a tooltip on the row. */
 export type PickerBlock = { title: string; text: string };
@@ -31,6 +31,24 @@ function unsupportedBlock(model: ModelSelection): PickerBlock | null {
     title: 'Not available for auto routing',
     text: routing?.unsupportedReason ?? 'Auto routing support is not reported for this model.',
   };
+}
+
+function isSupported(model: ModelSelection): boolean {
+  return model.properties.autoRouting?.supported === true;
+}
+
+/** Providers with the most Auto-supported models first, and supported models first within each provider. */
+function sortBySupport(sections: readonly ProviderSection[]): ProviderSection[] {
+  return sections
+    .map(section => ({
+      section: {
+        ...section,
+        models: [...section.models].sort((a, b) => Number(isSupported(b)) - Number(isSupported(a))),
+      },
+      supportedCount: section.models.filter(isSupported).length,
+    }))
+    .sort((a, b) => b.supportedCount - a.supportedCount || a.section.name.localeCompare(b.section.name))
+    .map(({ section }) => section);
 }
 
 type OptionProps = {
@@ -68,7 +86,6 @@ const Option = memo(({ model, checked, limitBlock, onToggle }: OptionProps) => {
       <span className="min-w-0 flex-1 truncate">{model.id}</span>
       {unsupported == null ? (
         <>
-          <span className="shrink-0 text-xs text-text-secondary">{coverageRangeLabel(categories)}</span>
           <span aria-hidden className="flex shrink-0 gap-[0.1875rem]">
             {tierCells(categories).map(cell => (
               <span
@@ -108,8 +125,8 @@ const Option = memo(({ model, checked, limitBlock, onToggle }: OptionProps) => {
 Option.displayName = 'AutoModelPickerOption';
 
 /**
- * Searchable list of every model, grouped by provider, for ticking the ones Auto may route to. Models without Auto
- * routing support stay listed but locked, with the reason on hover or focus. It overlays the card below its footer, so
+ * Searchable list of every model, grouped by provider, for ticking the ones Auto may route to. Supported models come
+ * first; models without Auto routing support stay listed but locked, with the reason on hover or focus. It overlays the card below its footer, so
  * the owner must be `relative`.
  */
 const AutoModelPickerPopover = ({ listboxId, models, selected, limitBlock, onToggle }: AutoModelPickerPopoverProps) => {
@@ -118,7 +135,10 @@ const AutoModelPickerPopover = ({ listboxId, models, selected, limitBlock, onTog
 
   const needle = normalizeModelSearchText(query);
   const sections = useMemo(
-    () => groupModelsByProvider(needle ? models.filter(model => modelMatchesQuery({ model, needle })) : [...models]),
+    () =>
+      sortBySupport(
+        groupModelsByProvider(needle ? models.filter(model => modelMatchesQuery({ model, needle })) : [...models]),
+      ),
     [models, needle],
   );
 

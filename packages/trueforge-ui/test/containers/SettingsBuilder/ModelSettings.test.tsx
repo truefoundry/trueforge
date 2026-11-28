@@ -430,13 +430,41 @@ describe('ModelSettings Auto mode switch', () => {
       expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
     });
 
+    it('lists providers with the most supported models first, and supported models first within each', async () => {
+      const unsupported = (name: string) => ({ name, unsupportedReason: 'No tools.' });
+      const supported = (name: string) => ({ name, categories: ['answer'] satisfies AutoRoutingCategory[] });
+      renderPicker({
+        models: [
+          unsupported('aaa/a1'),
+          unsupported('aaa/a2'),
+          supported('bbb/b1'),
+          unsupported('ccc/c1'),
+          supported('ccc/c2'),
+          supported('ccc/c3'),
+          supported('ddd/d1'),
+        ],
+      });
+
+      const list = await openPicker();
+      expect(
+        within(list)
+          .getAllByRole('group')
+          .map(group => group.getAttribute('aria-labelledby')),
+      ).toHaveLength(4);
+      expect(
+        within(list)
+          .getAllByRole('option')
+          .map(item => item.getAttribute('aria-label')),
+      ).toEqual(['c2', 'c3', 'c1', 'b1', 'd1', 'a1', 'a2']);
+    });
+
     it('lists every model by provider with its tiers, and shows unsupported ones as not supported', async () => {
       renderPicker({ saved: covering });
 
       await openPicker();
       expect(option('haiku')).toHaveAttribute('aria-selected', 'true');
       expect(option('grok')).toHaveAttribute('aria-selected', 'false');
-      expect(within(option('sonnet')).getByText('Execute – Analyze')).toBeInTheDocument();
+      expect(within(option('sonnet')).queryByText('Execute – Analyze')).toBeNull();
       expect(within(option('fable')).getByText('Not supported')).toBeInTheDocument();
       expect(option('fable')).toHaveAttribute('aria-disabled', 'true');
       expect(option('grok')).not.toHaveAttribute('aria-disabled');
