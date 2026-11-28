@@ -101,7 +101,7 @@ describe('GET /models auto_routing', () => {
     });
     expect(listed.get('acct/unlisted')?.properties.auto_routing).toEqual({
       supported: false,
-      unsupported_reason: 'The model is not in any Auto routing cluster.',
+      unsupported_reason: 'The model is not supported for Auto routing.',
     });
   });
 

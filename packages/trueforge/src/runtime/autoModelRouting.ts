@@ -46,7 +46,7 @@ export function describeAutoRouting({
     unsupported_reason:
       model.canonical_model === null
         ? 'The model has no canonical model mapping.'
-        : 'The model is not in any Auto routing cluster.',
+        : 'The model is not supported for Auto routing.',
   };
 }
 
