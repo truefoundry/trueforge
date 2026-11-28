@@ -6,5 +6,5 @@ export interface CatalogModel {
     /** Upstream, provider-specific identifier sent to the provider API. */
     modelId: string;
     name: TrueForge.ResourceName;
-    properties: TrueForge.ConfiguredModelProperties;
+    properties: TrueForge.ModelProperties;
 }

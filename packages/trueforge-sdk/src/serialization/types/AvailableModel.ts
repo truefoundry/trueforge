@@ -4,14 +4,14 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AvailableModelProvider } from "./AvailableModelProvider.js";
-import { ModelProperties } from "./ModelProperties.js";
+import { ResolvedModelProperties } from "./ResolvedModelProperties.js";
 
 export const AvailableModel: core.serialization.ObjectSchema<serializers.AvailableModel.Raw, TrueForge.AvailableModel> =
     core.serialization.object({
         canonicalModel: core.serialization.property("canonical_model", core.serialization.string().nullable()),
         modelId: core.serialization.property("model_id", core.serialization.string()),
         name: core.serialization.string(),
-        properties: ModelProperties,
+        properties: ResolvedModelProperties,
         provider: AvailableModelProvider,
         warning: core.serialization.string().optional(),
     });
@@ -21,7 +21,7 @@ export declare namespace AvailableModel {
         canonical_model?: string | null;
         model_id: string;
         name: string;
-        properties: ModelProperties.Raw;
+        properties: ResolvedModelProperties.Raw;
         provider: AvailableModelProvider.Raw;
         warning?: string | null;
     }

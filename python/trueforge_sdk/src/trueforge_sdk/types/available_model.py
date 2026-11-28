@@ -6,7 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .available_model_provider import AvailableModelProvider
-from .model_properties import ModelProperties
+from .resolved_model_properties import ResolvedModelProperties
 
 
 class AvailableModel(UncheckedBaseModel):
@@ -25,7 +25,7 @@ class AvailableModel(UncheckedBaseModel):
     Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.
     """
 
-    properties: ModelProperties
+    properties: ResolvedModelProperties
     provider: AvailableModelProvider
     warning: typing.Optional[str] = pydantic.Field(default=None)
     """

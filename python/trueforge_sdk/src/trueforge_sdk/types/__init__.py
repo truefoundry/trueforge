@@ -63,7 +63,6 @@ if typing.TYPE_CHECKING:
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_memory_provider import ConfiguredMemoryProvider
     from .configured_model import ConfiguredModel
-    from .configured_model_properties import ConfiguredModelProperties
     from .configured_model_provider import ConfiguredModelProvider
     from .configured_sandbox_provider import ConfiguredSandboxProvider
     from .configured_skill import ConfiguredSkill
@@ -194,6 +193,7 @@ if typing.TYPE_CHECKING:
     from .remote_mcp_server_manifest import RemoteMcpServerManifest
     from .request_error_response import RequestErrorResponse
     from .request_error_response_error import RequestErrorResponseError
+    from .resolved_model_properties import ResolvedModelProperties
     from .resource_name import ResourceName
     from .resource_permission import ResourcePermission
     from .response_format import ResponseFormat
@@ -379,7 +379,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredMemoryProvider": ".configured_memory_provider",
     "ConfiguredModel": ".configured_model",
-    "ConfiguredModelProperties": ".configured_model_properties",
     "ConfiguredModelProvider": ".configured_model_provider",
     "ConfiguredSandboxProvider": ".configured_sandbox_provider",
     "ConfiguredSkill": ".configured_skill",
@@ -510,6 +509,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RemoteMcpServerManifest": ".remote_mcp_server_manifest",
     "RequestErrorResponse": ".request_error_response",
     "RequestErrorResponseError": ".request_error_response_error",
+    "ResolvedModelProperties": ".resolved_model_properties",
     "ResourceName": ".resource_name",
     "ResourcePermission": ".resource_permission",
     "ResponseFormat": ".response_format",
@@ -719,7 +719,6 @@ __all__ = [
     "ConfiguredMcpServer",
     "ConfiguredMemoryProvider",
     "ConfiguredModel",
-    "ConfiguredModelProperties",
     "ConfiguredModelProvider",
     "ConfiguredSandboxProvider",
     "ConfiguredSkill",
@@ -850,6 +849,7 @@ __all__ = [
     "RemoteMcpServerManifest",
     "RequestErrorResponse",
     "RequestErrorResponseError",
+    "ResolvedModelProperties",
     "ResourceName",
     "ResourcePermission",
     "ResponseFormat",

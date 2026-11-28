@@ -329,4 +329,21 @@ describe('TrueFoundry naming vs NameSchema', () => {
     expect(NameSchema.safeParse(PROVIDER_ACCOUNT).success).toBe(false);
     expect(NameSchema.safeParse(MODEL_NAME).success).toBe(false);
   });
+
+  it.each([
+    ['an empty', '', null],
+    ['a set', 'openai/gpt-5-2', 'openai/gpt-5-2'],
+  ])('maps %s canonical model id from the integration metadata', (_label, canonical, expected) => {
+    const [model] = mapEnabledModels({
+      integrations: [
+        {
+          name: MODEL_NAME,
+          manifest: { model_types: ['chat'] },
+          providerAccount: { name: PROVIDER_ACCOUNT },
+          metadata: { canonical_model: canonical },
+        },
+      ],
+    });
+    expect(model?.canonical_model).toBe(expected);
+  });
 });

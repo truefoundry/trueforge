@@ -5884,7 +5884,7 @@ Creates a provider (models included). Fails if `name` is already taken. Well-kno
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ConfiguredModelProperties
+from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ModelProperties
 
 client = TrueForge(
     token="<token>",
@@ -5900,7 +5900,7 @@ client.settings.model_providers.create(
             ConfiguredModel(
                 model_id="model_id",
                 name="name",
-                properties=ConfiguredModelProperties(),
+                properties=ModelProperties(),
             )
         ],
         type="alibaba",
@@ -5968,7 +5968,7 @@ Create or replace a provider (models included). Well-known types use `type` as `
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ConfiguredModelProperties
+from trueforge_sdk import TrueForge, AlibabaModelProvider, ModelProviderAuth, ConfiguredModel, ModelProperties
 
 client = TrueForge(
     token="<token>",
@@ -5984,7 +5984,7 @@ client.settings.model_providers.create_or_update(
             ConfiguredModel(
                 model_id="model_id",
                 name="name",
-                properties=ConfiguredModelProperties(),
+                properties=ModelProperties(),
             )
         ],
         type="alibaba",

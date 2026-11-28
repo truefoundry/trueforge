@@ -530,7 +530,7 @@
             "type": "string"
           },
           "properties": {
-            "$ref": "#/components/schemas/ModelProperties"
+            "$ref": "#/components/schemas/ResolvedModelProperties"
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
@@ -754,7 +754,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "properties": {
-            "$ref": "#/components/schemas/ConfiguredModelProperties"
+            "$ref": "#/components/schemas/ModelProperties"
           }
         },
         "required": [
@@ -1224,7 +1224,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "properties": {
-            "$ref": "#/components/schemas/ConfiguredModelProperties"
+            "$ref": "#/components/schemas/ModelProperties"
           }
         },
         "required": [
@@ -1232,31 +1232,6 @@
           "name",
           "properties"
         ],
-        "type": "object"
-      },
-      "ConfiguredModelProperties": {
-        "additionalProperties": false,
-        "description": "Optional model capability metadata.",
-        "properties": {
-          "context_length": {
-            "description": "Maximum context window size in tokens.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "max_output_tokens": {
-            "description": "Maximum output tokens the model can generate.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "reasoning_efforts": {
-            "description": "Supported reasoning-effort values for this model.",
-            "items": {
-              "$ref": "#/components/schemas/ReasoningEffort"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
         "type": "object"
       },
       "ConfiguredModelProvider": {
@@ -3500,11 +3475,8 @@
       },
       "ModelProperties": {
         "additionalProperties": false,
-        "description": "Model capability metadata and Auto routing support.",
+        "description": "Optional model capability metadata.",
         "properties": {
-          "auto_routing": {
-            "$ref": "#/components/schemas/AutoRouting"
-          },
           "context_length": {
             "description": "Maximum context window size in tokens.",
             "exclusiveMinimum": 0,
@@ -3524,9 +3496,6 @@
             "type": "array"
           }
         },
-        "required": [
-          "auto_routing"
-        ],
         "type": "object"
       },
       "ModelProviderAuth": {
@@ -3848,6 +3817,37 @@
         },
         "required": [
           "error"
+        ],
+        "type": "object"
+      },
+      "ResolvedModelProperties": {
+        "additionalProperties": false,
+        "description": "Model capability metadata and Auto routing support.",
+        "properties": {
+          "auto_routing": {
+            "$ref": "#/components/schemas/AutoRouting"
+          },
+          "context_length": {
+            "description": "Maximum context window size in tokens.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "description": "Maximum output tokens the model can generate.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "reasoning_efforts": {
+            "description": "Supported reasoning-effort values for this model.",
+            "items": {
+              "$ref": "#/components/schemas/ReasoningEffort"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "auto_routing"
         ],
         "type": "object"
       },

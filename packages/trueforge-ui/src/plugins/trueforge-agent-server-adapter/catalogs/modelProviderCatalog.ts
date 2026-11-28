@@ -17,7 +17,7 @@ import type {
 
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
-  properties?: TrueForgeApi.ConfiguredModelProperties;
+  properties?: TrueForgeApi.ModelProperties;
 };
 
 export type UiModelProvider = ModelProviderBase<UiModelEntry>;

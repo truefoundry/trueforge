@@ -19,8 +19,7 @@ export const ReasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS).openapi
 
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
-/** Properties an operator configures on a model; the write side of `ModelPropertiesSchema`. */
-export const ConfiguredModelPropertiesSchema = z
+export const ModelPropertiesSchema = z
   .object({
     context_length: z.number().int().positive().optional().describe('Maximum context window size in tokens.'),
     max_output_tokens: z.number().int().positive().optional().describe('Maximum output tokens the model can generate.'),
@@ -32,7 +31,7 @@ export const ConfiguredModelPropertiesSchema = z
   })
   .strict()
   .describe('Optional model capability metadata.')
-  .openapi('ConfiguredModelProperties');
+  .openapi('ModelProperties');
 
 export const AutoRoutingCategorySchema = z
   .enum(ROOT_ROUTING_CATEGORIES)
@@ -60,18 +59,18 @@ export const AutoRoutingSchema = z
   .describe('Whether the model supports Auto routing and, if so, how.')
   .openapi('AutoRouting');
 
-/** Properties as returned by GET /models: the configured ones plus the computed, read-only `auto_routing`. */
-export const ModelPropertiesSchema = z
-  .object({ ...ConfiguredModelPropertiesSchema.shape, auto_routing: AutoRoutingSchema })
+/** Returned by GET /models: the configured properties plus the computed, read-only `auto_routing`. */
+export const ResolvedModelPropertiesSchema = z
+  .object({ ...ModelPropertiesSchema.shape, auto_routing: AutoRoutingSchema })
   .strict()
   .describe('Model capability metadata and Auto routing support.')
-  .openapi('ModelProperties');
+  .openapi('ResolvedModelProperties');
 
 export const ConfiguredModelSchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
     name: NameSchema,
-    properties: ConfiguredModelPropertiesSchema,
+    properties: ModelPropertiesSchema,
   })
   .strict()
   .openapi('ConfiguredModel');
@@ -200,7 +199,7 @@ export function refineModelProviderManifest(
   refineUniqueModels(manifest.models, ctx);
 }
 
-export type ConfiguredModelProperties = z.infer<typeof ConfiguredModelPropertiesSchema>;
+export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
 /**
  * Configured provider jsonb (`model_provider.manifest`). Only `custom` carries a name, so the
@@ -283,7 +282,7 @@ export const AvailableModelSchema = z
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
     provider: AvailableModelProviderSchema,
     canonical_model: z.string().min(1).nullable().describe('Provider-neutral model id; null when unknown.'),
-    properties: ModelPropertiesSchema,
+    properties: ResolvedModelPropertiesSchema,
     warning: z
       .string()
       .min(1)

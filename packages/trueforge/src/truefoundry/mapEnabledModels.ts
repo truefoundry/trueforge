@@ -2,7 +2,7 @@ import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
-import type { ConfiguredModelProperties, ReasoningEffort } from '../schemas/modelProvider';
+import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
   key: z.string(),
@@ -26,7 +26,7 @@ const MetadataSchema = z.object({
     })
     .optional(),
   params: z.array(ModelParamSchema).optional(),
-  canonical_model: z.string().nullish().catch(undefined),
+  canonical_model: z.string().min(1).nullish().catch(undefined),
   costs: z.array(RegionCostSchema.nullable().catch(null)).optional().catch(undefined),
 });
 
@@ -58,7 +58,7 @@ function toReasoningEfforts(params: IntegrationMetadata['params']): ReasoningEff
   return matched.length > 0 ? matched : undefined;
 }
 
-function toProperties(metadata: IntegrationMetadata | undefined): ConfiguredModelProperties {
+function toProperties(metadata: IntegrationMetadata | undefined): ModelProperties {
   const limits = metadata?.limits;
   const contextLength = limits?.context_window ?? limits?.max_input_tokens;
   const maxOutputTokens = limits?.max_output_tokens ?? limits?.max_tokens;
@@ -91,7 +91,7 @@ function integrationModelInfo(metadata: IntegrationMetadata | undefined): {
 export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
-  properties: ConfiguredModelProperties;
+  properties: ModelProperties;
   /** Provider-neutral model id from the integration metadata. */
   canonical_model: string | null;
   /** Blended USD per million tokens from the integration's default-region cost. */

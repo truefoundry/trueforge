@@ -4,7 +4,7 @@
  * TrueFoundry (read-only ServiceFoundry server listing).
  */
 import type { ResourceName } from '../schemas/common';
-import type { AvailableModel, ConfiguredModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
+import type { AvailableModel, ModelProperties, ModelProviderManifest } from '../schemas/modelProvider';
 import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
@@ -24,7 +24,7 @@ export interface ListModelProvidersInput {
 /** Store model. `canonical_model` is null and `cost` is undefined when the provider has no integration metadata. */
 export interface ModelInfo extends Omit<AvailableModel, 'properties'> {
   /** Configured properties only; `auto_routing` is computed per request. */
-  properties: ConfiguredModelProperties;
+  properties: ModelProperties;
   /** Blended USD per million tokens: 0.75 × input + 0.25 × output. */
   cost: number | undefined;
 }
@@ -95,7 +95,7 @@ export interface IModelProviderStore<TTransaction = never> {
   }): Promise<Record<string, string>>;
 }
 
-export function modelPropertiesWarning(input: { properties: ConfiguredModelProperties }): string | undefined {
+export function modelPropertiesWarning(input: { properties: ModelProperties }): string | undefined {
   const missing: string[] = [];
   if (input.properties.reasoning_efforts === undefined || input.properties.reasoning_efforts.length === 0) {
     missing.push('reasoning effort');

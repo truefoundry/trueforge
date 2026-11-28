@@ -3,10 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 /**
- * Model capability metadata and Auto routing support.
+ * Optional model capability metadata.
  */
 export interface ModelProperties {
-    autoRouting: TrueForge.AutoRouting;
     /** Maximum context window size in tokens. */
     contextLength?: number;
     /** Maximum output tokens the model can generate. */
