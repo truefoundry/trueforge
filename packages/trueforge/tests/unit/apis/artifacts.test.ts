@@ -4,11 +4,13 @@ import {
   STANDALONE_REQUEST_CONTEXT,
   type RequestContext,
 } from '../../../src/auth/identity';
+import type { CreateArtifactWithVersionInput } from '../../../src/db/artifactStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteArtifactStore } from '../../../src/db/sqlite/artifact-store/SqliteArtifactStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { ListArtifactsResponseSchema, UpdateArtifactResponseSchema } from '../../../src/schemas/artifact';
 import { MAX_TITLE_LENGTH } from '../../../src/schemas/common';
+import { newId } from '../../../src/utils/id';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 describe('artifacts router', () => {
@@ -16,6 +18,11 @@ describe('artifacts router', () => {
   let artifactStore: SqliteArtifactStore;
   let reportId: string;
   let notMineId: string;
+
+  async function createArtifact(input: Omit<CreateArtifactWithVersionInput, 'id' | 'files_metadata'>) {
+    const files_metadata = { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/index.html' };
+    return (await artifactStore.createArtifactWithVersion({ ...input, id: newId(), files_metadata })).artifact;
+  }
 
   async function listTitles(query: string): Promise<string[]> {
     const response = await app.request(`/?${query}`);
@@ -49,20 +56,20 @@ describe('artifacts router', () => {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
     };
-    const report = await artifactStore.createArtifact({
+    const report = await createArtifact({
       ...mine,
       name: 'Q3 Report',
       created_by_session_id: 'session-1',
       created_by_agent_id: 'agent-1',
     });
     reportId = report.id;
-    await artifactStore.createArtifact({
+    await createArtifact({
       ...mine,
       name: 'Roadmap',
       created_by_session_id: 'session-2',
       created_by_agent_id: null,
     });
-    const notMine = await artifactStore.createArtifact({
+    const notMine = await createArtifact({
       ...mine,
       name: 'not mine',
       created_by_subject: { ...mine.created_by_subject, subject_id: 'someone-else' },
@@ -94,7 +101,7 @@ describe('artifacts router', () => {
   });
 
   it("renames the caller's artifact", async () => {
-    const artifact = await artifactStore.createArtifact({
+    const artifact = await createArtifact({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       name: 'Draft',
       created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),

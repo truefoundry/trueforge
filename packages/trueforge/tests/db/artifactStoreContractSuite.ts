@@ -1,5 +1,6 @@
 import type { Subject } from '@truefoundry/trueforge-core/agent-session';
 import type { IArtifactStore, ListArtifactsInput } from '../../src/db/artifactStore';
+import { newId } from '../../src/utils/id';
 
 const TENANT = 'default';
 const OTHER_TENANT = 'other';
@@ -25,18 +26,26 @@ async function tick(): Promise<void> {
 }
 
 export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): void {
-  async function createArtifact({
+  async function createArtifactWithVersion({
     tenantId = TENANT,
     name = 'Q3 report',
+    subject = SUBJECT,
+    sessionId = 'session-1',
     agentId = AGENT_ID,
-  }: { tenantId?: string; name?: string; agentId?: string | null } = {}) {
-    return getStore().createArtifact({
+  }: { tenantId?: string; name?: string; subject?: Subject; sessionId?: string; agentId?: string | null } = {}) {
+    return getStore().createArtifactWithVersion({
+      id: newId(),
       tenant_id: tenantId,
       name,
-      created_by_subject: SUBJECT,
-      created_by_session_id: 'session-1',
+      files_metadata: { entry_point: 'index.html', total_bytes: 100, root_path: 'uploads/index.html' },
+      created_by_subject: subject,
+      created_by_session_id: sessionId,
       created_by_agent_id: agentId,
     });
+  }
+
+  async function createArtifact(options: Parameters<typeof createArtifactWithVersion>[0] = {}) {
+    return (await createArtifactWithVersion(options)).artifact;
   }
 
   async function createVersion({
@@ -71,20 +80,32 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     return data.map(a => a.name).sort();
   }
 
-  it('creates an artifact', async () => {
-    const created = await createArtifact({ name: 'Q3 report' });
+  it('creates an artifact with its first version', async () => {
+    const { artifact: created, version } = await createArtifactWithVersion({ name: 'Q3 report' });
+    const createdBy = {
+      created_by_subject: SUBJECT,
+      created_by_session_id: 'session-1',
+      created_by_agent_id: AGENT_ID,
+    };
     expect(created).toEqual(
       expect.objectContaining({
         tenant_id: TENANT,
         name: 'Q3 report',
-        latest_version: 0,
-        latest_entry_point: null,
-        created_by_subject: SUBJECT,
-        created_by_session_id: 'session-1',
-        created_by_agent_id: AGENT_ID,
+        latest_version: 1,
+        latest_entry_point: 'index.html',
+        updated_at: version.created_at,
+        ...createdBy,
       }),
     );
+    expect(version).toEqual({
+      artifact_id: created.id,
+      version: 1,
+      files_metadata: { entry_point: 'index.html', total_bytes: 100, root_path: 'uploads/index.html' },
+      created_at: created.created_at,
+      ...createdBy,
+    });
     expect((await getStore().listArtifacts(LIST_DEFAULTS)).data).toEqual([created]);
+    expect(await getStore().listSessionArtifacts({ tenant_id: TENANT, session_id: 'session-1' })).toEqual([created]);
     const inline = await createArtifact({ name: 'inline', agentId: null });
     expect(inline.created_by_agent_id).toBeNull();
   });
@@ -103,12 +124,10 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
       await createArtifact({ name });
     }
     await createArtifact({ tenantId: OTHER_TENANT });
-    await store.createArtifact({
-      tenant_id: TENANT,
+    await createArtifact({
       name: 'other',
-      created_by_subject: { ...SUBJECT, subject_id: 'someone-else' },
-      created_by_session_id: 'session-2',
-      created_by_agent_id: AGENT_ID,
+      subject: { ...SUBJECT, subject_id: 'someone-else' },
+      sessionId: 'session-2',
     });
 
     const first = await store.listArtifacts({ ...LIST_DEFAULTS, limit: 2 });
@@ -189,23 +208,23 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
     const artifact = await createArtifact();
     const untouched = await createArtifact({ name: 'untouched' });
     await tick();
-    const v1 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
-    const v2 = await createVersion({
+    const v2 = await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
+    const v3 = await createVersion({
       artifactId: artifact.id,
       entryPoint: 'report/index.html',
       subject: COLLABORATOR,
       sessionId: 'session-2',
       agentId: null,
     });
-    expect([v1.version, v2.version]).toEqual([1, 2]);
+    expect([v2.version, v3.version]).toEqual([2, 3]);
     const updated = (await store.listArtifacts(LIST_DEFAULTS)).data.find(a => a.id === artifact.id);
-    expect(updated?.latest_version).toBe(2);
+    expect(updated?.latest_version).toBe(3);
     expect(updated?.latest_entry_point).toBe('report/index.html');
-    expect(updated?.updated_at).toBe(v2.created_at);
+    expect(updated?.updated_at).toBe(v3.created_at);
     expect(Date.parse(updated?.updated_at ?? '')).toBeGreaterThan(Date.parse(artifact.updated_at));
     expect((await store.listArtifacts(LIST_DEFAULTS)).data.map(a => a.id)).toEqual([artifact.id, untouched.id]);
 
-    expect(v1).toEqual(
+    expect(v2).toEqual(
       expect.objectContaining({
         files_metadata: {
           entry_point: 'index.html',
@@ -217,7 +236,7 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
         created_by_agent_id: AGENT_ID,
       }),
     );
-    expect(v2).toEqual(
+    expect(v3).toEqual(
       expect.objectContaining({
         created_by_subject: COLLABORATOR,
         created_by_session_id: 'session-2',
@@ -229,20 +248,9 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('lists artifacts with a version created in the session', async () => {
     const store = getStore();
     const own = await createArtifact({ name: 'own' });
-    const shared = await createArtifact({ name: 'Shared Report' });
-    await createArtifact({ name: 'no versions' });
-    const elsewhere = await createArtifact({ name: 'elsewhere' });
-    const otherTenant = await createArtifact({ name: 'other tenant', tenantId: OTHER_TENANT });
-    await createVersion({ artifactId: own.id, entryPoint: 'index.html' });
-    await createVersion({ artifactId: elsewhere.id, entryPoint: 'index.html', sessionId: 'session-2' });
-    await store.createVersion({
-      tenant_id: OTHER_TENANT,
-      artifact_id: otherTenant.id,
-      files_metadata: { entry_point: 'index.html', total_bytes: 1, root_path: 'uploads/other' },
-      created_by_subject: SUBJECT,
-      created_by_session_id: 'session-1',
-      created_by_agent_id: AGENT_ID,
-    });
+    const shared = await createArtifact({ name: 'Shared Report', sessionId: 'session-2' });
+    await createArtifact({ name: 'elsewhere', sessionId: 'session-2' });
+    await createArtifact({ name: 'other tenant', tenantId: OTHER_TENANT });
     await tick();
     await createVersion({ artifactId: shared.id, entryPoint: 'a.html' });
     await createVersion({ artifactId: shared.id, entryPoint: 'b.html' });
@@ -255,7 +263,6 @@ export function runArtifactStoreContractSuite(getStore: () => IArtifactStore): v
   it('rejects versions for artifacts in other tenants', async () => {
     const store = getStore();
     const artifact = await createArtifact();
-    await createVersion({ artifactId: artifact.id, entryPoint: 'index.html' });
     expect(
       await store.createVersion({
         tenant_id: OTHER_TENANT,

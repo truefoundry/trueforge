@@ -1,4 +1,5 @@
 import type { Logger } from 'winston';
+import type { IArtifactsProvider } from '../core/artifacts/ArtifactsProvider';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import { AgentHarnessError } from '../core/errors';
 import type { ToolApprovalPolicy } from '../core/events/schema';
@@ -131,6 +132,8 @@ export class TurnResourceResolver<
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Host web-search backend; omit when not configured. */
       webSearchProvider?: IWebSearchProvider | undefined;
+      /** Host artifacts provider for this turn; omit when artifacts are off. */
+      artifactsProvider?: IArtifactsProvider | undefined;
       /**
        * Main-thread capabilities. Called once per root resolve, so each call gets fresh instances.
        * A child thread passes `agent_info` and does not receive these. A subclass that replaces
@@ -156,6 +159,10 @@ export class TurnResourceResolver<
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
+  }
+
+  get artifactsProvider(): IArtifactsProvider | undefined {
+    return this.deps.artifactsProvider;
   }
 
   get logger(): Logger {

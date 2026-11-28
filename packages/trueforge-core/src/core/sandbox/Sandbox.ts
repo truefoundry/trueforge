@@ -15,11 +15,26 @@ import {
 } from '../runtime/DeferredTool';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
+import {
+  ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS,
+  ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES,
+  ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
+  ArtifactDirMetadataSchema,
+  artifactUploadRequestPath,
+  ArtifactUploadResultSchema,
+  buildArtifactMetadataCommand,
+  buildArtifactUploadCommand,
+  buildArtifactUploadRequestFile,
+  type ArtifactDirMetadata,
+  type ArtifactUploadRequest,
+  type ArtifactUploadResult,
+} from './artifacts/artifactTransfer';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
+import { sandboxScripts } from './sandboxScripts.gen';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { dirname, join, relative } from 'node:path/posix';
 import type { ISkillMounter } from './skills/ISkillMounter';
@@ -77,6 +92,18 @@ function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, st
     GIT_CONFIG_KEY_0: 'credential.helper',
     GIT_CONFIG_VALUE_0: `store --file ${credentialsPath}`,
   };
+}
+
+interface ArtifactTransferPaths {
+  scriptPath: string;
+  artifactsDir: string;
+}
+
+export interface ArtifactTransferRun<T> {
+  result: T;
+  sandboxInfo: SandboxInfo;
+  // True on the call that created the sandbox.
+  sandboxCreated: boolean;
 }
 
 export interface SandboxStoredFile {
@@ -688,6 +715,86 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     };
   }
 
+  /** Measures every regular file under `dir` (size + sha256); symlinks and special files are skipped. */
+  async gatherArtifactDirMetadata(dir: string): Promise<ArtifactTransferRun<ArtifactDirMetadata>> {
+    return this.runArtifactTransferScript({
+      schema: ArtifactDirMetadataSchema,
+      command: paths => buildArtifactMetadataCommand({ ...paths, dir }),
+      requestFile: undefined,
+      timeoutSeconds: ARTIFACT_METADATA_EXEC_TIMEOUT_SECONDS,
+    });
+  }
+
+  /**
+   * Uploads files to presigned URLs from the sandbox. The request file holds the URLs; it is
+   * deleted when the script reads it and again after the run.
+   */
+  async uploadArtifactFiles(input: {
+    requestId: string;
+    request: ArtifactUploadRequest;
+  }): Promise<ArtifactTransferRun<ArtifactUploadResult>> {
+    return this.runArtifactTransferScript({
+      schema: ArtifactUploadResultSchema,
+      requestFile: ({ artifactsDir }) => ({
+        remotePath: artifactUploadRequestPath({ artifactsDir, requestId: input.requestId }),
+        content: buildArtifactUploadRequestFile(input.request),
+      }),
+      command: ({ scriptPath, artifactsDir }) =>
+        buildArtifactUploadCommand({
+          scriptPath,
+          requestPath: artifactUploadRequestPath({ artifactsDir, requestId: input.requestId }),
+        }),
+      timeoutSeconds: ARTIFACT_UPLOAD_EXEC_TIMEOUT_SECONDS,
+    });
+  }
+
+  private async runArtifactTransferScript<T>(input: {
+    schema: z.ZodType<T>;
+    requestFile: ((paths: ArtifactTransferPaths) => { remotePath: string; content: Buffer }) | undefined;
+    command: (paths: ArtifactTransferPaths) => string;
+    timeoutSeconds: number;
+  }): Promise<ArtifactTransferRun<T>> {
+    const { sandboxInfo, sandboxCreated } = await this.ensureReadySandbox();
+    const sandboxId = this.providerSandboxId(sandboxInfo.sandbox_id);
+    const paths: ArtifactTransferPaths = {
+      scriptPath: this.provider.getArtifactTransferPath(sandboxId),
+      artifactsDir: this.provider.getArtifactsDir(sandboxId),
+    };
+    await this.provider.uploadFile({
+      sandboxId,
+      remotePath: paths.scriptPath,
+      content: Buffer.from(sandboxScripts.artifactTransfer, 'utf-8'),
+    });
+    const requestFile = input.requestFile?.(paths);
+    if (requestFile !== undefined) {
+      await this.provider.uploadFile({ sandboxId, ...requestFile });
+    }
+    const run = await this.provider.exec({
+      sandboxId,
+      command: input.command(paths),
+      timeoutSeconds: input.timeoutSeconds,
+      maxOutputBytes: ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES,
+    });
+    if (!run.success) {
+      throw new Error(run.error);
+    }
+    // Some providers buffer the whole output, so check again before parsing.
+    if (Buffer.byteLength(run.response.result, 'utf-8') > ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES) {
+      throw new Error(`artifact transfer output exceeds ${String(ARTIFACT_TRANSFER_MAX_OUTPUT_BYTES)} bytes`);
+    }
+    // Exit 1 still prints a result (reading the dir or a transfer failed); anything else is a script error.
+    if (run.response.exitCode !== 0 && run.response.exitCode !== 1) {
+      throw new Error(`artifact transfer failed (exit code ${String(run.response.exitCode)}): ${run.response.result}`);
+    }
+    let output: unknown;
+    try {
+      output = JSON.parse(run.response.result);
+    } catch (e) {
+      throw new Error(`artifact transfer returned invalid output: ${run.response.result}`, { cause: e });
+    }
+    return { result: input.schema.parse(output), sandboxInfo, sandboxCreated: sandboxCreated !== undefined };
+  }
+
   /**
    * Upload the MCP client Python script to the sandbox on the first tool call.
    * The sandbox filesystem is persistent within a session, so this only needs to run once.
@@ -715,13 +822,19 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
     const skillsDir = this.provider.getSkillsDir(sandboxId);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
+    const artifactsDir = this.provider.getArtifactsDir(sandboxId);
 
-    this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
+    this.logger.info('Uploading MCP client script and preparing sandbox directories');
 
     this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
     const install = this.mcpClientInstall;
 
-    const dirs = [shellEscape(fileUploadsDir), shellEscape(toolResultDumpDir), shellEscape(skillsDir)];
+    const dirs = [
+      shellEscape(fileUploadsDir),
+      shellEscape(toolResultDumpDir),
+      shellEscape(skillsDir),
+      shellEscape(artifactsDir),
+    ];
     if (install !== undefined) {
       const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
       dirs.push(shellEscape(pythonPath));

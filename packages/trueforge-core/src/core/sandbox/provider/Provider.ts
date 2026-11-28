@@ -46,6 +46,8 @@ export interface SandboxExecParams {
   env?: Record<string, string> | undefined;
   /** Overrides the provider's default exec timeout (e.g. for long skill downloads). */
   timeoutSeconds?: number | undefined;
+  /** Fails the exec once the provider has read more response bytes than this, where the provider can stream. */
+  maxOutputBytes?: number | undefined;
 }
 
 /** File uploaded before a sandbox init command runs. */
@@ -142,6 +144,10 @@ export interface SandboxProvider<TEnvironment = undefined> {
   getSkillsDir(sandboxId: string): string;
   /** Path the skill downloader script is written to before it runs. */
   getSkillDownloaderPath(sandboxId: string): string;
+  /** Path the artifact transfer script is written to before it runs. */
+  getArtifactTransferPath(sandboxId: string): string;
+  /** Directory for artifact transfer files (upload request files). */
+  getArtifactsDir(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
   /** Uploads a file to the sandbox. */

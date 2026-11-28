@@ -337,6 +337,15 @@ export type {
 // Memory
 export type { MemoryFact, ScopedMemory } from './memory/ScopedMemory';
 
+// Artifacts
+export type {
+  ArtifactObject,
+  ArtifactPushLimits,
+  IArtifactsProvider,
+  IObjectStore,
+  ScopedArtifacts,
+} from './artifacts/ArtifactsProvider';
+
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';
 export { SKILLS_PREAMBLE, SkillMounter, getSkillPath, renderSkillPromptBody } from './sandbox/skills';

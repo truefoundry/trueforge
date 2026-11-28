@@ -194,6 +194,64 @@ export function parseTrueFoundryModelRouting(raw: string | undefined): TrueFound
   }
 }
 
+const S3ConfigSchema = z
+  .object({
+    bucket: z.string().min(1),
+    region: z.string().min(1).optional(),
+    /** Prepended to every object key. */
+    prefix: z.string().default(''),
+    /** S3-compatible endpoint (e.g. MinIO); uses path-style addressing when set. */
+    endpoint: z.url().optional(),
+    presign_ttl_seconds: z.number().int().positive().default(300),
+  })
+  .strict();
+
+export type S3Config = z.infer<typeof S3ConfigSchema>;
+
+/** Parses `S3_CONFIG` JSON. Empty / unset → undefined. */
+export function parseS3Config(raw: string | undefined): S3Config | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    return S3ConfigSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable S3_CONFIG must be a JSON object with "bucket" and optional "region", "prefix", "endpoint", "presign_ttl_seconds" (e.g. {"bucket":"<bucket>","region":"us-east-1"})',
+      { cause: error },
+    );
+  }
+}
+
+const ArtifactsConfigSchema = z.object({
+  tenants: z.record(z.string(), z.object({ enabled: z.enum(['off', 'on']).default('off') })),
+  /** Max files in one artifact version. */
+  max_files: z.number().int().positive().default(25),
+  /** Max total bytes in one artifact version. */
+  max_total_bytes: z
+    .number()
+    .int()
+    .positive()
+    .default(25 * 1024 * 1024),
+});
+
+export type ArtifactsConfig = z.infer<typeof ArtifactsConfigSchema>;
+
+/** Parses `ARTIFACTS` JSON. Empty / unset → undefined (artifacts off everywhere). */
+export function parseArtifactsConfig(raw: string | undefined): ArtifactsConfig | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    return ArtifactsConfigSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable ARTIFACTS must be a JSON object with per-tenant "tenants" entries and optional "max_files", "max_total_bytes" (e.g. {"tenants":{"<tenant_id>":{"enabled":"on"}}})',
+      { cause: error },
+    );
+  }
+}
+
 /**
  * Parses `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` JSON.
  * Empty / unset → `{}` (no filtering).
@@ -816,6 +874,12 @@ export interface SharedServerConfiguration {
    */
   MAX_REQUEST_BODY_BYTES: number;
   /**
+   * Artifacts: JSON with per-tenant `tenants` (`enabled`: `off` | `on`) and per-version limits
+   * `max_files` (default 25) and `max_total_bytes` (default 25 MB). A tenant that is on gets
+   * `push_artifact`. Unset, or a tenant not listed → off. Env: `ARTIFACTS`.
+   */
+  ARTIFACTS: ArtifactsConfig | undefined;
+  /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
    */
@@ -1036,6 +1100,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   DATABASE_SSL: boolean | PostgresSslConfig;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
+  /**
+   * S3 bucket settings (`bucket`, `region`, `prefix`, `endpoint`, `presign_ttl_seconds`). Credentials come
+   * from the standard AWS chain. Env: `S3_CONFIG`.
+   */
+  S3_CONFIG: S3Config | undefined;
   /**
    * Postgres `statement_timeout` for app and migrations (same pool).
    * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
@@ -1270,6 +1339,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
     defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
+  ARTIFACTS: parseArtifactsConfig(getEnv('ARTIFACTS', { required: false })),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
     raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
@@ -1449,6 +1519,7 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('DATABASE_POOL_MAX'),
         defaultValue: 10,
       }),
+      S3_CONFIG: parseS3Config(getEnv('S3_CONFIG', { required: false })),
       POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
         envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
         raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),
@@ -1564,6 +1635,11 @@ export function trueFoundryModelRouting(
   config: ServerConfiguration = configuration,
 ): TrueFoundryModelRouting | undefined {
   return isTrueFoundryModeEnabled(config) ? config.TRUEFOUNDRY_MODEL_ROUTING : undefined;
+}
+
+/** True when the artifacts feature flag is on for the tenant. */
+export function artifactsEnabledForTenant(tenantId: string, config: ServerConfiguration = configuration): boolean {
+  return config.ARTIFACTS?.tenants[tenantId]?.enabled === 'on';
 }
 
 /** The tenant's routing entry when that tenant has model routing on. */

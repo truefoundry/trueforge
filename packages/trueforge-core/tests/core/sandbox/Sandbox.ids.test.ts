@@ -25,6 +25,8 @@ function makeProvider(
     getFileUploadsDir: sandboxId => `${sandboxId}/uploads`,
     getSkillsDir: sandboxId => `${sandboxId}/skills`,
     getSkillDownloaderPath: sandboxId => `${sandboxId}/skill_downloader.py`,
+    getArtifactTransferPath: sandboxId => `${sandboxId}/artifact_transfer_v1.py`,
+    getArtifactsDir: sandboxId => `${sandboxId}/artifacts`,
     downloadFile: jest.fn(),
     uploadFile: jest.fn().mockResolvedValue(undefined),
     createCodeModeTransport: jest.fn(),

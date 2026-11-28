@@ -47,6 +47,28 @@ function parsePwdAndPath(text: string): { root: string; inheritedPath: string } 
   return { root, inheritedPath: lines[1] ?? '' };
 }
 
+/** Reads the body as text, or cancels it and returns undefined once it exceeds `maxBytes`. */
+async function readTextWithinLimit(params: { response: Response; maxBytes: number }): Promise<string | undefined> {
+  if (params.response.body === null) {
+    return '';
+  }
+  const reader: ReadableStreamDefaultReader<Uint8Array> = params.response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return Buffer.concat(chunks).toString('utf-8');
+    }
+    total += value.byteLength;
+    if (total > params.maxBytes) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+}
+
 export interface TFYSandboxProviderOptions {
   serverUrl: string;
   natsBridgeUrl: string;
@@ -187,8 +209,17 @@ export class TFYSandboxProvider implements SandboxProvider {
           };
         }
 
-        const result = (await response.json()) as ExecResult;
-        return result;
+        const text =
+          params.maxOutputBytes === undefined
+            ? await response.text()
+            : await readTextWithinLimit({ response, maxBytes: params.maxOutputBytes });
+        if (text === undefined) {
+          return {
+            success: false,
+            error: `Sandbox exec output exceeded ${String(params.maxOutputBytes)} bytes`,
+          };
+        }
+        return JSON.parse(text) as ExecResult;
       } catch (e: unknown) {
         if (e instanceof Error && e.name === 'AbortError') {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, {
@@ -319,7 +350,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   // Cwd-relative (no FS jail). exec() pwd-joins GIT_CONFIG / PATH / PYTHONPATH.
-  //   uploads, skills, tool-results, skill_downloader.py, .git-credentials
+  //   uploads, skills, tool-results, artifacts, skill_downloader.py, artifact_transfer_v1.py, .git-credentials
   //   mcp-client/mcp_client.py  (no /usr/local/bin symlink)
   getToolResultDumpDir(): string {
     return 'tool-results';
@@ -339,5 +370,13 @@ export class TFYSandboxProvider implements SandboxProvider {
 
   getSkillDownloaderPath(): string {
     return 'skill_downloader.py';
+  }
+
+  getArtifactTransferPath(): string {
+    return 'artifact_transfer_v1.py';
+  }
+
+  getArtifactsDir(): string {
+    return 'artifacts';
   }
 }

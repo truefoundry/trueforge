@@ -1,6 +1,12 @@
 import { DEFAULT_ROUTING_QUESTION } from '@truefoundry/trueforge-core/core';
 import type { ServerConfiguration } from '../../../src/config';
-import { buildRedisStandaloneUrl, getPublicUiBasePath, parseTrueFoundryModelRouting } from '../../../src/config';
+import {
+  buildRedisStandaloneUrl,
+  getPublicUiBasePath,
+  parseArtifactsConfig,
+  parseS3Config,
+  parseTrueFoundryModelRouting,
+} from '../../../src/config';
 import {
   hasTrueFoundrySandboxProviderConfig,
   resolveTrueFoundrySandboxProviderConfig,
@@ -206,6 +212,57 @@ describe('buildRedisStandaloneUrl', () => {
 
   it('leaves IPv4 hosts unbracketed', () => {
     expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379/0');
+  });
+});
+
+describe('parseS3Config', () => {
+  it('returns undefined when unset', () => {
+    expect(parseS3Config(undefined)).toBeUndefined();
+    expect(parseS3Config('  ')).toBeUndefined();
+  });
+
+  it('reads the bucket with defaults', () => {
+    expect(parseS3Config(JSON.stringify({ bucket: 'b' }))).toEqual({
+      bucket: 'b',
+      prefix: '',
+      presign_ttl_seconds: 300,
+    });
+  });
+
+  it.each([
+    ['missing bucket', {}],
+    ['unknown key', { bucket: 'b', extra: 1 }],
+  ])('rejects %s', (_name, value) => {
+    expect(() => parseS3Config(JSON.stringify(value))).toThrow('S3_CONFIG');
+  });
+});
+
+describe('parseArtifactsConfig', () => {
+  it('returns undefined when unset', () => {
+    expect(parseArtifactsConfig(undefined)).toBeUndefined();
+    expect(parseArtifactsConfig('  ')).toBeUndefined();
+  });
+
+  it('reads the per-tenant flag with default limits', () => {
+    expect(parseArtifactsConfig(JSON.stringify({ tenants: { internal: { enabled: 'on' }, other: {} } }))).toEqual({
+      tenants: { internal: { enabled: 'on' }, other: { enabled: 'off' } },
+      max_files: 25,
+      max_total_bytes: 26_214_400,
+    });
+  });
+
+  it('reads the limits', () => {
+    expect(parseArtifactsConfig(JSON.stringify({ tenants: {}, max_files: 3, max_total_bytes: 100 }))).toMatchObject({
+      max_files: 3,
+      max_total_bytes: 100,
+    });
+  });
+
+  it.each([
+    ['a bad flag value', { tenants: { a: { enabled: 'yes' } } }],
+    ['a non-positive limit', { tenants: {}, max_files: 0 }],
+  ])('rejects %s', (_name, value) => {
+    expect(() => parseArtifactsConfig(JSON.stringify(value))).toThrow('ARTIFACTS');
   });
 });
 

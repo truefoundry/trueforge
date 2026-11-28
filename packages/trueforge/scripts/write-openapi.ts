@@ -91,6 +91,7 @@ const app = createServerApp({
   memoryCatalog: MemoryCatalog.load(),
   decisionModel: undefined,
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+  resolveObjectStore: () => undefined,
   resolveMcpServerStore: () =>
     new McpServerWithAuthStore({
       store: new SqliteMcpServerStore(db),
