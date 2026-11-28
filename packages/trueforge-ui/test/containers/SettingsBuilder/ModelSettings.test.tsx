@@ -397,12 +397,11 @@ describe('ModelSettings Auto mode switch', () => {
       await screen.findByRole('button', { name: 'Add models' });
       const row = rowOf('acct/haiku');
       expect(within(row).getByText('haiku')).toBeInTheDocument();
-      expect(within(row).getByText('acct')).toBeInTheDocument();
+      expect(within(row).queryByText('acct')).toBeNull();
       expect(within(row).getByRole('img', { name: 'Covers Answer' })).toBeInTheDocument();
       expect(within(row).getByRole('img', { name: 'Covers Execute' })).toBeInTheDocument();
       expect(within(row).getByRole('img', { name: 'Does not cover Analyze' })).toBeInTheDocument();
       expect(within(row).getByRole('img', { name: 'Does not cover Frontier' })).toBeInTheDocument();
-      expect(within(rowOf('acct/gemini')).getByText('acct')).toBeInTheDocument();
 
       expect(screen.getAllByText('1 model')).toHaveLength(2);
       expect(screen.getAllByText('3 models')).toHaveLength(1);
@@ -511,7 +510,6 @@ describe('ModelSettings Auto mode switch', () => {
 
       expect(screen.getByRole('listbox', { name: 'Models Auto can choose from' })).toBeInTheDocument();
       expect(option('haiku')).toHaveAttribute('aria-selected', 'true');
-      expect(within(rowOf('acct/opus')).getByText('acct')).toBeInTheDocument();
       // Two models already cover every tier, but Auto needs at least four to be saved.
       expect(screen.getByRole('status')).toHaveTextContent(
         '2 of 5 selected · every tier covered. Pick at least 4 to update.',

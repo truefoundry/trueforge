@@ -43,7 +43,6 @@ type AutoModelCandidateListProps = {
 type CandidateRow = {
   name: string;
   label: string;
-  provider: string | null;
   categories: readonly AutoRoutingCategory[];
   /** Why the saved model can't be used; the server refuses a list that holds one. */
   problem: string | null;
@@ -67,7 +66,6 @@ function toCandidateRow({
     return {
       name,
       label: displayModelLabel(name),
-      provider: null,
       categories: [],
       problem: listingKnown ? 'Not visible to you' : null,
     };
@@ -76,7 +74,6 @@ function toCandidateRow({
   return {
     name,
     label: model.id,
-    provider: model.provider.name,
     categories: routing?.supported === true ? routing.categories : [],
     problem: routing?.supported === true ? null : 'Not available for auto routing',
   };
@@ -305,15 +302,9 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
           <div key={row.name} className={cn(GRID_CLASS, 'min-h-16 border-t border-border')} style={GRID_STYLE}>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="truncate text-[0.9375rem] font-medium text-text-primary">{row.label}</div>
-              <div className="truncate text-[0.8125rem] text-text-secondary">
-                {row.provider}
-                {row.problem !== null ? (
-                  <span className="text-failure-bg">
-                    {row.provider === null ? '' : ' · '}
-                    {row.problem}
-                  </span>
-                ) : null}
-              </div>
+              {row.problem !== null ? (
+                <div className="truncate text-[0.8125rem] text-failure-bg">{row.problem}</div>
+              ) : null}
             </div>
             {cells.map((cell, index) => (
               <TierCellView key={cell.category} cell={cell} index={index} previous={cells[index - 1]} />
