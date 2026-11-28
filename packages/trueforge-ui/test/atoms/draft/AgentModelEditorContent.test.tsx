@@ -305,7 +305,7 @@ describe('AgentModelEditorContent with Auto', () => {
     expect(await screen.findByRole('option', { name: /gemma/ })).toHaveTextContent('no longer in workspace list');
   });
 
-  it('keeps a saved candidate the workspace dropped out of the counts of what can be added', async () => {
+  it('lists a saved candidate the workspace dropped, and drops it once unticked', async () => {
     const { onChange } = renderWithAuto({
       spec: { model: { type: 'auto', candidateModels: [...savedCandidates, 'openai/retired'] } },
     });
