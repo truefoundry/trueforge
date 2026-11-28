@@ -28,7 +28,10 @@ const ROUTABLE_CANONICAL_IDS = [
   'anthropic/claude-haiku-5-5',
 ];
 const defaultCanonicalModels = Object.fromEntries(
-  modelNames(10).map((name, index) => [name, ROUTABLE_CANONICAL_IDS[index % ROUTABLE_CANONICAL_IDS.length]]),
+  modelNames(10).flatMap((name, index) => {
+    const canonicalId = ROUTABLE_CANONICAL_IDS[index % ROUTABLE_CANONICAL_IDS.length];
+    return canonicalId === undefined ? [] : [[name, canonicalId]];
+  }),
 );
 
 /** Sets up model routing for `tenantId` for the tests in the surrounding describe. */
