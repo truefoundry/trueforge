@@ -30,20 +30,6 @@ export function tierCells(categories: readonly AutoRoutingCategory[]): TierCell[
   });
 }
 
-/** "Execute – Analyze" for a stretch, one name for a lone tier, stretches joined with commas. */
-export function coverageRangeLabel(categories: readonly AutoRoutingCategory[]): string {
-  const stretches: string[] = [];
-  let start: AutoRoutingCategory | null = null;
-  for (const cell of tierCells(categories)) {
-    if (cell.covered && start === null) start = cell.category;
-    if (start !== null && !cell.joinsNext) {
-      stretches.push(start === cell.category ? tierLabel(start) : `${tierLabel(start)} – ${tierLabel(cell.category)}`);
-      start = null;
-    }
-  }
-  return stretches.join(', ');
-}
-
 /** How many of the given models serve each tier, in tier order. */
 export function tierCoverageCounts(models: readonly (readonly AutoRoutingCategory[])[]): number[] {
   return AUTO_ROUTING_TIERS.map(tier => models.filter(categories => categories.includes(tier)).length);

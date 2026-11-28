@@ -16,7 +16,6 @@ import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import AutoModelPickerPopover, { type PickerBlock } from './AutoModelPickerPopover.js';
 import {
   AUTO_ROUTING_TIERS,
-  coverageRangeLabel,
   tierCells,
   tierCoverageCounts,
   tierLabel,
@@ -302,13 +301,12 @@ const AutoModelCandidateList = ({ candidateModels, saving, onSave }: AutoModelCa
       ) : null}
       {rows.map(row => {
         const cells = tierCells(row.categories);
-        const range = coverageRangeLabel(row.categories);
         return (
           <div key={row.name} className={cn(GRID_CLASS, 'min-h-16 border-t border-border')} style={GRID_STYLE}>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="truncate text-[0.9375rem] font-medium text-text-primary">{row.label}</div>
               <div className="truncate text-[0.8125rem] text-text-secondary">
-                {row.provider !== null && range !== '' ? `${row.provider} · ${range}` : row.provider}
+                {row.provider}
                 {row.problem !== null ? (
                   <span className="text-failure-bg">
                     {row.provider === null ? '' : ' · '}

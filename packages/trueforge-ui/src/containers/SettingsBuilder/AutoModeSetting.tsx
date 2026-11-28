@@ -13,6 +13,9 @@ import type { UpdateTenantConfigurationRequest } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AutoModelCandidateList from './AutoModelCandidateList.js';
+import { AUTO_ROUTING_TIERS } from './autoRoutingTiers.js';
+
+const TIER_LIST = new Intl.ListFormat('en', { type: 'disjunction' }).format(AUTO_ROUTING_TIERS);
 
 type AutoModelRoutingChange = NonNullable<UpdateTenantConfigurationRequest['autoModelRouting']>;
 
@@ -89,7 +92,7 @@ const AutoModeSetting = () => {
                 <h4 className="text-lg font-semibold text-text-primary">Auto model routing</h4>
                 <p className="text-pretty text-sm leading-[1.375rem] text-text-secondary">
                   {enabled
-                    ? 'Each task is matched to a tier: routine, tool-driven, adaptive or frontier. Auto picks a suitable model from the ones you select, so include at least one for every tier.'
+                    ? `Each task is matched to a tier: ${TIER_LIST}. Auto picks a suitable model from the ones you select, so include at least one for every tier.`
                     : 'Intelligently picks a suitable model for each task.'}
                 </p>
               </div>
@@ -117,11 +120,6 @@ const AutoModeSetting = () => {
               />
             ) : null}
           </div>
-          {enabled && routing ? (
-            <p className="mt-3 text-[0.8125rem] text-text-secondary">
-              Tier coverage is set per model by the platform and shown read-only.
-            </p>
-          ) : null}
         </div>
       ) : null}
     </>

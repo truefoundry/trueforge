@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AUTO_ROUTING_TIERS,
-  coverageRangeLabel,
   tierCells,
   tierCoverageCounts,
   tierLabel,
@@ -41,24 +40,6 @@ describe('autoRoutingTiers', () => {
 
     it('covers nothing for an empty list', () => {
       expect(tierCells([]).some(cell => cell.covered)).toBe(false);
-    });
-  });
-
-  describe('coverageRangeLabel', () => {
-    it.each([
-      [['answer'], 'Answer'],
-      [['execute', 'analyze'], 'Execute – Analyze'],
-      [['answer', 'execute', 'analyze', 'frontier'], 'Answer – Frontier'],
-      [['analyze', 'frontier'], 'Analyze – Frontier'],
-      [['answer', 'analyze'], 'Answer, Analyze'],
-      [['answer', 'execute', 'frontier'], 'Answer – Execute, Frontier'],
-      [[], ''],
-    ] as const)('labels %j as %j', (categories, label) => {
-      expect(coverageRangeLabel(categories)).toBe(label);
-    });
-
-    it('ignores the order the server lists the categories in', () => {
-      expect(coverageRangeLabel(['analyze', 'execute'])).toBe('Execute – Analyze');
     });
   });
 
